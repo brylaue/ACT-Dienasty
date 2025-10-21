@@ -1,18 +1,23 @@
 /*   STEP 1   */
-export const leagueID = "your_league_id"; // your league ID
-export const leagueName = "your_league_name"; // your league name
+export const leagueID = "1180244317552857088"; // your league ID
+export const leagueName = "ACT, or Die."; // your league name
 export const dues = 100; // (optional) used in template constitution page
 export const dynasty = true; // true for dynasty leagues, false for redraft and keeper
 export const enableBlog = false; // requires VITE_CONTENTFUL_ACCESS_TOKEN and VITE_CONTENTFUL_SPACE environment variables
 
 /*   STEP 2   */
 export const homepageText = `
-  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-  <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
-  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-  <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
-  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-  <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+Welcome to the ACT, or DIE. Dynasty League. This is a 12-team league that was formed mid-season in
+2018 for our more dedicated fantasy football playing friends as a place to compete against each other in
+a challenging and long-term setting. This is a dynasty league, meaning that owners will keep ALL the
+players on their team from year to year. This league is considered a prize money league, and all owners
+are expected to pay their league fee before the league fee deadline (start of the NFL regular season).
+There may be a late fee assessed after the deadline. This league is designed to be a competitive league
+between friends but is not a cut-throat league where anything goes. The rules described below are
+designed to act as a guideline for overall league play, and any disputes will be determined by the
+executive committee of the league. Please remember that the overall goal of this league is to have fun
+and enjoy the game of football with your friends. If you have any questions or concerns, please do not
+hesitate to ask.
 `;
 
 /*   STEP 3   */
