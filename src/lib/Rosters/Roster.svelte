@@ -147,7 +147,8 @@
 	}
 
 	.team {
-		margin: 4px 10px 10px;
+		margin: 4px 10px 15px;
+		padding: 5px 0;
 	}
 
 	:global(.clickable) {
@@ -197,6 +198,8 @@
 		font-size: 1.5em;
 		font-weight: 500;
 		margin: 12px 0;
+		padding: 8px 0;
+		line-height: 1.4;
 	}
 
 	h5 {
@@ -207,6 +210,7 @@
 	@media (max-width: 500px) {
 		.team {
 			font-size: 0.9em;
+			margin: 4px 10px 12px;
 		}
 		.result {
 			width: 9px;
@@ -214,7 +218,8 @@
 
 		h3 {
 			font-size: 1.3em;
-			margin: 3px 0;
+			margin: 8px 0;
+			padding: 6px 0;
 		}
 
 		h5 {
@@ -225,7 +230,8 @@
 	@media (max-width: 340px) {
 		h3 {
 			font-size: 1.1em;
-			margin: 6px 0;
+			margin: 10px 0;
+			padding: 4px 0;
 		}
 
 		h5 {
@@ -262,7 +268,7 @@
 	<DataTable class="teamInner" table$aria-label="Team Name" style="width: {innerWidth * 0.95 > 380 ? 380 : innerWidth * 0.95}px;" >
 		<Head> <!-- Team name  -->
 			<Row>
-				<Cell colspan=4 class="r_{division} clickable">
+				<Cell colspan=4 class="r_{division} clickable" style="padding: 12px 0;">
 					<h3 onclick={() => gotoManager({leagueTeamManagers, rosterID: roster.roster_id})}>
 						<img alt="team avatar" class="teamAvatar" src="{team ? team.avatar : 'https://sleepercdn.com/images/v2/icons/player_default.webp'}" />
 						{team?.name ? team.name : 'No Manager'}
