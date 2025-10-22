@@ -52,10 +52,10 @@
   <p>The executive committee will be responsible for resolving all disputes that are not expressly covered by this constitution. If a committee member is involved in the dispute, that member will excuse themselves from the decision process. While all owners are encouraged to submit suggestions to the committee, the committee's decision on all matters is final. The executive committee will consist of the commissioner, Aaron Murnan, and three other team owners that will be elected before the draft each year. The committee is bound to adhere from ruling in favor of their own interests, but rather to rule inline with rules as written in this document and with overall fair play.</p>
   <p>The executive committee for the ACT or Die-Nasty League for 2021 consists of:</p>
   <ul>
-    <li>Commissioner: Aaron Murnan​​​​​​440.371.7129</li>
-    <li>Co-Commissioner/Treasurer: Lee Trask   ​​​​920.221.6040</li>
-    <li>Co-Commissioner/Director of Rule Proposals: Cyres Cooper​ ​937.631.4074</li>
-    <li>Co-Commissioner/Director of Draft Preparation: Lyndsey McMath ​330.407.4349​​</li>
+    <li>Commissioner: Aaron Murnan <a href="tel:440.371.71297">440.371.7129</a>
+    <li>Co-Commissioner/Treasurer: Lee Trask ​​​​<a href="tel:920.221.6040">920.221.6040</a>
+    <li>Co-Commissioner/Director of Rule Proposals: Cyres Cooper​ ​<a href="tel:937.631.4074">937.631.4074</a>
+    <li>Co-Commissioner/Director of Draft Preparation: Lyndsey McMath <a href="tel:​330.407.4349">330.407.4349</a>
   </ul>
 
   <h3>[1.2 Living Constitution]</h3>
