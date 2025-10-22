@@ -39,7 +39,6 @@
 	.banner {
 		display: flex;
 		align-items: center;
-		justify-content: center;
 		height: 140px;
 		width: 400px;
 		border-radius: 40px;
@@ -51,21 +50,28 @@
 	.banner-D-1 {
 		background-image: url("/division-1-banner.png");
 		background-position: left; 
+		justify-content: flex-end;
+		padding-right: 20px;
 	}
 
 	.banner-D-2 {
 		background-image: url("/division-2-banner.png");
 		background-position: right; 
+		justify-content: flex-start;
+		padding-left: 20px;
 	}
 
 	.banner-D-3 {
 		background-image: url("/division-3-banner.png");
 		background-position: left; 
+		justify-content: flex-end;
+		padding-right: 20px;
 	}
 
 	h2 {
 		text-align: center;
 		font-size: 3em;
+		margin: 0;
 	}
 
 	@media (max-width: 460px) {
@@ -74,6 +80,14 @@
 			width: 315px;
 			background-repeat: no-repeat;
 			background-size: auto 110px;
+		}
+
+		.banner-D-1, .banner-D-3 {
+			padding-right: 15px;
+		}
+
+		.banner-D-2 {
+			padding-left: 15px;
 		}
 
 		h2 {
@@ -87,6 +101,14 @@
 			width: 258px;
 			background-repeat: no-repeat;
 			background-size: auto 90px;
+		}
+
+		.banner-D-1, .banner-D-3 {
+			padding-right: 10px;
+		}
+
+		.banner-D-2 {
+			padding-left: 10px;
 		}
 
 		h2 {
