@@ -7,17 +7,13 @@ export const enableBlog = false; // requires VITE_CONTENTFUL_ACCESS_TOKEN and VI
 
 /*   STEP 2   */
 export const homepageText = `
-<p>Welcome to the ACT, or DIE. Dynasty League. This is a 12-team league that was formed mid-season in</p>
-<p>2018 for our more dedicated fantasy football playing friends as a place to compete against each other in</p>
-<p>a challenging and long-term setting. This is a dynasty league, meaning that owners will keep ALL the</p>
-<p>players on their team from year to year. This league is considered a prize money league, and all owners</p>
-<p>are expected to pay their league fee before the league fee deadline (start of the NFL regular season).</p>
-<p>There may be a late fee assessed after the deadline. This league is designed to be a competitive league</p>
-<p>between friends but is not a cut-throat league where anything goes. The rules described below are</p>
-<p>designed to act as a guideline for overall league play, and any disputes will be determined by the</p>
-<p>executive committee of the league. Please remember that the overall goal of this league is to have fun</p>
-<p>and enjoy the game of football with your friends. If you have any questions or concerns, please do not</p>
-<p>hesitate to ask.</p>
+<p>Welcome to the ACT, or DIE. Dynasty League. This is a 12-team league that was formed mid-season in
+2018 for our more dedicated fantasy football playing friends as a place to compete against each other in
+a challenging and long-term setting. This is a dynasty league, meaning that owners will keep ALL the
+players on their team from year to year. This league is considered a prize money league, and all owners
+are expected to pay their league fee before the league fee deadline (start of the NFL regular season).
+There may be a late fee assessed after the deadline. This league is designed to be a competitive league
+between friends but is not a cut-throat league where anything goes. 
 `;
 
 /*   STEP 3   */
