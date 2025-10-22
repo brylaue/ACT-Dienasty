@@ -53,7 +53,10 @@
     "smui-theme-light": "smui-theme compile static/smui.css -i src/theme",
     "smui-theme-dark": "smui-theme compile static/smui-dark.css -i src/theme/dark",
     "lint": "prettier --check --plugin-search-dir=. . && eslint --ignore-path .gitignore .",
-    "format": "prettier --write --plugin-search-dir=. ."
+    "format": "prettier --write --plugin-search-dir=. .",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "type": "module",
   "dependencies": {
@@ -80,12 +83,15 @@
     "@sveltejs/adapter-vercel": "^5.5.3",
     "@sveltejs/kit": "^2.16.1",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@vitest/coverage-v8": "^2.1.8",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-svelte": "^2.46.1",
+    "jsdom": "^25.0.1",
     "prettier": "^3.4.2",
     "prettier-plugin-svelte": "^3.3.3",
     "smui-theme": "^8.0.0-beta.3",
-    "svelte": "^5.19.2"
+    "svelte": "^5.19.2",
+    "vitest": "^2.1.8"
   }
 }

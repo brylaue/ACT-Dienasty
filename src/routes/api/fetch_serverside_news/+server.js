@@ -2,6 +2,7 @@ import {XMLParser, XMLValidator} from 'fast-xml-parser';
 import { waitForAll } from '$lib/utils/helperFunctions/multiPromise';
 import { dynasty } from '$lib/utils/helper';
 import { json } from '@sveltejs/kit';
+import { handleApiError, handleFetchError, safeTextParse } from '$lib/utils/errorHandler';
 
 const FF_BALLERS= 'https://thefantasyfootballers.libsyn.com/fantasyfootball';
 const DYNASTY_LEAGUE= 'https://dynastyleaguefootball.com/feed/';
@@ -15,7 +16,9 @@ export async function GET() {
 		articles.push(getXMLArticles(DYNASTY_LEAGUE, processDynastyLeague));
 		articles.push(getXMLArticles(DYNASTY_NERDS, processDynastyNerds));
 	}
-    const responses = await waitForAll(...articles).catch((err) => { console.error(err); });
+    const responses = await waitForAll(...articles).catch((err) => { 
+        return handleApiError(err, 'fetch_serverside_news', []);
+    });
 
 	let finalArticles = [];
 
@@ -27,16 +30,23 @@ export async function GET() {
 }
 
 const getXMLArticles = async(url, callback) => {
-    const res = await fetch(url, {compress: true}).catch((err) => { console.error(err); });
-    const text = await res.text().catch((err) => { console.error(err); });
+    try {
+        const res = await handleFetchError(url, new Error('Initial fetch failed'));
+        if (res.error) return [];
+        
+        const text = await safeTextParse(res, `XML fetch for ${url}`);
+        if (text.error) return [];
 
-    let xmlData;
-    if(XMLValidator.validate(text) === true){
-        const parser = new XMLParser();
-        xmlData = parser.parse(text);
+        let xmlData;
+        if(XMLValidator.validate(text) === true){
+            const parser = new XMLParser();
+            xmlData = parser.parse(text);
+        }
+        
+        return callback(xmlData?.rss?.channel?.item || []);
+    } catch (error) {
+        return handleApiError(error, `getXMLArticles for ${url}`, []);
     }
-    
-    return callback(xmlData.rss.channel.item);
 }
 
 const processFF = (articles) => {
