@@ -10,17 +10,19 @@
 
 	let i = 0;
 
-	const digestData = (passedPlayers, rawPlayers, startingPlayers = false, reserve = false) => {
+	const digestData = (passedPlayers, rawPlayers, startingPlayers = false, reserve = false, taxi = false) => {
 		let digestedRoster = [];
 	
 		for(const singlePlayer of rawPlayers) {
-			if(!startingPlayers && !reserve && startersAndReserve.includes(singlePlayer)) {
+			if(!startingPlayers && !reserve && !taxi && startersAndReserve.includes(singlePlayer)) {
 				continue;
 			}
 			let player = {};
 			let slot = "BN"
 			if(startingPlayers) {
 				slot = rosterPositions[i] == "WRRB_FLEX" ? "WR/RB" : rosterPositions[i];
+			} else if(taxi) {
+				slot = "TAXI";
 			}
 
 			if(singlePlayer == "0") {
@@ -79,6 +81,10 @@
 	if(roster.reserve) {
 		finalIR = digestData(players, roster.reserve, false, true);
 	}
+	let finalTaxi = null;
+	if(roster.taxi) {
+		finalTaxi = digestData(players, roster.taxi, false, false, true);
+	}
 
 	const buildRecord = (newRoster) => {
 		const innerRecord = [];
@@ -120,7 +126,11 @@
 		if(finalIR) {
 			irLength = finalIR.length * multiplier + 52;
 		}
-		return benchLength + irLength;
+		let taxiLength = 0;
+		if(finalTaxi) {
+			taxiLength = finalTaxi.length * multiplier + 52;
+		}
+		return benchLength + irLength + taxiLength;
 	}
 
 	$: {
@@ -307,6 +317,16 @@
 					</Row>
 					{#each finalIR as ir}
 						<RosterRow player={ir} />
+					{/each}
+				{/if}
+				
+				<!-- 	Taxi Squad	 -->
+				{#if finalTaxi}
+					<Row>
+					<Cell colspan=4 ><h5><Icon class="material-icons icon">local_taxi</Icon> Taxi Squad</h5></Cell>
+					</Row>
+					{#each finalTaxi as taxi}
+						<RosterRow player={taxi} />
 					{/each}
 				{/if}
 				<Row class="interactive" onclick={toggleSelected}>

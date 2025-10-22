@@ -46,6 +46,11 @@ const processRosters = (rosters) => {
         startersAndReserve.push(ir);
       }
     }
+    if (roster.taxi) {
+      for (const taxi of roster.taxi) {
+        startersAndReserve.push(taxi);
+      }
+    }
     rosterMap[roster.roster_id] = roster;
   }
   return { rosters: rosterMap, startersAndReserve };
