@@ -25,7 +25,7 @@
         color: var(--g333);
         width: 99%;
         height: 7em;
-        font-family: var(--mdc-typography-body1-font-family, var(--mdc-typography-font-family, Roboto, sans-serif));
+        font-family: var(--mdc-typography-body1-font-family, var(--mdc-typography-font-family, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif));
         font-size: var(--mdc-typography-body1-font-size, 1rem);
     }
 
