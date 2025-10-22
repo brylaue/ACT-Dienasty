@@ -55,7 +55,7 @@
     <li>Commissioner: Aaron Murnan <a href="tel:440.371.71297">440.371.7129</a>
     <li>Co-Commissioner/Treasurer: Lee Trask ​​​​<a href="tel:920.221.6040">920.221.6040</a>
     <li>Co-Commissioner/Director of Rule Proposals: Cyres Cooper​ ​<a href="tel:937.631.4074">937.631.4074</a>
-    <li>Co-Commissioner/Director of Draft Preparation: Lyndsey McMath <a href="tel:​330.407.4349">4330.407.4349</a>
+    <li>Co-Commissioner/Director of Draft Preparation: Lyndsey McMath <a href="tel:​330.407.4349">330.407.4349</a>
   </ul>
 
   <h3>[1.2 Living Constitution]</h3>
