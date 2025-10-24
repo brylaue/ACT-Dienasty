@@ -4,7 +4,7 @@
 	import { tabs } from '$lib/utils/tabs';
 	import { onMount } from 'svelte';
 
-	let outOfDate = false;
+	let outOfDate = $state(false);
 
     let el, footerHeight;
 
@@ -42,7 +42,9 @@
 
 	const year = new Date().getFullYear();
 
-    $: resize(el?.getBoundingClientRect(), false, innerWidth);
+    $effect(() => {
+        resize(el?.getBoundingClientRect(), false, innerWidth);
+    });
 </script>
 
 <svelte:window bind:innerWidth={innerWidth} />
