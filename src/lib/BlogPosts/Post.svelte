@@ -3,7 +3,7 @@
     import { fly } from "svelte/transition";
 	import AuthorAndDate from "./AuthorAndDate.svelte";
 
-    export let leagueTeamManagers, post, createdAt, id = null, direction = 1;
+    let { leagueTeamManagers, post, createdAt, id = null, direction = 1 } = $props();
 
     let safePost = false;
     let title, body, type, author;
@@ -33,7 +33,7 @@
 
     let e;
 
-    $: isOverflown = e ? e.scrollHeight > e.clientHeight : false;
+    let isOverflown = $derived(e ? e.scrollHeight > e.clientHeight : false);
 </script>
 
 <style>

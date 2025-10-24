@@ -1,7 +1,7 @@
 <script>
 	import { Row, Cell } from '@smui/data-table';
 	
-	export let player;
+	let { player } = $props();
 
 	const playerSLotClass = player.slot.replace('/', '').replace('SUPER_', 'S-').replace('REC_', 'R-');
 	const playerSlot = player.slot.replace('SUPER_', 'S ').replace('REC_', 'R ');

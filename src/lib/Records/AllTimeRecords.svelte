@@ -1,17 +1,17 @@
 <script>
     import {round} from '$lib/utils/helper'
     import { getRosterIDFromManagerID } from '$lib/utils/helperFunctions/universalFunctions';
- 	import RecordsAndRankings from './RecordsAndRankings.svelte';
+	import RecordsAndRankings from './RecordsAndRankings.svelte';
 
-    export let key, leagueManagerRecords, leagueTeamManagers, leagueWeekHighs, leagueWeekLows, allTimeBiggestBlowouts, allTimeClosestMatchups, mostSeasonLongPoints, leastSeasonLongPoints, transactionTotals;
+    let { key, leagueManagerRecords, leagueTeamManagers, leagueWeekHighs, leagueWeekLows, allTimeBiggestBlowouts, allTimeClosestMatchups, mostSeasonLongPoints, leastSeasonLongPoints, transactionTotals } = $props();
 
-    let winPercentages = [];
-    let lineupIQs = [];
-    let fptsHistories = [];
-    let tradesData = [];
-    let waiversData = [];
+    let winPercentages = $state([]);
+    let lineupIQs = $state([]);
+    let fptsHistories = $state([]);
+    let tradesData = $state([]);
+    let waiversData = $state([]);
 
-    let showTies = false;
+    let showTies = $state(false);
     
     for(const managerID in transactionTotals.allTime) {
         tradesData.push({
@@ -99,7 +99,9 @@
         waiversData.sort((a, b) => b.waivers - a.waivers);
     }
 
-    $:setRankingsData(leagueManagerRecords)
+    $effect(() => {
+        setRankingsData(leagueManagerRecords);
+    });
 </script>
 
 <RecordsAndRankings
