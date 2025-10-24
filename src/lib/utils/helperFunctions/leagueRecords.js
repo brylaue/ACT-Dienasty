@@ -221,9 +221,12 @@ const processRegularSeason = async ({
     startWeek = sW;
   }
 
-  // sort matchup differentials
+  // sort matchup differentials (excluding 2018 results from narrowest win calculation)
+  const filteredMatchupDifferentials = matchupDifferentials.filter(
+    (differential) => differential.year !== 2018
+  );
   const [biggestBlowouts, closestMatchups] = sortHighAndLow(
-    matchupDifferentials,
+    filteredMatchupDifferentials,
     "differential",
   );
 
@@ -501,9 +504,12 @@ const processPlayoffs = async ({
     playoffRecords.updateManagerRecord(managers, pSD);
   }
 
-  // sort matchup differentials
+  // sort matchup differentials (excluding 2018 results from narrowest win calculation)
+  const filteredMatchupDifferentials = matchupDifferentials.filter(
+    (differential) => differential.year !== 2018
+  );
   const [biggestBlowouts, closestMatchups] = sortHighAndLow(
-    matchupDifferentials,
+    filteredMatchupDifferentials,
     "differential",
   );
 
