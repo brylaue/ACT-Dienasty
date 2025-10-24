@@ -171,8 +171,13 @@ Records.prototype.addLeagueWeekRecord = function (entry) {
 Records.prototype.addAllTimeMatchupDifferentials = function (
   matchupDifferentials,
 ) {
+  // Filter out 2018 season data for narrowest wins records
+  const filteredDifferentials = matchupDifferentials.filter(
+    (differential) => differential.year !== 2018
+  );
+  
   this.allTimeMatchupDifferentials =
-    this.allTimeMatchupDifferentials.concat(matchupDifferentials);
+    this.allTimeMatchupDifferentials.concat(filteredDifferentials);
 };
 
 /**
