@@ -185,16 +185,25 @@ export const sortHighAndLow = (arr, field) => {
   const sorted = arr.sort((a, b) => b[field] - a[field]);
   const high = sorted.slice(0, 10);
   const low = sorted.slice(-10).reverse();
-  
+
   // Debug logging for narrowest wins investigation
-  if (field === 'differential' && arr.length > 0) {
-    console.log('sortHighAndLow - differential field:');
-    console.log('Total matchups:', arr.length);
-    console.log('Sample differentials:', arr.slice(0, 5).map(m => m.differential));
-    console.log('High (biggest blowouts):', high.slice(0, 3).map(m => m.differential));
-    console.log('Low (narrowest wins):', low.slice(0, 3).map(m => m.differential));
+  if (field === "differential" && arr.length > 0) {
+    console.log("sortHighAndLow - differential field:");
+    console.log("Total matchups:", arr.length);
+    console.log(
+      "Sample differentials:",
+      arr.slice(0, 5).map((m) => m.differential),
+    );
+    console.log(
+      "High (biggest blowouts):",
+      high.slice(0, 3).map((m) => m.differential),
+    );
+    console.log(
+      "Low (narrowest wins):",
+      low.slice(0, 3).map((m) => m.differential),
+    );
   }
-  
+
   return [high, low];
 };
 

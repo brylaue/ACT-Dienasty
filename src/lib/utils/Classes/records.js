@@ -199,9 +199,9 @@ Records.prototype.finalizeAllTimeRecords = function ({
 }) {
   // Filter out 2018 data from matchup differentials
   const filteredMatchupDifferentials = this.allTimeMatchupDifferentials.filter(
-    (matchup) => matchup.year !== 2018
+    (matchup) => matchup.year !== 2018,
   );
-  
+
   // sort allTimeMatchupDifferentials and return the biggest blowouts and narrowest victories
   const [allTimeBiggestBlowouts, allTimeClosestMatchups] = sortHighAndLow(
     filteredMatchupDifferentials,
@@ -220,9 +220,9 @@ Records.prototype.finalizeAllTimeRecords = function ({
 
   // Filter out 2018 data from season long points
   const filteredSeasonLongPoints = this.seasonLongPoints.filter(
-    (season) => season.year !== 2018
+    (season) => season.year !== 2018,
   );
-  
+
   // sort seasonLongPoints and return the highest season-long scores and lowest season-long scores
   const [mostSeasonLongPoints, leastSeasonLongPoints] = sortHighAndLow(
     filteredSeasonLongPoints,
