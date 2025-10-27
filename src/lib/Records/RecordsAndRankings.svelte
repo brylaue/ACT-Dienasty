@@ -690,7 +690,7 @@
                             <Row>
                                 <Cell>{ix + 1}</Cell>
                                 <Cell class="cellName" onclick={() => gotoManager({year: lineupIQ.year || prefix, leagueTeamManagers, managerID: lineupIQ.managerID, rosterID: lineupIQ.rosterID})}>
-                                    <RecordTeam {leagueTeamManagers} managerID={lineupIQ.managerID} rosterID={lineupIQ.rosterID} year={allTime ? lineupIQ.year : prefix} />
+                                    <RecordTeam {leagueTeamManagers} rosterID={lineupIQ.rosterID} year={allTime ? lineupIQ.year : prefix} />
                                 </Cell>
                                 <Cell>{lineupIQ.iq}%</Cell>
                                 <Cell>{round(lineupIQ.fpts)}</Cell>
