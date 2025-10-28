@@ -182,21 +182,20 @@ export const generateGraph = (
  * @returns {arr|arr} [high, low] an array where the first element is the 10 highest records and the second is the 10 lowest elements
  */
 export const sortHighAndLow = (arr, field) => {
-  const sorted = arr.sort((a, b) => b[field] - a[field]);
-  const high = sorted.slice(0, 10);
-  const low = sorted.slice(-10).reverse();
-  
-  // Debug logging for narrowest wins investigation
-  if (field === 'differential' && arr.length > 0) {
-    console.log('sortHighAndLow - differential field:');
-    console.log('Total matchups:', arr.length);
-    console.log('Sample differentials:', arr.slice(0, 5).map(m => m.differential));
-    console.log('High (biggest blowouts):', high.slice(0, 3).map(m => m.differential));
-    console.log('Low (narrowest wins):', low.slice(0, 3).map(m => m.differential));
-  }
-  
-  return [high, low];
-};
+	// Filter out entries with 0.00 differential or from 2018 season
+	const filtered = arr.filter(item => {
+		// If this is a matchup differential, filter out 0.00 differentials and 2018 data
+		if (field === 'differential') {
+			return item.differential > 0 && item.year !== 2018;
+		}
+		return true;
+	});
+	
+	const sorted = filtered.sort((a, b) => b[field] - a[field]);
+	const high = sorted.slice(0, 10);
+	const low = sorted.slice(-10).reverse();
+	return [high, low]
+}
 
 /**
  * get all managers of a roster
