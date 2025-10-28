@@ -33,6 +33,17 @@ import {
   parseDate,
   getAvatar,
 } from "./helperFunctions/universalFunctions";
+import {
+  normalizeYear,
+  getTeamManagersForYear,
+  getTeamDataForRoster,
+  createFetch,
+  createApiFetch,
+  safeArrayAccess,
+  safeGet,
+  debounce,
+  throttle,
+} from "./helperFunctions/commonUtils";
 import { predictScores } from "./helperFunctions/predictOptimalScore";
 import { getBrackets } from "./helperFunctions/leagueBrackets";
 import {
@@ -77,4 +88,14 @@ export {
   parseDate,
   getAvatar,
   getTeamFromTeamManagers,
+  // Common utilities
+  normalizeYear,
+  getTeamManagersForYear,
+  getTeamDataForRoster,
+  createFetch,
+  createApiFetch,
+  safeArrayAccess,
+  safeGet,
+  debounce,
+  throttle,
 };

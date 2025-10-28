@@ -4,6 +4,7 @@ import { getLeagueRosters } from "./leagueRosters";
 import { waitForAll } from "./multiPromise";
 import { get } from "svelte/store";
 import { brackets } from "$lib/stores";
+import { createApiFetch } from "./commonUtils";
 
 export const getBrackets = async (queryLeagueID = leagueID) => {
   if (get(brackets).champs && queryLeagueID == leagueID) {
@@ -15,21 +16,20 @@ export const getBrackets = async (queryLeagueID = leagueID) => {
     getLeagueRosters(queryLeagueID),
     getLeagueData(queryLeagueID),
   ).catch((err) => {
-    console.error(err);
+    // Error handling is done in individual functions
+    return [null, null];
   });
 
   // Number of rosters (in order to determine the number of places, i.e. 1st - 12th)
+  if (!rosterRes || !leagueData) {
+    return { error: true, message: "Failed to fetch required data" };
+  }
   const numRosters = Object.keys(rosterRes.rosters).length;
 
   // get bracket data for winners and losers
   const bracketsAndMatchupFetches = [
-    fetch(
-      `https://api.sleeper.app/v1/league/${queryLeagueID}/winners_bracket`,
-      { compress: true },
-    ),
-    fetch(`https://api.sleeper.app/v1/league/${queryLeagueID}/losers_bracket`, {
-      compress: true,
-    }),
+    createApiFetch(`/league/${queryLeagueID}/winners_bracket`),
+    createApiFetch(`/league/${queryLeagueID}/losers_bracket`),
   ];
 
   // variables for playoff records

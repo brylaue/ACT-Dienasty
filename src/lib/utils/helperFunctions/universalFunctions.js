@@ -1,6 +1,7 @@
 import { managers as managersObj } from "$lib/utils/leagueInfo";
 import { goto } from "$app/navigation";
 import { stringDate } from "./news";
+import { normalizeYear, getTeamManagersForYear, getTeamDataForRoster } from "./commonUtils";
 
 const QUESTION = "managers/question.jpg";
 
@@ -49,9 +50,7 @@ export const gotoManager = ({
   if (!managersObj.length) return;
   let managersIndex = -1;
 
-  if (!year || year > leagueTeamManagers.currentSeason) {
-    year = leagueTeamManagers.currentSeason;
-  }
+  year = normalizeYear(year, leagueTeamManagers);
 
   if (managerID) {
     // modern approach
@@ -182,20 +181,20 @@ export const generateGraph = (
  * @returns {arr|arr} [high, low] an array where the first element is the 10 highest records and the second is the 10 lowest elements
  */
 export const sortHighAndLow = (arr, field) => {
-	// Filter out entries with 0.00 differential or from 2018 season
-	const filtered = arr.filter(item => {
-		// If this is a matchup differential, filter out 0.00 differentials and 2018 data
-		if (field === 'differential') {
-			return item.differential > 0 && item.year !== 2018;
-		}
-		return true;
-	});
-	
-	const sorted = filtered.sort((a, b) => b[field] - a[field]);
-	const high = sorted.slice(0, 10);
-	const low = sorted.slice(-10).reverse();
-	return [high, low]
-}
+  // Filter out entries with 0.00 differential or from 2018 season
+  const filtered = arr.filter((item) => {
+    // If this is a matchup differential, filter out 0.00 differentials and 2018 data
+    if (field === "differential") {
+      return item.differential > 0 && item.year !== 2018;
+    }
+    return true;
+  });
+
+  const sorted = filtered.sort((a, b) => b[field] - a[field]);
+  const high = sorted.slice(0, 10);
+  const low = sorted.slice(-10).reverse();
+  return [high, low];
+};
 
 /**
  * get all managers of a roster
@@ -240,34 +239,26 @@ export const getTeamData = (users, ownerID) => {
 };
 
 export const getAvatarFromTeamManagers = (teamManagers, rosterID, year) => {
-  if (!year || year > teamManagers.currentSeason) {
-    year = teamManagers.currentSeason;
-  }
-  const yearManagers = teamManagers.teamManagersMap[year];
-  if (yearManagers == null) {
+  const teamData = getTeamDataForRoster(teamManagers, rosterID, year);
+  if (!teamData) {
     return QUESTION;
   }
-  const roster = yearManagers[rosterID];
-  if (roster == null) {
-    return QUESTION;
-  }
-  return roster.team?.avatar;
+  return teamData.team?.avatar || QUESTION;
 };
 
 export const getTeamNameFromTeamManagers = (teamManagers, rosterID, year) => {
-  if (!year || year > teamManagers.currentSeason) {
-    year = teamManagers.currentSeason;
-  }
-  return teamManagers.teamManagersMap[year][rosterID].team.name;
+  const teamData = getTeamDataForRoster(teamManagers, rosterID, year);
+  return teamData?.team?.name || "Unknown Team";
 };
 
 export const renderManagerNames = (teamManagers, rosterID, year) => {
-  if (!year || year > teamManagers.currentSeason) {
-    year = teamManagers.currentSeason;
+  const teamData = getTeamDataForRoster(teamManagers, rosterID, year);
+  if (!teamData?.managers) {
+    return "";
   }
+  
   let managersString = "";
-  for (const managerID of teamManagers.teamManagersMap[year][rosterID]
-    .managers) {
+  for (const managerID of teamData.managers) {
     const manager = teamManagers.users[managerID];
     if (manager) {
       if (managersString != "") {
@@ -280,10 +271,8 @@ export const renderManagerNames = (teamManagers, rosterID, year) => {
 };
 
 export const getTeamFromTeamManagers = (teamManagers, rosterID, year) => {
-  if (!year || year > teamManagers.currentSeason) {
-    year = teamManagers.currentSeason;
-  }
-  return teamManagers.teamManagersMap[year][rosterID]["team"];
+  const teamData = getTeamDataForRoster(teamManagers, rosterID, year);
+  return teamData?.team || null;
 };
 
 export const getNestedTeamNamesFromTeamManagers = (
