@@ -39,7 +39,7 @@
   },
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0 <22.0.0",
+    "node": ">=20.0.0 <23.0.0",
     "npm": ">=6.0.0"
   },
   "scripts": {
@@ -52,8 +52,8 @@
     "prepare": "npm run smui-theme-light && npm run smui-theme-dark",
     "smui-theme-light": "smui-theme compile static/smui.css -i src/theme",
     "smui-theme-dark": "smui-theme compile static/smui-dark.css -i src/theme/dark",
-    "lint": "prettier --check --plugin-search-dir=. . && eslint --ignore-path .gitignore .",
-    "format": "prettier --write --plugin-search-dir=. .",
+    "lint": "prettier --check . && eslint .",
+    "format": "prettier --write .",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"
@@ -61,10 +61,10 @@
   "type": "module",
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
-    "contentful": "^10.6.7",
-    "contentful-management": "^10.46.4",
-    "cookie": "^0.7.0",
-    "fast-xml-parser": "^4.2.5",
+    "contentful": "^11.8.7",
+    "contentful-management": "^11.61.0",
+    "cookie": "^1.0.2",
+    "fast-xml-parser": "^5.3.0",
     "fuzzyjs": "^5.0.1"
   },
   "devDependencies": {
@@ -79,19 +79,20 @@
     "@smui/tab": "^8.0.0-beta.3",
     "@smui/tab-bar": "^8.0.0-beta.3",
     "@smui/textfield": "^8.0.0-beta.3",
-    "@sveltejs/adapter-node": "^4.0.1",
-    "@sveltejs/adapter-vercel": "^4.0.5",
-    "@sveltejs/kit": "^2.47.3",
-    "@sveltejs/vite-plugin-svelte": "^5.1.1",
-    "@vitest/coverage-v8": "^4.0.2",
+    "@sveltejs/adapter-node": "^5.4.0",
+    "@sveltejs/adapter-vercel": "^6.0.0",
+    "@sveltejs/kit": "^2.48.0",
+    "@sveltejs/vite-plugin-svelte": "^6.2.1",
+    "@vitest/coverage-v8": "^4.0.4",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
-    "eslint-plugin-svelte": "^2.46.1",
-    "jsdom": "^25.0.1",
+    "eslint-plugin-svelte": "^3.12.5",
+    "globals": "^16.4.0",
+    "jsdom": "^27.0.1",
     "prettier": "^3.4.2",
     "prettier-plugin-svelte": "^3.3.3",
     "smui-theme": "^8.0.0-beta.3",
-    "svelte": "^5.19.2",
-    "vitest": "^4.0.2"
+    "svelte": "^5.42.3",
+    "vitest": "^4.0.4"
   }
 }

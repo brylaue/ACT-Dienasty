@@ -9,7 +9,8 @@ export const getAwards = async () => {
     return get(awards);
   }
   const leagueData = await getLeagueData().catch((err) => {
-    console.error(err);
+    // Error handling is done in getLeagueData
+    return null;
   });
 
   let previousSeasonID =
