@@ -188,6 +188,7 @@ export const sortHighAndLow = (arr, field) => {
 		if (field === 'differential') {
 			return item.differential > 0 && item.year !== 2018;
 		}
+		// For all other fields (fpts, fptsPerGame, etc.), don't filter out 2018 data
 		return true;
 	});
 	
