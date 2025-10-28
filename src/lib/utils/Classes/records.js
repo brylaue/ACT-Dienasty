@@ -198,11 +198,17 @@ Records.prototype.finalizeAllTimeRecords = function ({
   lastYear,
 }) {
   // Debug logging for narrowest wins investigation
-  console.log('finalizeAllTimeRecords - allTimeMatchupDifferentials length:', this.allTimeMatchupDifferentials.length);
+  console.log(
+    "finalizeAllTimeRecords - allTimeMatchupDifferentials length:",
+    this.allTimeMatchupDifferentials.length,
+  );
   if (this.allTimeMatchupDifferentials.length > 0) {
-    console.log('Sample matchup differentials:', this.allTimeMatchupDifferentials.slice(0, 3));
+    console.log(
+      "Sample matchup differentials:",
+      this.allTimeMatchupDifferentials.slice(0, 3),
+    );
   }
-  
+
   // sort allTimeMatchupDifferentials and return the biggest blowouts and narrowest victories
   const [allTimeBiggestBlowouts, allTimeClosestMatchups] = sortHighAndLow(
     this.allTimeMatchupDifferentials,
@@ -210,10 +216,10 @@ Records.prototype.finalizeAllTimeRecords = function ({
   );
   this.allTimeBiggestBlowouts = allTimeBiggestBlowouts;
   this.allTimeClosestMatchups = allTimeClosestMatchups;
-  
-  console.log('allTimeClosestMatchups length:', allTimeClosestMatchups.length);
+
+  console.log("allTimeClosestMatchups length:", allTimeClosestMatchups.length);
   if (allTimeClosestMatchups.length > 0) {
-    console.log('Sample closest matchups:', allTimeClosestMatchups.slice(0, 3));
+    console.log("Sample closest matchups:", allTimeClosestMatchups.slice(0, 3));
   }
 
   // sort leagueWeekRecords and return the highest weekly scores and lowest weekly scores
