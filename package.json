@@ -56,7 +56,11 @@
     "format": "prettier --write --plugin-search-dir=. .",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "playwright test",
+    "test:integration:ui": "playwright test --ui",
+    "test:integration:debug": "playwright test --debug",
+    "test:all": "npm run test:run && npm run test:integration"
   },
   "type": "module",
   "dependencies": {
@@ -68,6 +72,7 @@
     "fuzzyjs": "^5.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@smui/button": "^8.0.0-beta.3",
     "@smui/data-table": "^8.0.0-beta.3",
     "@smui/dialog": "^8.0.0-beta.3",
