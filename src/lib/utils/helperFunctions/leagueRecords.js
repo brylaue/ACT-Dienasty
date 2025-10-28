@@ -5,7 +5,7 @@ import { getLeagueRosters } from "./leagueRosters";
 import { waitForAll } from "./multiPromise";
 import { get } from "svelte/store";
 import { records } from "$lib/stores";
-import { getManagers, round, sortHighAndLow } from "./universalFunctions";
+import { getManagers, round, sortHighAndLow, sortHighAndLowExclude2018 } from "./universalFunctions";
 import { Records } from "$lib/utils/dataClasses";
 import { getBrackets } from "./leagueBrackets";
 import { browser } from "$app/environment";
@@ -222,7 +222,13 @@ const processRegularSeason = async ({
   }
 
   // sort matchup differentials
-  const [biggestBlowouts, closestMatchups] = sortHighAndLow(
+  const [biggestBlowouts] = sortHighAndLow(
+    matchupDifferentials,
+    "differential",
+  );
+
+  // For narrowest wins, use the function that excludes 2018 data
+  const [, closestMatchups] = sortHighAndLowExclude2018(
     matchupDifferentials,
     "differential",
   );
@@ -502,7 +508,13 @@ const processPlayoffs = async ({
   }
 
   // sort matchup differentials
-  const [biggestBlowouts, closestMatchups] = sortHighAndLow(
+  const [biggestBlowouts] = sortHighAndLow(
+    matchupDifferentials,
+    "differential",
+  );
+
+  // For narrowest wins, use the function that excludes 2018 data
+  const [, closestMatchups] = sortHighAndLowExclude2018(
     matchupDifferentials,
     "differential",
   );

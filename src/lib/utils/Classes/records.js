@@ -1,4 +1,4 @@
-import { sortHighAndLow } from "../helperFunctions/universalFunctions";
+import { sortHighAndLow, sortHighAndLowExclude2018 } from "../helperFunctions/universalFunctions";
 
 /** this holds all the data and the functions necessary to compute a league's records (both per season, as well as for all-time) */
 export class Records {
@@ -204,16 +204,22 @@ Records.prototype.finalizeAllTimeRecords = function ({
   }
   
   // sort allTimeMatchupDifferentials and return the biggest blowouts and narrowest victories
-  const [allTimeBiggestBlowouts, allTimeClosestMatchups] = sortHighAndLow(
+  const [allTimeBiggestBlowouts] = sortHighAndLow(
     this.allTimeMatchupDifferentials,
     "differential",
   );
   this.allTimeBiggestBlowouts = allTimeBiggestBlowouts;
+  
+  // For narrowest wins, use the function that excludes 2018 data
+  const [, allTimeClosestMatchups] = sortHighAndLowExclude2018(
+    this.allTimeMatchupDifferentials,
+    "differential",
+  );
   this.allTimeClosestMatchups = allTimeClosestMatchups;
   
-  console.log('allTimeClosestMatchups length:', allTimeClosestMatchups.length);
-  if (allTimeClosestMatchups.length > 0) {
-    console.log('Sample closest matchups:', allTimeClosestMatchups.slice(0, 3));
+  console.log('allTimeClosestMatchups length:', this.allTimeClosestMatchups.length);
+  if (this.allTimeClosestMatchups.length > 0) {
+    console.log('Sample closest matchups:', this.allTimeClosestMatchups.slice(0, 3));
   }
 
   // sort leagueWeekRecords and return the highest weekly scores and lowest weekly scores

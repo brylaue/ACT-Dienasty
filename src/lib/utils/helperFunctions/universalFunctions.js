@@ -182,7 +182,29 @@ export const generateGraph = (
  * @returns {arr|arr} [high, low] an array where the first element is the 10 highest records and the second is the 10 lowest elements
  */
 export const sortHighAndLow = (arr, field) => {
-	// Filter out entries with 0.00 differential or from 2018 season
+	// Filter out entries with 0.00 differential
+	const filtered = arr.filter(item => {
+		// If this is a matchup differential, filter out 0.00 differentials
+		if (field === 'differential') {
+			return item.differential > 0;
+		}
+		return true;
+	});
+	
+	const sorted = filtered.sort((a, b) => b[field] - a[field]);
+	const high = sorted.slice(0, 10);
+	const low = sorted.slice(-10).reverse();
+	return [high, low]
+}
+
+/**
+ * Sort high and low records with 2018 exclusion for narrowest wins
+ * @param {Object[]} arr the array to be sorted
+ * @param {string} field the field to sort on
+ * @returns {arr|arr} [high, low] an array where the first element is the 10 highest records and the second is the 10 lowest elements
+ */
+export const sortHighAndLowExclude2018 = (arr, field) => {
+	// Filter out entries with 0.00 differential and 2018 data
 	const filtered = arr.filter(item => {
 		// If this is a matchup differential, filter out 0.00 differentials and 2018 data
 		if (field === 'differential') {
