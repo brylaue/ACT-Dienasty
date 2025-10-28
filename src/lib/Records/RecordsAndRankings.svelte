@@ -196,7 +196,7 @@
 
     const setTables = (lIQs) => {
         const t = [
-            "Win Percentages",
+            "Team Win Percentages",
             "Points",
         ]
         if(key == "regularSeasonData") {

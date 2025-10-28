@@ -13,10 +13,15 @@
     $: currentYear = year || leagueTeamManagers.currentSeason;
     
     // Get manager names for display
-    $: managerNames = managerIDs ? managerIDs.map(managerID => {
+    $: managerNames = managerIDs && managerIDs.length > 0 ? managerIDs.map(managerID => {
         const user = leagueTeamManagers.users[managerID];
         return user ? user.display_name : 'Unknown Manager';
     }).join(', ') : 'Unknown Team';
+    
+    // Add co-owner indicator if multiple managers
+    $: displayManagers = managerIDs && managerIDs.length > 1 ? 
+        `Co-owners: ${managerNames}` : 
+        managerNames;
 
     // Get team name from current season if not provided
     $: displayTeamName = teamName || (leagueTeamManagers.teamManagersMap[currentYear]?.[rosterID]?.team?.name) || 'Unknown Team';
@@ -29,12 +34,12 @@
             {#if points !== null}
                 <div class="points">{points}</div>
             {/if}
-            <div class="managers">{managerNames}</div>
+            <div class="managers">{displayManagers}</div>
         </div>
     {:else}
         <div class="team-full">
             <div class="team-name">{displayTeamName}</div>
-            <div class="managers">{managerNames}</div>
+            <div class="managers">{displayManagers}</div>
         </div>
     {/if}
 </div>
@@ -69,6 +74,7 @@
         font-size: 0.85em;
         color: var(--g999);
         font-style: italic;
+        line-height: 1.2;
     }
 
     .points {
