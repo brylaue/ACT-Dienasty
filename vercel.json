@@ -4,5 +4,7 @@
       "runtime": "nodejs20.x"
     }
   },
-  "buildCommand": "npm run build"
+  "buildCommand": "npm run build",
+  "framework": "sveltekit",
+  "nodeVersion": "20.x"
 }
