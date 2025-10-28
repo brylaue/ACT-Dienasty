@@ -49,8 +49,8 @@ test.describe('Homepage Integration Tests', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     
-    // Look for the transactions section
-    const transactionsSection = page.locator('.transactions');
+    // Look for the transactions section (use first() to handle multiple elements)
+    const transactionsSection = page.locator('.transactions').first();
     await expect(transactionsSection).toBeVisible();
   });
 
