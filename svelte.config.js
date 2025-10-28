@@ -7,7 +7,7 @@ const dockerBuild = process.env.DOCKER_BUILD;
 const config = {
   kit: {
     adapter: dockerBuild ? node() : vercel({
-      // Let Vercel auto-detect the Node.js version
+      runtime: 'nodejs20.x',
       regions: ['iad1']
     }),
   },
