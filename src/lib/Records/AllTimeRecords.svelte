@@ -33,64 +33,132 @@
         waiversData = [];
         showTies = false;
 
-        for(const key in lRR) {
-            const leagueManagerRecord = lRR[key];
-            const denominator = (leagueManagerRecord.wins + leagueManagerRecord.ties + leagueManagerRecord.losses) > 0 ? (leagueManagerRecord.wins + leagueManagerRecord.ties + leagueManagerRecord.losses) : 1;
-            
-            // Get rosterID for this managerID to support co-owner display
-            const rosterInfo = getRosterIDFromManagerID(leagueTeamManagers, key);
+        // Aggregate data by team/roster instead of individual managers
+        const teamAggregatedData = {};
+
+        for(const managerID in lRR) {
+            const leagueManagerRecord = lRR[managerID];
+            const rosterInfo = getRosterIDFromManagerID(leagueTeamManagers, managerID);
             const rosterID = rosterInfo ? rosterInfo.rosterID : null;
             
+            if (!rosterID) continue;
+
+            if (!teamAggregatedData[rosterID]) {
+                teamAggregatedData[rosterID] = {
+                    rosterID: rosterID,
+                    wins: 0,
+                    ties: 0,
+                    losses: 0,
+                    fptsFor: 0,
+                    fptsAgainst: 0,
+                    potentialPoints: 0,
+                    trades: 0,
+                    waivers: 0,
+                    managerIDs: new Set(),
+                    teamName: null
+                };
+            }
+
+            // Aggregate stats for this team
+            const teamData = teamAggregatedData[rosterID];
+            teamData.wins += leagueManagerRecord.wins;
+            teamData.ties += leagueManagerRecord.ties;
+            teamData.losses += leagueManagerRecord.losses;
+            teamData.fptsFor += leagueManagerRecord.fptsFor;
+            teamData.fptsAgainst += leagueManagerRecord.fptsAgainst;
+            if (leagueManagerRecord.potentialPoints) {
+                teamData.potentialPoints += leagueManagerRecord.potentialPoints;
+            }
+            teamData.managerIDs.add(managerID);
+
+            // Get team name from current season
+            if (!teamData.teamName && leagueTeamManagers.teamManagersMap[leagueTeamManagers.currentSeason]?.[rosterID]) {
+                teamData.teamName = leagueTeamManagers.teamManagersMap[leagueTeamManagers.currentSeason][rosterID].team.name;
+            }
+        }
+
+        // Add transaction data
+        for(const managerID in transactionTotals.allTime) {
+            const rosterInfo = getRosterIDFromManagerID(leagueTeamManagers, managerID);
+            const rosterID = rosterInfo ? rosterInfo.rosterID : null;
+            
+            if (!rosterID) continue;
+
+            if (!teamAggregatedData[rosterID]) {
+                teamAggregatedData[rosterID] = {
+                    rosterID: rosterID,
+                    wins: 0,
+                    ties: 0,
+                    losses: 0,
+                    fptsFor: 0,
+                    fptsAgainst: 0,
+                    potentialPoints: 0,
+                    trades: 0,
+                    waivers: 0,
+                    managerIDs: new Set(),
+                    teamName: null
+                };
+            }
+
+            teamAggregatedData[rosterID].trades += transactionTotals.allTime[managerID].trade;
+            teamAggregatedData[rosterID].waivers += transactionTotals.allTime[managerID].waiver;
+            teamAggregatedData[rosterID].managerIDs.add(managerID);
+        }
+
+        // Convert aggregated data to display format
+        for(const rosterID in teamAggregatedData) {
+            const teamData = teamAggregatedData[rosterID];
+            const denominator = (teamData.wins + teamData.ties + teamData.losses) > 0 ? (teamData.wins + teamData.ties + teamData.losses) : 1;
+            
             winPercentages.push({
-                managerID: key,
                 rosterID: rosterID,
-                percentage: round((leagueManagerRecord.wins + leagueManagerRecord.ties / 2) / denominator * 100),
-                wins: leagueManagerRecord.wins,
-                ties: leagueManagerRecord.ties,
-                losses: leagueManagerRecord.losses,
+                teamName: teamData.teamName,
+                managerIDs: Array.from(teamData.managerIDs),
+                percentage: round((teamData.wins + teamData.ties / 2) / denominator * 100),
+                wins: teamData.wins,
+                ties: teamData.ties,
+                losses: teamData.losses,
             })
 
             let lineupIQ = {
-                managerID: key,
                 rosterID: rosterID,
-                fpts: round(leagueManagerRecord.fptsFor),
+                teamName: teamData.teamName,
+                managerIDs: Array.from(teamData.managerIDs),
+                fpts: round(teamData.fptsFor),
             }
 
-            if(leagueManagerRecord.potentialPoints) {
-                lineupIQ.iq = round(leagueManagerRecord.fptsFor / leagueManagerRecord.potentialPoints * 100);
-                lineupIQ.potentialPoints = round(leagueManagerRecord.potentialPoints);
+            if(teamData.potentialPoints > 0) {
+                lineupIQ.iq = round(teamData.fptsFor / teamData.potentialPoints * 100);
+                lineupIQ.potentialPoints = round(teamData.potentialPoints);
             }
 
             lineupIQs.push(lineupIQ)
         
             fptsHistories.push({
-                managerID: key,
                 rosterID: rosterID,
-                fptsFor: round(leagueManagerRecord.fptsFor),
-                fptsAgainst: round(leagueManagerRecord.fptsAgainst),
-                fptsPerGame: round(leagueManagerRecord.fptsFor / denominator),
+                teamName: teamData.teamName,
+                managerIDs: Array.from(teamData.managerIDs),
+                fptsFor: round(teamData.fptsFor),
+                fptsAgainst: round(teamData.fptsAgainst),
+                fptsPerGame: round(teamData.fptsFor / denominator),
+            })
+
+            tradesData.push({
+                rosterID: rosterID,
+                teamName: teamData.teamName,
+                managerIDs: Array.from(teamData.managerIDs),
+                trades: teamData.trades,
+            })
+
+            waiversData.push({
+                rosterID: rosterID,
+                teamName: teamData.teamName,
+                managerIDs: Array.from(teamData.managerIDs),
+                waivers: teamData.waivers,
             })
         
-            if(leagueManagerRecord.ties > 0) showTies = true;
+            if(teamData.ties > 0) showTies = true;
         }
-
-        for(const managerID in transactionTotals.allTime) {
-            // Get rosterID for this managerID to support co-owner display
-            const rosterInfo = getRosterIDFromManagerID(leagueTeamManagers, managerID);
-            const rosterID = rosterInfo ? rosterInfo.rosterID : null;
-            
-            tradesData.push({
-                managerID,
-                rosterID: rosterID,
-                trades: transactionTotals.allTime[managerID].trade,
-            })
-            waiversData.push({
-                managerID,
-                rosterID: rosterID,
-                waivers: transactionTotals.allTime[managerID].waiver,
-            })
-        }
-
 
         winPercentages.sort((a, b) => b.percentage - a.percentage);
         lineupIQs.sort((a, b) => b.iq - a.iq);

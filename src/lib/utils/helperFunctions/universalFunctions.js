@@ -153,7 +153,10 @@ export const generateGraph = (
     if (secondField) {
       graph.secondStats.push(indivStat[secondField]);
     }
-    if (indivStat.managerID) {
+    if (indivStat.managerIDs && indivStat.managerIDs.length > 0) {
+      graph.managerIDs.push(indivStat.managerIDs[0]); // Use first manager for navigation
+      graph.rosterIDs.push(indivStat.rosterID);
+    } else if (indivStat.managerID) {
       graph.managerIDs.push(indivStat.managerID);
       graph.rosterIDs.push(null);
     } else if (indivStat.rosterID) {
