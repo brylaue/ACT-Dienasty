@@ -806,7 +806,7 @@
 <div class="buttonHolder">
     <Group variant="outlined">
         {#each tables as table, ix}
-            <Button class="selectionButtons" onclick={() => curTable = ix} variant="{curTable == ix ? "raised" : "outlined"}">
+            <Button class="selectionButtons" on:click={() => curTable = ix} variant={curTable == ix ? "raised" : "outlined"}>
                 <Label>{table}</Label>
             </Button>
         {/each}
