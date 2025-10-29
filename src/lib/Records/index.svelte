@@ -32,6 +32,14 @@
 
     let key = $state("regularSeasonData");
 
+    const selectKey = (newKey) => {
+        key = newKey;
+        // If the selected dataset isn't present yet (e.g., due to cached stale data), refresh
+        if (!leagueData || !leagueData[newKey]) {
+            refreshRecords();
+        }
+    }
+
     $effect(() => {
         if(!leagueData || !leagueData[key]) return;
 
@@ -109,10 +117,10 @@
 
     <div class="buttonHolder">
         <Group variant="outlined">
-            <Button class="selectionButtons" on:click={() => key = "regularSeasonData"} variant={key == "regularSeasonData" ? "raised" : "outlined"}>
+            <Button class="selectionButtons" on:click={() => selectKey("regularSeasonData")} variant={key == "regularSeasonData" ? "raised" : "outlined"}>
                 <Label>Regular Season</Label>
             </Button>
-            <Button class="selectionButtons" on:click={() => key = "playoffData"} variant={key == "playoffData" ? "raised" : "outlined"}>
+            <Button class="selectionButtons" on:click={() => selectKey("playoffData")} variant={key == "playoffData" ? "raised" : "outlined"}>
                 <Label>Playoffs</Label>
             </Button>
         </Group>
