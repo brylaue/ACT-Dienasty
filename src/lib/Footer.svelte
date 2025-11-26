@@ -5,71 +5,54 @@
 	import { onMount } from 'svelte';
 
 	let outOfDate = $state(false);
-
-    let el, footerHeight;
-
-    let innerWidth;
-
-    const resize = (e, delay) => {
-        const bottom = el?.getBoundingClientRect().bottom;
-        const top = el?.getBoundingClientRect().top;
-        if(delay) {
-            setTimeout(() => {
-                resize(e, false);
-            }, 100)
-        } else {
-            footerHeight = bottom - top;
-        }
-    }
+    let managersOutOfDate = false;
 
 	onMount(async () => {
-		const res = await fetch('/api/checkVersion', {compress: true})
-		const needUpdate = await res.json();
-		outOfDate = needUpdate;
-        resize(el?.getBoundingClientRect(), true);
-	})
+        try {
+            const res = await fetch('/api/checkVersion', {compress: true});
+            const needUpdate = await res.json();
+            outOfDate = needUpdate;
+        } catch (error) {
+            console.error('Unable to confirm latest version', error);
+        }
+	});
 
-    let managersOutOfDate = false;
     if(managers) {
         for(const manager of managers) {
             if(manager.roster && !manager.managerID) {
                 managersOutOfDate = true;
-                resize(el?.getBoundingClientRect(), true);
                 break;
             }
         }
     }
 
 	const year = new Date().getFullYear();
-
-    $effect(() => {
-        resize(el?.getBoundingClientRect(), false, innerWidth);
-    });
 </script>
-
-<svelte:window bind:innerWidth={innerWidth} />
 
 <style>
 	footer {
 		background-color: var(--f8f8f8);
 		width: 100%;
         display: block;
-        position: absolute;
-        bottom: 0;
-		z-index: 1;
 		border-top: 1px solid #920505;
-		padding: 30px 0 60px;
+		padding: 30px 0 40px;
 		text-align: center;
 		color: #777;
+		margin-top: 40px;
 	}
 
 	#navigation {
 		margin: 0 0 2em;
+		padding: 0 1rem;
 	}
 
 	#navigation ul {
 		margin: 0;
 		padding: 0;
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 0.25em 0.75em;
+		justify-content: center;
 	}
 
 	#navigation ul li {
@@ -79,6 +62,7 @@
 
 	#navigation li:not(:first-child):before {
 		content: " | ";
+		color: var(--g999, #999);
 	}
 
 	.navLink {
@@ -97,12 +81,37 @@
 		font-size: 0.8em;
 		margin-top: 0;
 	}
+
+	@media (max-width: 600px) {
+		footer {
+			padding: 24px 16px 32px;
+			margin-top: 24px;
+		}
+
+		#navigation ul {
+			display: flex;
+			flex-direction: column;
+			gap: 0.4em;
+			align-items: center;
+		}
+
+		#navigation ul li {
+			display: block;
+		}
+
+		#navigation li:not(:first-child):before {
+			content: none;
+		}
+
+		.navLink {
+			display: block;
+			padding: 6px 0;
+		}
+	}
 </style>
 
-<div class="footerSpacer" style="height: {footerHeight}px;" />
-
 <!-- footer with update notice -->
-<footer bind:this={el}>
+<footer>
     {#if outOfDate}
 	    <p class="updateNotice">There is an update available for your League Page. <a href="https://github.com/nmelhado/league-page/blob/master/TRAINING_WHEELS.md#iv-updates">Follow the Update Instructions</a> to get all of the newest features!</p>
     {/if}
