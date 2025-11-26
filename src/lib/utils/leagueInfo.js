@@ -83,8 +83,12 @@ export const managers = [
     "fantasyStart": null,
     "favoriteTeam": "Pittsburgh Steelers",
     "mode": "Survive + Vibes",
-    "rival": "Everyone",
-    "favoritePlayer": "TJ Watt",
+    "rival": {
+        "name": "Everyone",
+        "link": null
+        "image": "/managers/everyone.png"
+    },
+    "favoritePlayer": "4070",
     "valuePosition": "WR",
     "rookieOrVets": "Rookies",
     "philosophy": null,
