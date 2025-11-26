@@ -19,6 +19,14 @@
     }
 
     const commissioner = manager.managerID ? leagueTeamManagers.users[manager.managerID].is_owner : false;
+
+    const getContactHref = (preferredContact, phoneNumber) => {
+        const sanitized = phoneNumber?.replace(/[^\d+]/g, '');
+        if (!sanitized) return null;
+        return preferredContact && preferredContact.toLowerCase() === 'text'
+            ? `sms:${sanitized}`
+            : `tel:${sanitized}`;
+    };
 </script>
 
 <style>
@@ -106,6 +114,24 @@
         width: 63px;
         text-align: center;
         line-height: 1.2em;
+    }
+
+    .contactLink {
+        display: block;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .contactNumber {
+        display: block;
+        margin-top: 0.2em;
+        color: var(--blueTwo);
+        font-weight: 600;
+        word-break: break-word;
+    }
+
+    .contactNumber:hover {
+        text-decoration: underline;
     }
 
     .avatarHolder {
@@ -261,7 +287,21 @@
                     <img class="infoImg" src="/{manager.preferredContact}.png" alt="{manager.preferredContact}"/>
                 </div>
                 <div class="infoAnswer">
-                    {manager.preferredContact}
+                    {#if manager.phoneNumber}
+                        {#if getContactHref(manager.preferredContact, manager.phoneNumber)}
+                            <a class="contactLink" href={getContactHref(manager.preferredContact, manager.phoneNumber)}>
+                                {manager.preferredContact}
+                                <span class="contactNumber">{manager.phoneNumber}</span>
+                            </a>
+                        {:else}
+                            <span class="contactLink">
+                                {manager.preferredContact}
+                                <span class="contactNumber">{manager.phoneNumber}</span>
+                            </span>
+                        {/if}
+                    {:else}
+                        {manager.preferredContact}
+                    {/if}
                 </div>
             {:else}
                 <div class="infoIcon question">

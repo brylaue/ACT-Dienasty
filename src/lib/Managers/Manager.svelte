@@ -62,6 +62,14 @@
         manager = newManager;
         goto(`/manager?manager=${newManager}`, {noscroll});
     }
+
+    const getContactHref = (preferredContact, phoneNumber) => {
+        const sanitized = phoneNumber?.replace(/[^\d+]/g, '');
+        if (!sanitized) return null;
+        return preferredContact && preferredContact.toLowerCase() === 'text'
+            ? `sms:${sanitized}`
+            : `tel:${sanitized}`;
+    };
 </script>
 
 <style>
@@ -104,7 +112,9 @@
         display: flex;
         justify-content: space-evenly;
         align-items: center;
-        height: 24px;
+        min-height: 24px;
+        flex-wrap: wrap;
+        gap: 0.5em;
         margin: 2em 0;
     }
 
@@ -120,7 +130,28 @@
     .infoContact {
         height: 20px;
         vertical-align: middle;
-        padding-left: 1em;
+        padding-left: 0.5em;
+    }
+
+    .contactLink {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4em;
+        color: inherit;
+        text-decoration: none;
+        flex-wrap: wrap;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .contactNumberInline {
+        font-style: normal;
+        font-weight: 600;
+        color: var(--blueTwo);
+    }
+
+    .contactLink:hover .contactNumberInline {
+        text-decoration: underline;
     }
 
     .infoTeam {
@@ -194,7 +225,7 @@
 	@media (max-width: 450px) {
 
         .basicInfo {
-            height: 20px;
+            min-height: 20px;
         }
 
         .basicInfo span {
@@ -209,7 +240,7 @@
     @media (max-width: 370px) {
 
         .basicInfo {
-            height: 18px;
+            min-height: 18px;
         }
 
         .basicInfo span {
@@ -247,9 +278,31 @@
             {#if viewManager.preferredContact}
                 <!-- preferredContact is an optional field -->
                 <span class="seperator">|</span>
-                <span class="infoChild">{viewManager.preferredContact}<img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="favorite team"/></span>
+                {#if viewManager.phoneNumber && getContactHref(viewManager.preferredContact, viewManager.phoneNumber)}
+                    <a class="infoChild contactLink" href={getContactHref(viewManager.preferredContact, viewManager.phoneNumber)}>
+                        {viewManager.preferredContact}
+                        <img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="preferred contact"/>
+                        <span class="contactNumberInline">{viewManager.phoneNumber}</span>
+                    </a>
+                {:else}
+                    <span class="infoChild contactLink">
+                        {viewManager.preferredContact}
+                        <img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="preferred contact"/>
+                        {#if viewManager.phoneNumber}
+                            <span class="contactNumberInline">{viewManager.phoneNumber}</span>
+                        {/if}
+                    </span>
+                {/if}
+            {:else if viewManager.phoneNumber}
+                <span class="seperator">|</span>
+                {#if getContactHref(null, viewManager.phoneNumber)}
+                    <a class="infoChild contactLink" href={getContactHref(null, viewManager.phoneNumber)}>
+                        <span class="contactNumberInline">{viewManager.phoneNumber}</span>
+                    </a>
+                {:else}
+                    <span class="infoChild contactNumberInline">{viewManager.phoneNumber}</span>
+                {/if}
             {/if}
-            <!-- <span class="infoChild">{viewManager.preferredContact}</span> -->
             {#if viewManager.favoriteTeam}
                 <!-- favoriteTeam is an optional field -->
                 <span class="seperator">|</span>
