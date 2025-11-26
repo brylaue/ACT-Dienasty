@@ -1,5 +1,5 @@
 <script>
-    import { dreamDraftLocationImages } from '$lib/utils/leagueInfo';
+    import { dreamDraftLocationImages, beverageImages } from '$lib/utils/leagueInfo';
 
     export let viewManager, players, changeManager;
 </script>
@@ -211,6 +211,24 @@
             </div>
             <div class="infoAnswer">
                 {viewManager.tradingScale} out of 10
+            </div>
+        </div>
+    {/if}
+    {#if viewManager.beverage}
+        <!-- Beverage -->
+        <div class="infoSlot">
+            <div class="infoLabel">
+                Beverage of Choice
+            </div>
+            <div class="infoIcon">
+                {#if beverageImages[viewManager.beverage]}
+                    <img class="dreamLocation" src="{beverageImages[viewManager.beverage]}" alt="beverage icon"/>
+                {:else}
+                    <span class="valuePosition">{viewManager.beverage}</span>
+                {/if}
+            </div>
+            <div class="infoAnswer">
+                {viewManager.beverage}
             </div>
         </div>
     {/if}

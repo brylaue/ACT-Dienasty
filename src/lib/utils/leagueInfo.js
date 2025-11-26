@@ -25,6 +25,15 @@ export const dreamDraftLocationImages = {
   "Anywhere": "/dreamLocations/anywhere.png",
 };
 
+export const beverageImages = {
+  "IPA": "/beverages/ipa.png",
+  "Coors Light": "/beverages/coors-light.png",
+  "Negroni": "/beverages/negroni.png",
+  "Bourbon": "/beverages/bourbon.png",
+  "Smokey Scotch": "/beverages/smokey-scotch.png",
+  "Chocolate Milk": "/beverages/chocolate-milk.png",
+};
+
 /*   STEP 3   */
 /*
 3 managers as an example. Uncomment (remove the //) before each line to make it live code
