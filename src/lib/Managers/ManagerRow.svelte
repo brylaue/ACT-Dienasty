@@ -18,11 +18,15 @@
         ({rosterID, year} = getRosterIDFromManagerID(leagueTeamManagers, manager.managerID) || {rosterID, year});
     }
 
+    const normalizeKey = (value) =>
+        typeof value === 'string'
+            ? value.trim().toLowerCase().replace(/\s+/g, ' ')
+            : null;
+
     const commissioner = manager.managerID ? leagueTeamManagers.users[manager.managerID].is_owner : false;
 
-    $: modeIcon = manager.mode
-        ? managerModeImages[manager.mode.toLowerCase()]
-        : null;
+    $: normalizedMode = normalizeKey(manager.mode);
+    $: modeIcon = normalizedMode ? managerModeImages[normalizedMode] : null;
 </script>
 
 <style>

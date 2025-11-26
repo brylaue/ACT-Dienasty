@@ -3,13 +3,16 @@
 
     export let viewManager, players, changeManager;
 
-    $: modeIcon = viewManager.mode
-        ? managerModeImages[viewManager.mode.toLowerCase()]
-        : null;
+    const normalizeKey = (value) =>
+        typeof value === 'string'
+            ? value.trim().toLowerCase().replace(/\s+/g, ' ')
+            : null;
 
-    $: beverageIcon = viewManager.beverage
-        ? beverageImages[viewManager.beverage.toLowerCase()]
-        : null;
+    $: normalizedMode = normalizeKey(viewManager.mode);
+    $: modeIcon = normalizedMode ? managerModeImages[normalizedMode] : null;
+
+    $: normalizedBeverage = normalizeKey(viewManager.beverage);
+    $: beverageIcon = normalizedBeverage ? beverageImages[normalizedBeverage] : null;
 </script>
 
 <style>
@@ -162,7 +165,9 @@
     }
 
     .beverageIcon {
-        height: 52px;
+        height: 58px;
+        width: 58px;
+        object-fit: contain;
     }
 
     /* media queries */
