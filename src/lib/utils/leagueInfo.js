@@ -16,6 +16,15 @@ There may be a late fee assessed after the deadline. This league is designed to 
 between friends but is not a cut-throat league where anything goes. </p>
 `;
 
+export const dreamDraftLocationImages = {
+  "Charleston, SC": "/dreamLocations/charleston.png",
+  "Beach": "/dreamLocations/beach.png",
+  "All-Inclusive Island Resort": "/dreamLocations/island.png",
+  "Vegas": "/dreamLocations/vegas.png",
+  "Pittsburgh": "/dreamLocations/pittsburgh.png",
+  "Anywhere": "/dreamLocations/anywhere.png",
+};
+
 /*   STEP 3   */
 /*
 3 managers as an example. Uncomment (remove the //) before each line to make it live code
