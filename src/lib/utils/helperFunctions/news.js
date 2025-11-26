@@ -103,20 +103,22 @@ var htmlEntities = {
 };
 
 function decodeHTML(str) {
-  return str.replace(/\&([^;]+);/g, function (entity, entityCode) {
-    let match;
-
+  return str.replace(/&([^;]+);/g, (entity, entityCode) => {
     if (entityCode in htmlEntities) {
       return htmlEntities[entityCode];
-      /*eslint no-cond-assign: 0*/
-    } else if ((match = entityCode.match(/^#x([\da-fA-F]+)$/))) {
-      return String.fromCharCode(parseInt(match[1], 16));
-      /*eslint no-cond-assign: 0*/
-    } else if ((match = entityCode.match(/^#(\d+)$/))) {
-      return String.fromCharCode(~~match[1]);
-    } else {
-      return entity;
     }
+
+    const hexMatch = entityCode.match(/^#x([\da-fA-F]+)$/);
+    if (hexMatch) {
+      return String.fromCharCode(parseInt(hexMatch[1], 16));
+    }
+
+    const decMatch = entityCode.match(/^#(\d+)$/);
+    if (decMatch) {
+      return String.fromCharCode(parseInt(decMatch[1], 10));
+    }
+
+    return entity;
   });
 }
 

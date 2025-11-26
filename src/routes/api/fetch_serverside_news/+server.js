@@ -71,29 +71,6 @@ const processFF = (articles) => {
   return finalArticles;
 };
 
-const processFTN = (rawArticles) => {
-  let finalArticles = [];
-  const items = rawArticles.items;
-  for (const article of items) {
-    // only grab important info
-    if (article.priority > 3) continue;
-    const ts = Date.parse(article.datetime);
-    const d = new Date(ts);
-    const date = stringDate(d);
-    const icon = "newsIcons/ftn.png";
-    finalArticles.push({
-      title: article.short_text,
-      article: article.text,
-      link: `https://www.ftnfantasy.com/nfl${article.link}`,
-      author: `FTN Fantasy`,
-      ts,
-      date,
-      icon,
-    });
-  }
-  return finalArticles;
-};
-
 const processDynastyLeague = (articles) => {
   let finalArticles = [];
   for (const article of articles) {

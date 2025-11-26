@@ -1,10 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  handleApiError,
-  handleFetchError,
-  safeJsonParse,
-  safeTextParse,
-} from "../errorHandler";
+import { handleApiError, safeJsonParse, safeTextParse } from "../errorHandler";
 
 describe("errorHandler", () => {
   beforeEach(() => {

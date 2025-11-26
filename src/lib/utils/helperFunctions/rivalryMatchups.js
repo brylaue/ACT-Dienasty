@@ -1,6 +1,5 @@
 import { getLeagueData } from "./leagueData";
 import { leagueID } from "$lib/utils/leagueInfo";
-import { getNflState } from "./nflState";
 import { waitForAll } from "./multiPromise";
 import { getRosterIDFromManagerIDAndYear } from "$lib/utils/helperFunctions/universalFunctions";
 import { getLeagueTeamManagers } from "./leagueTeamManagers";
@@ -12,19 +11,9 @@ export const getRivalryMatchups = async (userOneID, userTwoID) => {
 
   let curLeagueID = leagueID;
 
-  const [nflState, teamManagers] = await waitForAll(
-    getNflState(),
-    getLeagueTeamManagers(),
-  ).catch((err) => {
+  const teamManagers = await getLeagueTeamManagers().catch((err) => {
     console.error(err);
   });
-
-  let week = 1;
-  if (nflState.season_type == "regular") {
-    week = nflState.display_week;
-  } else if (nflState.season_type == "post") {
-    week = 18;
-  }
 
   const rivalry = {
     points: {
@@ -56,7 +45,6 @@ export const getRivalryMatchups = async (userOneID, userTwoID) => {
     );
     if (!rosterIDOne || !rosterIDTwo || rosterIDOne == rosterIDTwo) {
       curLeagueID = leagueData.previous_league_id;
-      week = 18;
       continue;
     }
 
@@ -120,7 +108,6 @@ export const getRivalryMatchups = async (userOneID, userTwoID) => {
       }
     }
     curLeagueID = leagueData.previous_league_id;
-    week = 18;
   }
 
   rivalry.matchups.sort((a, b) => {

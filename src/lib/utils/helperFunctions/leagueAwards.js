@@ -113,7 +113,7 @@ const getPreviousLeagueData = async (previousSeasonID) => {
   });
 
   if (!leagueRes.ok || !losersRes.ok || !winnersRes.ok) {
-    throw new Error(data);
+    throw new Error("Failed to fetch previous league data");
   }
 
   const jsonPromises = [leagueRes.json(), losersRes.json(), winnersRes.json()];
