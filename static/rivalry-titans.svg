@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Epic Greek Titans Rivalry</title>
+  <desc id="desc">A stylized fantasy-football inspired depiction of two Greek titans clashing with spears, shields, and lightning on a midnight gridiron.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020617" />
+      <stop offset="45%" stop-color="#0b2241" />
+      <stop offset="100%" stop-color="#1f3f68" />
+    </linearGradient>
+    <radialGradient id="halo" cx="50%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="rgba(108,201,255,0.9)" />
+      <stop offset="55%" stop-color="rgba(108,201,255,0.25)" />
+      <stop offset="100%" stop-color="rgba(6,12,24,0)" />
+    </radialGradient>
+    <linearGradient id="armor" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fef6df" />
+      <stop offset="100%" stop-color="#e3bd82" />
+    </linearGradient>
+    <linearGradient id="spear" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#9dd9ff" />
+      <stop offset="100%" stop-color="#fefefe" />
+    </linearGradient>
+    <linearGradient id="shield" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0f1d33" />
+      <stop offset="100%" stop-color="#1a2b47" />
+    </linearGradient>
+    <linearGradient id="grid" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(126,255,215,0.1)" />
+      <stop offset="100%" stop-color="rgba(126,255,215,0.35)" />
+    </linearGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1440" height="900" fill="url(#sky)" />
+  <rect width="1440" height="900" fill="url(#halo)" opacity="0.65" />
+
+  <g stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="6 18">
+    <path d="M0 620 L1440 620" />
+    <path d="M0 700 L1440 700" />
+    <path d="M0 780 L1440 780" />
+    <path d="M480 900 L480 540" />
+    <path d="M720 900 L720 520" />
+    <path d="M960 900 L960 540" />
+  </g>
+
+  <g stroke="rgba(255,255,255,0.35)" stroke-width="3" stroke-linecap="round" filter="url(#softGlow)">
+    <path d="M240 200 Q320 140 420 200" />
+    <path d="M1020 200 Q1120 140 1200 200" />
+    <path d="M700 130 L720 70 L740 130" />
+    <path d="M710 160 L720 120 L730 160" />
+  </g>
+
+  <g opacity="0.55" fill="url(#grid)">
+    <path d="M0 580 Q360 520 720 560 T1440 580 V900 H0 Z" />
+  </g>
+
+  <ellipse cx="720" cy="640" rx="150" ry="18" fill="rgba(0,0,0,0.45)" filter="url(#softGlow)" />
+
+  <g id="leftTitan" transform="translate(70,20)">
+    <circle cx="320" cy="290" r="70" fill="url(#armor)" stroke="#ffecb3" stroke-width="6" />
+    <path d="M260 360 L320 520 L380 360 Q320 320 260 360 Z" fill="url(#armor)" stroke="#f4c675" stroke-width="6" />
+    <path d="M320 520 L270 700 L325 700 L360 560" fill="#0f223d" opacity="0.9" />
+    <path d="M320 520 L380 700 L425 700 L365 520" fill="#142b4f" opacity="0.85" />
+    <circle cx="220" cy="440" r="95" fill="url(#shield)" stroke="#9dd9ff" stroke-width="8" />
+    <path d="M210 520 Q260 500 320 520 T420 530" fill="none" stroke="#4ff0d9" stroke-width="8" stroke-linecap="round" opacity="0.8" />
+    <path d="M180 540 L520 240" stroke="url(#spear)" stroke-width="10" stroke-linecap="round" />
+    <circle cx="520" cy="240" r="18" fill="#ffe59a" />
+  </g>
+
+  <g id="rightTitan" transform="translate(1050,20) scale(-1,1)">
+    <circle cx="320" cy="290" r="70" fill="url(#armor)" stroke="#ffecb3" stroke-width="6" />
+    <path d="M260 360 L320 520 L380 360 Q320 320 260 360 Z" fill="url(#armor)" stroke="#f4c675" stroke-width="6" />
+    <path d="M320 520 L270 700 L325 700 L360 560" fill="#102544" opacity="0.9" />
+    <path d="M320 520 L380 700 L425 700 L365 520" fill="#0a1b34" opacity="0.85" />
+    <circle cx="220" cy="440" r="95" fill="url(#shield)" stroke="#ff9df4" stroke-width="8" />
+    <path d="M210 520 Q260 500 320 520 T420 530" fill="none" stroke="#ff8ce3" stroke-width="8" stroke-linecap="round" opacity="0.8" />
+    <path d="M180 540 L520 240" stroke="url(#spear)" stroke-width="10" stroke-linecap="round" />
+    <circle cx="520" cy="240" r="18" fill="#ffe59a" />
+  </g>
+
+  <ellipse cx="720" cy="420" rx="70" ry="26" fill="#f9b25a" stroke="#ffdc8c" stroke-width="6" />
+  <ellipse cx="720" cy="420" rx="42" ry="14" fill="#272523" />
+  <rect x="717" y="355" width="6" height="35" fill="#1a140f" rx="3" />
+
+  <g stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.55">
+    <path d="M520 150 L500 110 L540 130 L560 90" />
+    <path d="M940 110 L960 60 L980 120" />
+  </g>
+
+  <g fill="#7fe9ff" opacity="0.5">
+    <circle cx="180" cy="140" r="3" />
+    <circle cx="320" cy="100" r="2" />
+    <circle cx="540" cy="210" r="4" />
+    <circle cx="900" cy="150" r="3" />
+    <circle cx="1200" cy="260" r="2.5" />
+    <circle cx="1280" cy="120" r="3.5" />
+  </g>
+</svg>

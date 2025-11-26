@@ -136,10 +136,17 @@
     .center {
         text-align: center;
     }
-    .helmets {
-        width: 80%;
-        max-width: 800px;
-        margin: 0 auto 2em;
+    .rivalryBackdrop {
+        display: block;
+        width: min(920px, 90vw);
+        margin: 0 auto 2.5em;
+        filter: drop-shadow(0 25px 45px rgba(7, 9, 30, 0.45));
+        opacity: 0.95;
+        transition: transform 240ms ease, opacity 240ms ease;
+    }
+    .rivalryBackdrop:hover {
+        opacity: 1;
+        transform: scale(1.01);
     }
     @media (max-width: 650px) {
         h3 {
@@ -171,7 +178,11 @@
         </div>
     {:else}
         <div class="center">
-            <img class="helmets" src="/helmets.png" alt="placeholder of helmets clashing" />
+            <img
+                class="rivalryBackdrop"
+                src="/rivalry-titans.svg"
+                alt="stylized Greek titans colliding over a fantasy gridiron"
+            />
         </div>
     {/if}
 {:else}
