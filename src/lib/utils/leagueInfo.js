@@ -430,7 +430,7 @@ export const managers = [
       "link": 2,
       "image": "/managers/everyone.png",
     },
-    "favoritePlayer": null,
+    "favoritePlayer": 11566,
     "valuePosition": "RB",
     "rookieOrVets": "Rookies",
     "philosophy": null,
