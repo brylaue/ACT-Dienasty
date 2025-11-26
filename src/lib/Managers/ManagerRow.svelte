@@ -108,6 +108,21 @@
         line-height: 1.2em;
     }
 
+    .contactLink {
+        text-decoration: none;
+        color: inherit;
+        cursor: pointer;
+    }
+
+    .contactLink:hover .infoIcon {
+        border-color: var(--blueTwo, #1976d2);
+        box-shadow: 0 0 4px var(--blueTwo, #1976d2);
+    }
+
+    .contactLink:hover .infoAnswer {
+        color: var(--blueTwo, #1976d2);
+    }
+
     .avatarHolder {
         display: inline-flex;
         position: relative;
@@ -257,12 +272,23 @@
         <!-- Preferred contact -->
         <div class="infoSlot">
             {#if manager.preferredContact}
-                <div class="infoIcon">
-                    <img class="infoImg" src="/{manager.preferredContact}.png" alt="{manager.preferredContact}"/>
-                </div>
-                <div class="infoAnswer">
-                    {manager.preferredContact}
-                </div>
+                {#if manager.preferredContact === 'Text' && manager.phoneNumber}
+                    <a class="contactLink" href="sms:{manager.phoneNumber.replace(/\D/g, '')}" onclick={(e) => e.stopPropagation()}>
+                        <div class="infoIcon">
+                            <img class="infoImg" src="/{manager.preferredContact}.png" alt="{manager.preferredContact}"/>
+                        </div>
+                        <div class="infoAnswer">
+                            {manager.phoneNumber}
+                        </div>
+                    </a>
+                {:else}
+                    <div class="infoIcon">
+                        <img class="infoImg" src="/{manager.preferredContact}.png" alt="{manager.preferredContact}"/>
+                    </div>
+                    <div class="infoAnswer">
+                        {manager.preferredContact}
+                    </div>
+                {/if}
             {:else}
                 <div class="infoIcon question">
                     <img class="infoImg" src="/managers/question.jpg" alt="favorite team"/>
