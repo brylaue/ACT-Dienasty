@@ -275,7 +275,7 @@
 </style>
 
 <div class="team">
-	<DataTable class="teamInner" table$aria-label="Team Name" style="width: {innerWidth * 0.95 > 380 ? 380 : innerWidth * 0.95}px;" >
+	<DataTable class="teamInner" table$aria-label="Team Name" style="width: {innerWidth * 0.95 > 280 ? 280 : innerWidth * 0.95}px;" >
 		<Head> <!-- Team name  -->
 			<Row>
 				<Cell colspan=4 class="r_{division} clickable" style="padding: 12px 0;">
