@@ -6,6 +6,7 @@
     let { manager, leagueTeamManagers, key } = $props();
 
     let retired = false;
+    let showPhoneNumber = false;
 
     // manager.roster is deprecated, pages should be using managerID now
     let rosterID = manager.roster;
@@ -19,6 +20,25 @@
     }
 
     const commissioner = manager.managerID ? leagueTeamManagers.users[manager.managerID].is_owner : false;
+
+    function formatPhoneNumber(phone) {
+        if (!phone) return '';
+        // Remove all non-digit characters
+        const cleaned = phone.replace(/\D/g, '');
+        // Format as (XXX) XXX-XXXX if 10 digits
+        if (cleaned.length === 10) {
+            return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+        }
+        // Return original if not standard format
+        return phone;
+    }
+
+    function togglePhoneNumber(event) {
+        event.stopPropagation(); // Prevent triggering the row click
+        if (manager.phoneNumber) {
+            showPhoneNumber = !showPhoneNumber;
+        }
+    }
 </script>
 
 <style>
@@ -227,6 +247,17 @@
     .question {
         background-color: #fff;
     }
+
+    .infoSlot.clickable {
+        cursor: pointer;
+    }
+
+    .phoneNumber {
+        font-size: 0.8em;
+        color: var(--g555);
+        margin-top: 0.2em;
+        font-weight: 500;
+    }
 </style>
 
 <div class="manager" style="{retired ? "background-image: url(/retired.png); background-color: var(--ddd)": ""}" onclick={() => goto(`/manager?manager=${key}`)}>
@@ -255,13 +286,18 @@
             {/if}
         </div>
         <!-- Preferred contact -->
-        <div class="infoSlot">
+        <div class="infoSlot" class:clickable={manager.preferredContact && manager.phoneNumber} onclick={togglePhoneNumber}>
             {#if manager.preferredContact}
                 <div class="infoIcon">
                     <img class="infoImg" src="/{manager.preferredContact}.png" alt="{manager.preferredContact}"/>
                 </div>
                 <div class="infoAnswer">
                     {manager.preferredContact}
+                    {#if showPhoneNumber && manager.phoneNumber}
+                        <div class="phoneNumber">
+                            {formatPhoneNumber(manager.phoneNumber)}
+                        </div>
+                    {/if}
                 </div>
             {:else}
                 <div class="infoIcon question">

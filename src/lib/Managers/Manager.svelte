@@ -33,6 +33,25 @@
 
     let players, playersInfo;
     let loading = true;
+    let showPhoneNumber = false;
+
+    function formatPhoneNumber(phone) {
+        if (!phone) return '';
+        // Remove all non-digit characters
+        const cleaned = phone.replace(/\D/g, '');
+        // Format as (XXX) XXX-XXXX if 10 digits
+        if (cleaned.length === 10) {
+            return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+        }
+        // Return original if not standard format
+        return phone;
+    }
+
+    function togglePhoneNumber() {
+        if (viewManager.phoneNumber) {
+            showPhoneNumber = !showPhoneNumber;
+        }
+    }
 
     const refreshTransactions = async () => {
         const newTransactions = await getLeagueTransactions(false, true);
@@ -121,6 +140,18 @@
         height: 20px;
         vertical-align: middle;
         padding-left: 1em;
+    }
+
+    .clickableContact {
+        cursor: pointer;
+    }
+
+    .phoneNumber {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 0.3em;
+        font-weight: 500;
+        display: block;
     }
 
     .infoTeam {
@@ -247,7 +278,14 @@
             {#if viewManager.preferredContact}
                 <!-- preferredContact is an optional field -->
                 <span class="seperator">|</span>
-                <span class="infoChild">{viewManager.preferredContact}<img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="favorite team"/></span>
+                <span class="infoChild" class:clickableContact={viewManager.phoneNumber} onclick={togglePhoneNumber}>
+                    {viewManager.preferredContact}<img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="favorite team"/>
+                    {#if showPhoneNumber && viewManager.phoneNumber}
+                        <span class="phoneNumber">
+                            {formatPhoneNumber(viewManager.phoneNumber)}
+                        </span>
+                    {/if}
+                </span>
             {/if}
             <!-- <span class="infoChild">{viewManager.preferredContact}</span> -->
             {#if viewManager.favoriteTeam}
