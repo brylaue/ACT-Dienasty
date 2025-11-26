@@ -71,6 +71,21 @@
             : `tel:${sanitized}`;
     };
 
+    const formatPhoneNumber = (phoneNumber) => {
+        if (!phoneNumber) return null;
+        const digits = phoneNumber.replace(/\D/g, '');
+        if (digits.length === 11 && digits.startsWith('1')) {
+            return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+        }
+        if (digits.length === 10) {
+            return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+        }
+        if (digits.length === 7) {
+            return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+        }
+        return phoneNumber;
+    };
+
     const beverageIcons = {
         ipa: '/beverages/ipa.svg',
         negroni: '/beverages/negroni.svg',
@@ -313,14 +328,14 @@
                     <a class="infoChild contactLink" href={getContactHref(viewManager.preferredContact, viewManager.phoneNumber)}>
                         {viewManager.preferredContact}
                         <img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="preferred contact"/>
-                        <span class="contactNumberInline">{viewManager.phoneNumber}</span>
+                        <span class="contactNumberInline">{formatPhoneNumber(viewManager.phoneNumber)}</span>
                     </a>
                 {:else}
                     <span class="infoChild contactLink">
                         {viewManager.preferredContact}
                         <img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="preferred contact"/>
                         {#if viewManager.phoneNumber}
-                            <span class="contactNumberInline">{viewManager.phoneNumber}</span>
+                            <span class="contactNumberInline">{formatPhoneNumber(viewManager.phoneNumber)}</span>
                         {/if}
                     </span>
                 {/if}
@@ -328,10 +343,10 @@
                 <span class="seperator">|</span>
                 {#if getContactHref(null, viewManager.phoneNumber)}
                     <a class="infoChild contactLink" href={getContactHref(null, viewManager.phoneNumber)}>
-                        <span class="contactNumberInline">{viewManager.phoneNumber}</span>
+                        <span class="contactNumberInline">{formatPhoneNumber(viewManager.phoneNumber)}</span>
                     </a>
                 {:else}
-                    <span class="infoChild contactNumberInline">{viewManager.phoneNumber}</span>
+                    <span class="infoChild contactNumberInline">{formatPhoneNumber(viewManager.phoneNumber)}</span>
                 {/if}
             {/if}
             {#if viewManager.beverage}
