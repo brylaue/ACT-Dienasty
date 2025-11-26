@@ -1,0 +1,10 @@
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Negroni cocktail icon">
+  <rect width="80" height="80" rx="16" fill="#1b0b13"/>
+  <rect x="22" y="18" width="36" height="44" rx="6" fill="#ff5c41" opacity=".9"/>
+  <rect x="25" y="22" width="30" height="32" rx="4" fill="#ff7a5c" opacity=".8"/>
+  <path d="M27 52h26l-4 8H31z" fill="#b71c1c" opacity=".9"/>
+  <circle cx="52" cy="28" r="10" fill="#ffca28"/>
+  <path d="M45 22 57 34" stroke="#d84315" stroke-width="4" stroke-linecap="round"/>
+  <path d="M28 28h10l12 20H40z" fill="#fff" opacity=".2"/>
+  <text x="40" y="72" fill="#fff" font-size="10" font-weight="700" text-anchor="middle">NEGRONI</text>
+</svg>

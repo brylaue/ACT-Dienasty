@@ -1,0 +1,10 @@
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bourbon glass icon">
+  <rect width="80" height="80" rx="16" fill="#120c08"/>
+  <rect x="20" y="18" width="40" height="44" rx="8" fill="#fef5de"/>
+  <rect x="24" y="26" width="32" height="30" rx="4" fill="#c97c26" opacity=".4"/>
+  <path d="M24 46h32v8a8 8 0 0 1-8 8H32a8 8 0 0 1-8-8z" fill="#a45107" opacity=".85"/>
+  <path d="M48 46 60 32v-4h-4L44 42z" fill="#f8e2ba"/>
+  <path d="M32 40 20 28v-4h4l12 12z" fill="#f8e2ba" opacity=".8"/>
+  <path d="M26 30h4l6 8h-4zM44 30h4l6 8h-4z" fill="#ffbf66"/>
+  <text x="40" y="72" fill="#fff" font-size="11" font-weight="700" text-anchor="middle">BOURBON</text>
+</svg>

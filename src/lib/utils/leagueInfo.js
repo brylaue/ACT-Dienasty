@@ -25,6 +25,21 @@ export const dreamDraftLocationImages = {
   "Anywhere": "/dreamLocations/anywhere.png",
 };
 
+export const managerModeImages = {
+  "win now": "/modes/win-now.svg",
+  "rebuild": "/modes/rebuild.svg",
+  "survive + here for the vibes": "/modes/survive-vibes.svg",
+};
+
+export const beverageImages = {
+  "ipa": "/beverages/ipa.svg",
+  "negroni": "/beverages/negroni.svg",
+  "bourbon": "/beverages/bourbon.svg",
+  "coors light": "/beverages/coors-light.svg",
+  "smokey scotch": "/beverages/smokey-scotch.svg",
+  "chocolate milk": "/beverages/chocolate-milk.svg",
+};
+
 /*   STEP 3   */
 /*
 3 managers as an example. Uncomment (remove the //) before each line to make it live code
@@ -125,7 +140,7 @@ export const managers = [
     "photo": "/managers/laue.png",
     "fantasyStart": null,
     "favoriteTeam": "cle",
-    "mode": "Survice + Here for the vibes",
+    "mode": "Survive + Here for the vibes",
     "rival": {
       "name": "Aaron",
       "link": 2,
@@ -309,7 +324,7 @@ export const managers = [
     "photo": "/managers/cyres.png",
     "fantasyStart": null,
     "favoriteTeam": "min",
-    "mode": "Survice + Here for the vibes",
+    "mode": "Survive + Here for the vibes",
     "rival": {
       "name": "Aaron",
       "link": 2,

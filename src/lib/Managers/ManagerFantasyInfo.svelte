@@ -1,7 +1,15 @@
 <script>
-    import { dreamDraftLocationImages } from '$lib/utils/leagueInfo';
+    import { dreamDraftLocationImages, managerModeImages, beverageImages } from '$lib/utils/leagueInfo';
 
     export let viewManager, players, changeManager;
+
+    $: modeIcon = viewManager.mode
+        ? managerModeImages[viewManager.mode.toLowerCase()]
+        : null;
+
+    $: beverageIcon = viewManager.beverage
+        ? beverageImages[viewManager.beverage.toLowerCase()]
+        : null;
 </script>
 
 <style>
@@ -23,13 +31,13 @@
 
     .infoSlot {
         text-align: center;
-        margin: 2em 1em 0;
+        margin: 1.5em 0.8em 0;
     }
 
     .infoIcon {
         display: inline-flex;
-        height: 70px;
-        width: 70px;
+        height: 64px;
+        width: 64px;
         justify-content: center;
         align-items: center;
         border-radius: 100%;
@@ -47,9 +55,9 @@
         font-size: 0.7em;
         color: var(--blueOne);
         font-weight: 700;
-        margin-bottom: 1em;
-        height: 30px;
-        width: 90px;
+        margin-bottom: 0.8em;
+        min-height: 28px;
+        width: 80px;
         text-align: center;
         line-height: 1.2em;
     }
@@ -57,20 +65,20 @@
     .infoAnswer {
         font-size: 0.8em;
         color: var(--g555);
-        margin-top: 1em;
-        width: 90px;
+        margin-top: 0.8em;
+        width: 80px;
         text-align: center;
         line-height: 1.2em;
     }
 
     .tradingScale {
-        line-height: 70px;
-        font-size: 55px;
+        line-height: 64px;
+        font-size: 48px;
         color: var(--blueOne);
     }
 
     .rookiesOrVets {
-        height: 65px;
+        height: 58px;
         vertical-align: middle;
     }
 
@@ -88,12 +96,12 @@
     }
 
     .rebuildOrWin {
-        height: 70px;
+        height: 64px;
     }
 
     .valuePosition {
-        line-height: 70px;
-        font-size: 25px;
+        line-height: 64px;
+        font-size: 24px;
         color: var(--fff);
     }
 
@@ -149,8 +157,12 @@
     }
 
     .favoritePlayer {
-        height: 65px;
+        height: 58px;
         vertical-align: bottom;
+    }
+
+    .beverageIcon {
+        height: 52px;
     }
 
     /* media queries */
@@ -252,10 +264,31 @@
                 Win Now or Rebuild?
             </div>
             <div class="infoIcon">
-                <img class="rebuildOrWin" src="/{viewManager.mode.replace(' ', '%20')}.png" alt="win now or rebuild"/>
+                {#if modeIcon}
+                    <img class="rebuildOrWin" src="{modeIcon}" alt="win now or rebuild"/>
+                {:else}
+                    <img class="rebuildOrWin" src="/managers/question.jpg" alt="win now or rebuild"/>
+                {/if}
             </div>
             <div class="infoAnswer">
                 {viewManager.mode}
+            </div>
+        </div>
+    {/if}
+    {#if viewManager.beverage}
+        <div class="infoSlot">
+            <div class="infoLabel">
+                Beverage of Choice
+            </div>
+            <div class="infoIcon">
+                {#if beverageIcon}
+                    <img class="beverageIcon" src="{beverageIcon}" alt="{viewManager.beverage} icon"/>
+                {:else}
+                    <span class="valuePosition">{viewManager.beverage}</span>
+                {/if}
+            </div>
+            <div class="infoAnswer">
+                {viewManager.beverage}
             </div>
         </div>
     {/if}

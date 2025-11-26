@@ -1,0 +1,10 @@
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Chocolate milk icon">
+  <rect width="80" height="80" rx="16" fill="#2b1a12"/>
+  <path d="M30 16h20l4 10v30a10 10 0 0 1-10 10H36a10 10 0 0 1-10-10V26z" fill="#fdf9f2"/>
+  <path d="M28 24h24v22a12 12 0 0 1-12 12h-0.5A12 12 0 0 1 28 46z" fill="#8d4a27" opacity=".85"/>
+  <path d="M36 20h8l2 6H34z" fill="#c8d6f0"/>
+  <path d="M34 30h12v4H34zm0 8h12v4H34z" fill="#f7e0c1"/>
+  <circle cx="40" cy="50" r="8" fill="#4e2b1a"/>
+  <text x="40" y="70" fill="#fff" font-size="10" font-weight="700" text-anchor="middle">CHOCOLATE</text>
+  <text x="40" y="60" fill="#fff" font-size="10" font-weight="700" text-anchor="middle">MILK</text>
+</svg>
