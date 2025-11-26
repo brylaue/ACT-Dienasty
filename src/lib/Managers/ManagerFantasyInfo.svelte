@@ -249,10 +249,10 @@
     {#if viewManager.mode}
         <div class="infoSlot">
             <div class="infoLabel">
-                Win Now or Rebuild?
+                Goals
             </div>
             <div class="infoIcon">
-                <img class="rebuildOrWin" src="/{viewManager.mode.replace(' ', '%20')}.png" alt="win now or rebuild"/>
+                <img class="rebuildOrWin" src="/{viewManager.mode.replace(' ', '%20')}.png" alt="manager goals"/>
             </div>
             <div class="infoAnswer">
                 {viewManager.mode}
