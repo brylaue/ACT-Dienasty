@@ -1,7 +1,7 @@
 <script>
     import { goto } from "$app/navigation";
 	import { getDatesActive, getRosterIDFromManagerID, getTeamNameFromTeamManagers } from "$lib/utils/helperFunctions/universalFunctions";
-    import {dynasty} from "$lib/utils/leagueInfo"
+    import { dynasty, managerModeImages } from "$lib/utils/leagueInfo";
 
     let { manager, leagueTeamManagers, key } = $props();
 
@@ -19,6 +19,10 @@
     }
 
     const commissioner = manager.managerID ? leagueTeamManagers.users[manager.managerID].is_owner : false;
+
+    $: modeIcon = manager.mode
+        ? managerModeImages[manager.mode.toLowerCase()]
+        : null;
 </script>
 
 <style>
@@ -300,7 +304,11 @@
             <div class="infoSlot infoRebuild">
                 {#if manager.mode}
                     <div class="infoIcon">
-                        <img class="infoImg" src="/{manager.mode.replace(' ', '%20')}.png" alt="win now or rebuild"/>
+                        {#if modeIcon}
+                            <img class="infoImg" src="{modeIcon}" alt="win now or rebuild"/>
+                        {:else}
+                            <img class="infoImg" src="/managers/question.jpg" alt="win now or rebuild"/>
+                        {/if}
                     </div>
                     <div class="infoAnswer">
                         {manager.mode}

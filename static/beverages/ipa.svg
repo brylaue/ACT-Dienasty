@@ -1,0 +1,9 @@
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="IPA pint icon">
+  <rect width="80" height="80" rx="16" fill="#0b1c26"/>
+  <path d="M27 12h26l-4 54a6 6 0 0 1-6 5h-6a6 6 0 0 1-6-5z" fill="#ffb347"/>
+  <path d="M27 12h26l-.6 8H27.6z" fill="#fff4d5"/>
+  <path d="M31 20h18l-2.6 36A4.5 4.5 0 0 1 42 60h-4a4.5 4.5 0 0 1-4.4-4z" fill="#f79526" opacity=".9"/>
+  <path d="M30 32h20" stroke="#ffd87a" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+  <path d="M32 44h15" stroke="#ffd87a" stroke-width="3" stroke-linecap="round" opacity=".5"/>
+  <text x="40" y="72" fill="#fff" font-size="12" font-weight="700" text-anchor="middle">IPA</text>
+</svg>

@@ -1,0 +1,21 @@
+<svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Survive and vibe icon">
+  <defs>
+    <linearGradient id="sun-grad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ffef96"/>
+      <stop offset="100%" stop-color="#ffcf48"/>
+    </linearGradient>
+    <linearGradient id="sky-grad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#42a5f5"/>
+      <stop offset="100%" stop-color="#7bc6ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="20" fill="url(#sky-grad)"/>
+  <circle cx="72" cy="24" r="14" fill="url(#sun-grad)" stroke="#f6ae2d" stroke-width="2"/>
+  <path d="M16 64c10-6 20-6 30 0s20 6 30 0c6-4 12-4 18-2v18H16z" fill="#0b3954" opacity=".9"/>
+  <path d="M30 36c9 0 12 8 12 18 0 10-3 18-12 18-3 0-6-1-9-2 5-14 6-22 0-30 3-2 6-4 9-4z" fill="#1b5e20"/>
+  <path d="M34 32c6 0 10 4 10 10 0 7-3 10-7 10-1 6-4 11-8 14-4-3-7-8-8-14 0 0-5-3-5-10s5-10 10-10c0-6 4-10 8-10s8 4 8 10z" fill="#2e7d32"/>
+  <path d="M54 44c8 0 15 4 18 12H36c3-8 10-12 18-12z" fill="#fff" opacity=".6"/>
+  <path d="M60 46c6 0 8 4 8 8s-2 8-8 8-8-4-8-8 2-8 8-8z" fill="#ff7eb6" opacity=".8"/>
+  <circle cx="58" cy="54" r="2.5" fill="#fff"/>
+  <path d="M54 68c6 3 12 3 18 0l2 12H52z" fill="#f6ae2d" opacity=".8"/>
+</svg>
