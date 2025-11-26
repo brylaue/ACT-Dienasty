@@ -8,22 +8,27 @@
     import ManagerFantasyInfo from './ManagerFantasyInfo.svelte';
     import ManagerAwards from './ManagerAwards.svelte';
     import { onMount } from 'svelte';
-	import { getDatesActive, getRosterIDFromManagerID, getTeamNameFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+import { getDatesActive, getRosterIDFromManagerID, getTeamNameFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
 
-    export let manager, managers, rostersData, leagueTeamManagers, rosterPositions, transactionsData, awards, records;
+export let manager, managers, rostersData, leagueTeamManagers, rosterPositions, transactionsData, awards, records;
 
-    let transactions = transactionsData.transactions;
+let showPhone = false;
+let transactions = transactionsData.transactions;
 
     $: viewManager = managers[manager];
 
     $: datesActive = getDatesActive(leagueTeamManagers, viewManager.managerID);
 
-    const  startersAndReserve = rostersData.startersAndReserve;
-    let rosters = rostersData.rosters;
+const  startersAndReserve = rostersData.startersAndReserve;
+let rosters = rostersData.rosters;
 
-    $: ({rosterID, year} = viewManager.managerID ? getRosterIDFromManagerID(leagueTeamManagers, viewManager.managerID) : {rosterID: viewManager.roster, year: null});
+$: ({rosterID, year} = viewManager.managerID ? getRosterIDFromManagerID(leagueTeamManagers, viewManager.managerID) : {rosterID: viewManager.roster, year: null});
 
-    $: teamTransactions = transactions.filter(t => t.rosters.includes(parseInt(rosterID)));
+$: phoneHref = viewManager.phoneNumber
+    ? `tel:${viewManager.phoneNumber.replace(/[^0-9+]/g, '')}`
+    : null;
+
+$: teamTransactions = transactions.filter(t => t.rosters.includes(parseInt(rosterID)));
 
     $: roster = rosters[rosterID];
 
@@ -122,6 +127,38 @@
         vertical-align: middle;
         padding-left: 1em;
     }
+
+.contactButton {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    font-style: italic;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+}
+
+.contactButton:focus-visible {
+    outline: 2px solid var(--blueTwo);
+    outline-offset: 2px;
+}
+
+.phoneNumber {
+    margin-left: 0.5em;
+}
+
+.phoneNumber a {
+    color: var(--blueTwo);
+    text-decoration: none;
+    font-style: normal;
+    font-weight: 500;
+}
+
+.phoneNumber a:hover {
+    text-decoration: underline;
+}
 
     .infoTeam {
         height: 48px;
@@ -247,7 +284,29 @@
             {#if viewManager.preferredContact}
                 <!-- preferredContact is an optional field -->
                 <span class="seperator">|</span>
-                <span class="infoChild">{viewManager.preferredContact}<img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="favorite team"/></span>
+                <button
+                    class="infoChild contactButton"
+                    type="button"
+                    on:click={() => showPhone = !showPhone}
+                >
+                    {viewManager.preferredContact}
+                    <img
+                        class="infoChild infoContact"
+                        src="/{viewManager.preferredContact}.png"
+                        alt="{viewManager.preferredContact} contact method"
+                    />
+                </button>
+                {#if showPhone && viewManager.phoneNumber}
+                    <span class="infoChild phoneNumber">
+                        {#if phoneHref}
+                            <a href={phoneHref}>
+                                {viewManager.phoneNumber}
+                            </a>
+                        {:else}
+                            {viewManager.phoneNumber}
+                        {/if}
+                    </span>
+                {/if}
             {/if}
             <!-- <span class="infoChild">{viewManager.preferredContact}</span> -->
             {#if viewManager.favoriteTeam}
