@@ -62,6 +62,18 @@
         manager = newManager;
         goto(`/manager?manager=${newManager}`, {noscroll});
     }
+
+    const getTelephoneLink = (phoneNumber) => {
+        if (!phoneNumber) {
+            return null;
+        }
+
+        const sanitized = phoneNumber.toString().replace(/[^\d+]/g, "");
+        return sanitized ? `tel:${sanitized}` : null;
+    };
+
+    let contactLink = null;
+    $: contactLink = getTelephoneLink(viewManager?.phoneNumber);
 </script>
 
 <style>
@@ -121,6 +133,32 @@
         height: 20px;
         vertical-align: middle;
         padding-left: 1em;
+    }
+
+    .contactInfo {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2em;
+        text-align: center;
+    }
+
+    .contactMethod {
+        display: flex;
+        align-items: center;
+        gap: 0.4em;
+    }
+
+    .contactLink {
+        font-style: normal;
+        font-weight: 600;
+        color: var(--blueTwo, #2055b5);
+        text-decoration: none;
+    }
+
+    .contactLink:hover,
+    .contactLink:focus-visible {
+        text-decoration: underline;
     }
 
     .infoTeam {
@@ -247,7 +285,22 @@
             {#if viewManager.preferredContact}
                 <!-- preferredContact is an optional field -->
                 <span class="seperator">|</span>
-                <span class="infoChild">{viewManager.preferredContact}<img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="favorite team"/></span>
+                <span class="infoChild contactInfo">
+                    <span class="contactMethod">
+                        {viewManager.preferredContact}
+                        <img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="{viewManager.preferredContact}"/>
+                    </span>
+                    {#if viewManager.phoneNumber && contactLink}
+                        <a
+                            class="contactLink"
+                            href="{contactLink}"
+                            title="{viewManager.preferredContact} {viewManager.phoneNumber}"
+                            aria-label={`Contact ${viewManager.name} via ${viewManager.preferredContact} at ${viewManager.phoneNumber}`}
+                        >
+                            {viewManager.phoneNumber}
+                        </a>
+                    {/if}
+                </span>
             {/if}
             <!-- <span class="infoChild">{viewManager.preferredContact}</span> -->
             {#if viewManager.favoriteTeam}

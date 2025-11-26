@@ -19,6 +19,18 @@
     }
 
     const commissioner = manager.managerID ? leagueTeamManagers.users[manager.managerID].is_owner : false;
+
+    const getTelephoneLink = (phoneNumber) => {
+        if (!phoneNumber) {
+            return null;
+        }
+
+        const sanitized = phoneNumber.toString().replace(/[^\d+]/g, "");
+        return sanitized ? `tel:${sanitized}` : null;
+    };
+
+    let phoneLink = null;
+    $: phoneLink = getTelephoneLink(manager.phoneNumber);
 </script>
 
 <style>
@@ -106,6 +118,35 @@
         width: 63px;
         text-align: center;
         line-height: 1.2em;
+    }
+
+    .contactLink {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-decoration: none;
+        color: inherit;
+        gap: 0.2em;
+    }
+
+    .contactLink:focus-visible {
+        outline: 2px solid var(--blueTwo);
+        border-radius: 14px;
+        outline-offset: 2px;
+    }
+
+    .contactAnswer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .phoneNumber {
+        font-size: 0.75em;
+        margin-top: 0.15em;
+        word-break: break-word;
+        color: var(--blueTwo);
+        font-style: normal;
     }
 
     .avatarHolder {
@@ -257,12 +298,30 @@
         <!-- Preferred contact -->
         <div class="infoSlot">
             {#if manager.preferredContact}
-                <div class="infoIcon">
-                    <img class="infoImg" src="/{manager.preferredContact}.png" alt="{manager.preferredContact}"/>
-                </div>
-                <div class="infoAnswer">
-                    {manager.preferredContact}
-                </div>
+                {#if manager.phoneNumber && phoneLink}
+                    <a
+                        class="contactLink"
+                        href="{phoneLink}"
+                        title="{manager.preferredContact} {manager.phoneNumber}"
+                        aria-label={`Contact ${manager.name} via ${manager.preferredContact} at ${manager.phoneNumber}`}
+                        on:click|stopPropagation
+                    >
+                        <div class="infoIcon">
+                            <img class="infoImg" src="/{manager.preferredContact}.png" alt="{manager.preferredContact}"/>
+                        </div>
+                        <div class="infoAnswer contactAnswer">
+                            <span>{manager.preferredContact}</span>
+                            <span class="phoneNumber">{manager.phoneNumber}</span>
+                        </div>
+                    </a>
+                {:else}
+                    <div class="infoIcon">
+                        <img class="infoImg" src="/{manager.preferredContact}.png" alt="{manager.preferredContact}"/>
+                    </div>
+                    <div class="infoAnswer">
+                        {manager.preferredContact}
+                    </div>
+                {/if}
             {:else}
                 <div class="infoIcon question">
                     <img class="infoImg" src="/managers/question.jpg" alt="favorite team"/>
