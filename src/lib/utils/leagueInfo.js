@@ -45,7 +45,7 @@ export const managers = [
     "photo": "/managers/lee.png",
     "fantasyStart": null,
     "favoriteTeam": "cle",
-    "mode": null,
+    "mode": "Rebuild,
     "rival": {
       "name": "Laue",
       "link": 3,
@@ -97,7 +97,7 @@ export const managers = [
     "photo": "/managers/aaron.png",
     "fantasyStart": null,
     "favoriteTeam": "cle",
-    "mode": null,
+    "mode": "Win Now",
     "rival": {
       "name": "Laue",
       "link": 3,
@@ -125,7 +125,7 @@ export const managers = [
     "photo": "/managers/laue.png",
     "fantasyStart": null,
     "favoriteTeam": "cle",
-    "mode": null,
+    "mode": "Survice + Here for the vibes",
     "rival": {
       "name": "Aaron",
       "link": 2,
@@ -229,7 +229,7 @@ export const managers = [
     "photo": "/managers/jacob.png",
     "fantasyStart": null,
     "favoriteTeam": "cle",
-    "mode": null,
+    "mode": "Win Now",
     "rival": {
       "name": "Lee",
       "link": 0,
@@ -257,7 +257,7 @@ export const managers = [
     "photo": "/managers/david.png",
     "fantasyStart": null,
     "favoriteTeam": "phi",
-    "mode": null,
+    "mode": "Win Now",
     "rival": {
       "name": "Aaron",
       "link": 2,
@@ -309,7 +309,7 @@ export const managers = [
     "photo": "/managers/cyres.png",
     "fantasyStart": null,
     "favoriteTeam": "min",
-    "mode": null,
+    "mode": "Survice + Here for the vibes",
     "rival": {
       "name": "Aaron",
       "link": 2,
