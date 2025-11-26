@@ -45,7 +45,7 @@ export const managers = [
     "photo": "/managers/lee.png",
     "fantasyStart": null,
     "favoriteTeam": "cle",
-    "mode": "Rebuild,
+    "mode": "Rebuild",
     "rival": {
       "name": "Laue",
       "link": 3,
