@@ -1,4 +1,6 @@
 <script>
+    import { dreamDraftLocationImages } from '$lib/utils/leagueInfo';
+
     export let viewManager, players, changeManager;
 </script>
 
@@ -13,6 +15,10 @@
         border-bottom: 1px solid var(--aaa);
         border-top: 1px solid var(--aaa);
         box-shadow: 0 0 8px 4px var(--ccc);
+    }
+
+    .dreamLocation {
+        height: 60px;
     }
 
     .infoSlot {
@@ -205,6 +211,23 @@
             </div>
             <div class="infoAnswer">
                 {viewManager.tradingScale} out of 10
+            </div>
+        </div>
+    {/if}
+    {#if viewManager.dreamDraftLocation}
+        <div class="infoSlot">
+            <div class="infoLabel">
+                Dream Draft Location
+            </div>
+            <div class="infoIcon">
+                {#if dreamDraftLocationImages[viewManager.dreamDraftLocation]}
+                    <img class="dreamLocation" src="{dreamDraftLocationImages[viewManager.dreamDraftLocation]}" alt="dream draft location icon"/>
+                {:else}
+                    <span class="valuePosition">{viewManager.dreamDraftLocation}</span>
+                {/if}
+            </div>
+            <div class="infoAnswer">
+                {viewManager.dreamDraftLocation}
             </div>
         </div>
     {/if}
