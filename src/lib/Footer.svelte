@@ -54,13 +54,13 @@
 		background-color: var(--f8f8f8);
 		width: 100%;
         display: block;
-        position: absolute;
-        bottom: 0;
+        position: relative;
 		z-index: 1;
 		border-top: 1px solid #920505;
 		padding: 30px 0 60px;
 		text-align: center;
 		color: #777;
+		margin-top: 3em;
 	}
 
 	#navigation {
@@ -98,8 +98,6 @@
 		margin-top: 0;
 	}
 </style>
-
-<div class="footerSpacer" style="height: {footerHeight}px;" />
 
 <!-- footer with update notice -->
 <footer bind:this={el}>
