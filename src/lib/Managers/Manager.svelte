@@ -123,6 +123,15 @@
         padding-left: 1em;
     }
 
+    .contactLink {
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+
+    .contactLink:hover {
+        opacity: 0.7;
+    }
+
     .infoTeam {
         height: 48px;
     }
@@ -247,7 +256,13 @@
             {#if viewManager.preferredContact}
                 <!-- preferredContact is an optional field -->
                 <span class="seperator">|</span>
-                <span class="infoChild">{viewManager.preferredContact}<img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="favorite team"/></span>
+                {#if viewManager.phoneNumber}
+                    <a href="sms:{viewManager.phoneNumber}" class="infoChild contactLink" style="text-decoration: none; color: inherit;" title="Text {viewManager.phoneNumber}">
+                        {viewManager.preferredContact}<img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="contact method"/>
+                    </a>
+                {:else}
+                    <span class="infoChild">{viewManager.preferredContact}<img class="infoChild infoContact" src="/{viewManager.preferredContact}.png" alt="contact method"/></span>
+                {/if}
             {/if}
             <!-- <span class="infoChild">{viewManager.preferredContact}</span> -->
             {#if viewManager.favoriteTeam}
