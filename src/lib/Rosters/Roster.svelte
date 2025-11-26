@@ -119,6 +119,8 @@
 
 	let innerWidth;
 
+	$: rosterWidth = innerWidth * 0.95 > 280 ? 280 : innerWidth * 0.95;
+
 	const calcHeight = () => {
 		const multiplier = 52;
 		const benchLength = finalBench.length * multiplier + 53;
@@ -143,11 +145,6 @@
 <svelte:window bind:innerWidth={innerWidth} />
 
 <style>
-	h5 {
-    text-align: center;
-		margin: 0.2em auto;
-	}
-	
 	.teamAvatar {
 		vertical-align: middle;
 		border-radius: 50%;
@@ -275,7 +272,7 @@
 </style>
 
 <div class="team">
-	<DataTable class="teamInner" table$aria-label="Team Name" style="width: {innerWidth * 0.95 > 280 ? 280 : innerWidth * 0.95}px;" >
+	<DataTable class="teamInner" table$aria-label="Team Name" style="width: {rosterWidth}px;" >
 		<Head> <!-- Team name  -->
 			<Row>
 				<Cell colspan=4 class="r_{division} clickable" style="padding: 12px 0;">
@@ -303,7 +300,7 @@
 		</Body>
 	</DataTable>
 	<div class="rosterBench" style="max-height: {selected}">
-		<DataTable class="teamInner" style="width: {innerWidth * 0.95 > 280 ? 280 : innerWidth * 0.95}px;" >
+		<DataTable class="teamInner" style="width: {rosterWidth}px;" >
 			<Body class="bench">
 				<!-- 	Bench	 -->
 				{#each finalBench as bench}

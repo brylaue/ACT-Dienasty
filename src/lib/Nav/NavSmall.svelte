@@ -50,9 +50,7 @@
 	.nav-back {
 		position: fixed;
 		z-index: 8;
-		width: 100%;
 		width: 100vw;
-		height: 100%;
 		height: 100vh;
 		top: 0;
 		left: 0;

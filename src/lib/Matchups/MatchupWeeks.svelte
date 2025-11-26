@@ -29,10 +29,6 @@
 
     let matchupArray = [];
 
-    // rand is used as a hacky way to make sure that the each block re-renders when the matchupArray changes
-    // the new arrays are too similar to the old ones for Svelte to pick up the difference
-    let rand;
-
     const processDisplayMatchup = (newWeek) => {
         const matchup = matchupWeeks[newWeek-1];
         const allMatchups = matchup.matchups;
@@ -40,7 +36,6 @@
         for (const key in allMatchups) {
             matchupArray.push(allMatchups[key]);
         }
-        rand = Math.random();
     }
 
     let active;
@@ -118,7 +113,7 @@
             <span class="spacer" />
         {/if}
     </div>
-    {#each matchupArray as matchup, ix (rand * (ix + 1))}
+    {#each matchupArray as matchup, ix (`${displayWeek}-${matchup[0].roster_id}-${matchup[1].roster_id}`)}
         <Matchup {ix} {matchup} {players} {displayWeek} bind:active={active} {leagueTeamManagers} />
     {/each}
 </div>

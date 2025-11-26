@@ -5,49 +5,23 @@
 	import { onMount } from 'svelte';
 
 	let outOfDate = $state(false);
-
-    let el, footerHeight;
-
-    let innerWidth;
-
-    const resize = (e, delay) => {
-        const bottom = el?.getBoundingClientRect().bottom;
-        const top = el?.getBoundingClientRect().top;
-        if(delay) {
-            setTimeout(() => {
-                resize(e, false);
-            }, 100)
-        } else {
-            footerHeight = bottom - top;
-        }
-    }
+    let managersOutOfDate = $state(false);
 
 	onMount(async () => {
 		const res = await fetch('/api/checkVersion', {compress: true})
 		const needUpdate = await res.json();
 		outOfDate = needUpdate;
-        resize(el?.getBoundingClientRect(), true);
 	})
 
-    let managersOutOfDate = false;
     if(managers) {
         for(const manager of managers) {
             if(manager.roster && !manager.managerID) {
                 managersOutOfDate = true;
-                resize(el?.getBoundingClientRect(), true);
                 break;
             }
         }
     }
-
-	const year = new Date().getFullYear();
-
-    $effect(() => {
-        resize(el?.getBoundingClientRect(), false, innerWidth);
-    });
 </script>
-
-<svelte:window bind:innerWidth={innerWidth} />
 
 <style>
 	footer {
@@ -100,7 +74,7 @@
 </style>
 
 <!-- footer with update notice -->
-<footer bind:this={el}>
+<footer>
     {#if outOfDate}
 	    <p class="updateNotice">There is an update available for your League Page. <a href="https://github.com/nmelhado/league-page/blob/master/TRAINING_WHEELS.md#iv-updates">Follow the Update Instructions</a> to get all of the newest features!</p>
     {/if}
