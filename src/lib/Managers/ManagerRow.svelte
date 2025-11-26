@@ -24,9 +24,11 @@
 <style>
     .manager {
         display: flex;
-        justify-content: left;
+        flex-wrap: wrap;
+        justify-content: space-between;
         align-items: center;
-        padding: 1em 0;
+        gap: 0.75em;
+        padding: 1em;
         background-color: var(--fff);
         background-repeat: no-repeat;
         background-position: 15% 50%;
@@ -42,46 +44,59 @@
         background-color: bar(--eee);
     }
 
+    .primary {
+        display: flex;
+        align-items: center;
+        gap: 0.75em;
+        flex: 1 1 260px;
+        min-width: 0;
+    }
+
+    .identity {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
     .photo {
         height: 40px;
         width: 40px;
         border-radius: 100%;
         vertical-align: middle;
-        margin-left: 1em;
         box-shadow: 0 0 2px 1px var(--bbb);
     }
 
     .name {
-        text-align: center;
-        display: inline-block;
+        text-align: left;
+        display: block;
         color: var(--g555);
         line-height: 1.2em;
-        margin-left: 1em;
         font-weight: 700;
     }
 
     .team {
-        text-align: center;
-        display: inline-block;
+        text-align: left;
+        display: block;
         font-style: italic;
         line-height: 1.2em;
         color: var(--g555);
         font-weight: 300;
-        margin-left: 1em;
-    }
-
-    .spacer {
-        flex-grow: 1;
+        margin-top: 0.25em;
     }
 
     .info {
         display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.5em;
+        flex: 1 1 300px;
     }
 
     .infoSlot {
         text-align: center;
-        margin: 0 0.5em;
+        margin: 0;
         width: 63px;
+        flex: 0 0 auto;
     }
 
     .infoIcon {
@@ -144,29 +159,42 @@
         color: #fff;
     }
 
+    @media (max-width: 700px) {
+        .manager {
+            padding: 0.85em;
+        }
+
+        .primary {
+            flex: 1 1 100%;
+        }
+
+        .info {
+            justify-content: flex-start;
+        }
+
+        .infoSlot {
+            width: 58px;
+        }
+    }
+
 	@media (max-width: 665px) {
         .name {
             font-size: 0.9em;
-            margin-left: 0.5em;
         }
 
         .team {
             font-size: 0.8em;
-            margin-left: 0.5em;
         }
     }
 
 	@media (max-width: 595px) {
         .manager {
-            padding: 0.5em 0;
+            padding: 0.75em;
             margin: 0.3em 0;
             border-radius: 1.5em;
-        }
-
-        .photo {
-            height: 30px;
-            width: 30px;
-            margin-left: 0.5em;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5em;
         }
 
         .commissionerBadge {
@@ -175,9 +203,14 @@
             font-size: 0.8em;
         }
 
+        .info {
+            width: 100%;
+            gap: 0.4em;
+        }
+
         .infoSlot {
             text-align: center;
-            margin: 0 0.4em;
+            margin: 0;
             width: 56px;
         }
 
@@ -197,14 +230,16 @@
     }
 
     @media (max-width: 475px) {
+        .primary {
+            width: 100%;
+        }
+
         .name {
             font-size: 0.8em;
-            margin-left: 0.4em;
         }
 
         .team {
             font-size: 0.7em;
-            margin-left: 0.4em;
         }
 
         .photo {
@@ -245,17 +280,20 @@
 </style>
 
 <div class="manager" style="{retired ? "background-image: url(/retired.png); background-color: var(--ddd)": ""}" onclick={() => goto(`/manager?manager=${key}`)}>
-    <div class="avatarHolder">
-        <img class="photo" src="{manager.photo}" alt="{manager.name}" />
-        {#if commissioner}
-            <div class="commissionerBadge">
-                <span>C</span>
-            </div>
-        {/if}
+    <div class="primary">
+        <div class="avatarHolder">
+            <img class="photo" src="{manager.photo}" alt="{manager.name}" />
+            {#if commissioner}
+                <div class="commissionerBadge">
+                    <span>C</span>
+                </div>
+            {/if}
+        </div>
+        <div class="identity">
+            <div class="name">{manager.name}</div>
+            <div class="team">{getTeamNameFromTeamManagers(leagueTeamManagers, rosterID, year)}</div>
+        </div>
     </div>
-    <div class="name">{manager.name}</div>
-    <div class="team">{getTeamNameFromTeamManagers(leagueTeamManagers, rosterID, year)}</div>
-    <div class="spacer" />
     <div class="info">
         <!-- Favorite team (optional) -->
         <div class="infoSlot infoTeam">
