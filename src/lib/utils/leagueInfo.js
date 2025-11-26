@@ -52,7 +52,7 @@ export const managers = [
     "sideBetInterest": 7,
     "beverage": "IPA",
     "dreamDraftLocation": "Charleston, SC",
-    "phoneNumber": "9202216040",
+    "phoneNumber": "920-221-6040",
   },
   {
     "roster": 1,
@@ -236,7 +236,7 @@ export const managers = [
     "sideBetInterest": 4,
     "beverage": "Coors Light",
     "dreamDraftLocation": "Vegas",
-    "phoneNumber": "3309042508",
+    "phoneNumber": "330-904-2508",
   },
   {
     "roster": 8,
@@ -264,7 +264,7 @@ export const managers = [
     "sideBetInterest": 10,
     "beverage": "Smokey Scotch",
     "dreamDraftLocation": "Pittsburgh",
-    "phoneNumber": "7403816198",
+    "phoneNumber": "740-381-6198",
   },
   {
     "roster": 9,
@@ -316,7 +316,7 @@ export const managers = [
     "sideBetInterest": 8,
     "beverage": "Chocolate Milk",
     "dreamDraftLocation": "Anywhere",
-    "phoneNumber": "9376314074",
+    "phoneNumber": "937-631-4074",
   },
   {
     "roster": 10,
