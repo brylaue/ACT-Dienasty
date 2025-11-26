@@ -81,7 +81,7 @@ export const managers = [
   {
     "roster": 2,
     "managerID": "351402869095911424",
-    "name": "Aaron",
+    "name": "Aaron Murnan",
     "tookOver": null,
     "location": "Columbus, Ohio",
     "bio": null,
@@ -109,7 +109,7 @@ export const managers = [
   {
     "roster": 3,
     "managerID": "360567604319936512",
-    "name": "Laue",
+    "name": "Bryan Laue",
     "tookOver": null,
     "location": "Cleveland, Ohio",
     "bio": null,
@@ -137,7 +137,7 @@ export const managers = [
   {
     "roster": 3,
     "managerID": "1039283378186711040",
-    "name": "Austin",
+    "name": "Austin Graham",
     "tookOver": null,
     "location": "Cleveland, Ohio",
     "bio": null,
@@ -293,7 +293,7 @@ export const managers = [
   {
     "roster": 10,
     "managerID": "758878550358093824",
-    "name": "Cyres",
+    "name": "Cyres Cooper",
     "tookOver": null,
     "location": "Columbus, Ohio",
     "bio": null,
