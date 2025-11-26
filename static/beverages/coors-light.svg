@@ -1,12 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="70" height="70">
-  <!-- Beer can -->
-  <rect x="32" y="15" width="36" height="70" rx="2" fill="#4A90E2" stroke="#2C5F8D" stroke-width="2"/>
-  <!-- Can top -->
-  <ellipse cx="50" cy="15" rx="18" ry="5" fill="#6BA3E8" stroke="#2C5F8D" stroke-width="1.5"/>
-  <!-- Silver rim -->
-  <rect x="32" y="12" width="36" height="4" fill="#C0C0C0"/>
-  <!-- Label design -->
-  <rect x="35" y="30" width="30" height="35" fill="#FFFFFF" opacity="0.3" rx="2"/>
-  <!-- Mountain peaks (Coors style) -->
-  <path d="M 40 50 L 45 40 L 50 45 L 55 38 L 60 50 Z" fill="#FFFFFF" opacity="0.7"/>
+  <!-- Beer can body -->
+  <rect x="28" y="10" width="44" height="80" rx="3" fill="#0A4C95" stroke="#073A70" stroke-width="2"/>
+
+  <!-- Top of can -->
+  <ellipse cx="50" cy="10" rx="22" ry="5" fill="#C0C0C0" stroke="#888" stroke-width="1.5"/>
+
+  <!-- Silver band top -->
+  <rect x="28" y="8" width="44" height="5" fill="#E8E8E8" rx="1"/>
+
+  <!-- White label area -->
+  <rect x="30" y="25" width="40" height="50" fill="#FFFFFF" rx="2"/>
+
+  <!-- Mountain peaks -->
+  <g transform="translate(50, 45)">
+    <!-- Left mountain -->
+    <path d="M -15 8 L -10 -3 L -5 8 Z" fill="#4A90E2"/>
+    <!-- Center mountain (tallest) -->
+    <path d="M -8 8 L -2 -8 L 4 8 Z" fill="#2E5C8A"/>
+    <!-- Right mountain -->
+    <path d="M 1 8 L 7 -2 L 13 8 Z" fill="#5AA3E8"/>
+    <!-- Snow caps -->
+    <path d="M -10 -3 L -8 -1 L -6 -3" fill="#FFFFFF" opacity="0.9"/>
+    <path d="M -2 -8 L 1 -4 L 4 -8" fill="#FFFFFF" opacity="0.9"/>
+    <path d="M 7 -2 L 9 0 L 11 -2" fill="#FFFFFF" opacity="0.9"/>
+  </g>
+
+  <!-- "COORS LIGHT" text effect -->
+  <rect x="32" y="32" width="36" height="5" fill="#C41E3A" opacity="0.8"/>
+
+  <!-- Blue waterfall/stream under mountains -->
+  <path d="M 45 53 Q 48 58 45 63 Q 42 68 45 73" stroke="#4A90E2" stroke-width="2" fill="none" opacity="0.6"/>
+  <path d="M 55 53 Q 52 58 55 63 Q 58 68 55 73" stroke="#4A90E2" stroke-width="2" fill="none" opacity="0.6"/>
+
+  <!-- Silver band bottom -->
+  <rect x="28" y="85" width="44" height="5" fill="#C0C0C0" rx="1"/>
 </svg>
