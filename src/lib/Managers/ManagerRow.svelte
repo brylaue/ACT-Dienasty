@@ -27,6 +27,22 @@
             ? `sms:${sanitized}`
             : `tel:${sanitized}`;
     };
+
+    const beverageIcons = {
+        ipa: '/beverages/ipa.svg',
+        negroni: '/beverages/negroni.svg',
+        bourbon: '/beverages/bourbon.svg',
+        'coors-light': '/beverages/coors-light.svg',
+        'smokey-scotch': '/beverages/smokey-scotch.svg',
+        'chocolate-milk': '/beverages/chocolate-milk.svg',
+    };
+
+    const getBeverageIcon = (beverage) => {
+        if (!beverage) return null;
+        const slug = beverage.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        if (!slug) return '/beverages/beverage-default.svg';
+        return beverageIcons[slug] || '/beverages/beverage-default.svg';
+    };
 </script>
 
 <style>
@@ -132,6 +148,10 @@
 
     .contactNumber:hover {
         text-decoration: underline;
+    }
+
+    .infoBeverage .infoAnswer {
+        font-size: 0.75em;
     }
 
     .avatarHolder {
@@ -306,6 +326,21 @@
             {:else}
                 <div class="infoIcon question">
                     <img class="infoImg" src="/managers/question.jpg" alt="favorite team"/>
+                </div>
+            {/if}
+        </div>
+        <!-- Beverage -->
+        <div class="infoSlot infoBeverage">
+            {#if manager.beverage}
+                <div class="infoIcon">
+                    <img class="infoImg" src="{getBeverageIcon(manager.beverage) || '/beverages/beverage-default.svg'}" alt="{manager.beverage}"/>
+                </div>
+                <div class="infoAnswer">
+                    {manager.beverage}
+                </div>
+            {:else}
+                <div class="infoIcon question">
+                    <img class="infoImg" src="/managers/question.jpg" alt="beverage"/>
                 </div>
             {/if}
         </div>

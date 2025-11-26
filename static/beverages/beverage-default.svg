@@ -1,0 +1,8 @@
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+  <rect width="80" height="80" rx="18" fill="#f2f2f2"/>
+  <circle cx="40" cy="34" r="18" fill="#d1d1d1"/>
+  <path d="M30 52h20v8a4 4 0 0 1-4 4H34a4 4 0 0 1-4-4v-8z" fill="#c0c0c0"/>
+  <text x="40" y="58" text-anchor="middle" font-size="12" font-family="'Inter', 'Arial', sans-serif" fill="#555">
+    BVG
+  </text>
+</svg>

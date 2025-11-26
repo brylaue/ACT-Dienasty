@@ -70,6 +70,22 @@
             ? `sms:${sanitized}`
             : `tel:${sanitized}`;
     };
+
+    const beverageIcons = {
+        ipa: '/beverages/ipa.svg',
+        negroni: '/beverages/negroni.svg',
+        bourbon: '/beverages/bourbon.svg',
+        'coors-light': '/beverages/coors-light.svg',
+        'smokey-scotch': '/beverages/smokey-scotch.svg',
+        'chocolate-milk': '/beverages/chocolate-milk.svg',
+    };
+
+    const getBeverageIcon = (beverage) => {
+        if (!beverage) return null;
+        const slug = beverage.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        if (!slug) return '/beverages/beverage-default.svg';
+        return beverageIcons[slug] || '/beverages/beverage-default.svg';
+    };
 </script>
 
 <style>
@@ -152,6 +168,21 @@
 
     .contactLink:hover .contactNumberInline {
         text-decoration: underline;
+    }
+
+    .beverageChip {
+        font-style: normal;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4em;
+    }
+
+    .infoBeverageIcon {
+        height: 28px;
+        width: 28px;
+        border-radius: 50%;
+        border: 1px solid #ddd;
+        background-color: #fff;
     }
 
     .infoTeam {
@@ -302,6 +333,13 @@
                 {:else}
                     <span class="infoChild contactNumberInline">{viewManager.phoneNumber}</span>
                 {/if}
+            {/if}
+            {#if viewManager.beverage}
+                <span class="seperator">|</span>
+                <span class="infoChild beverageChip">
+                    <img class="infoBeverageIcon" src="{getBeverageIcon(viewManager.beverage) || '/beverages/beverage-default.svg'}" alt="favorite beverage"/>
+                    <span>{viewManager.beverage}</span>
+                </span>
             {/if}
             {#if viewManager.favoriteTeam}
                 <!-- favoriteTeam is an optional field -->

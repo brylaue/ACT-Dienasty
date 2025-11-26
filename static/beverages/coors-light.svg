@@ -1,0 +1,13 @@
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+  <rect width="80" height="80" rx="18" fill="#e7edf4"/>
+  <path d="M28 18h24l-3 36a9 9 0 0 1-9 8h-0.5a9 9 0 0 1-9-8z" fill="#c9d6e4"/>
+  <rect x="28" y="18" width="24" height="7" rx="3.5" fill="#ffffff" opacity="0.9"/>
+  <path d="M30 36h20v14a6 6 0 0 1-6 6h-8a6 6 0 0 1-6-6z" fill="#96a7b8"/>
+  <path d="M34 40l6-8 6 10" stroke="#e2574c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="40" y="63" text-anchor="middle" font-size="11" font-family="'Inter','Arial',sans-serif" font-weight="600" fill="#4e5964">
+    COORS
+  </text>
+  <text x="40" y="72" text-anchor="middle" font-size="10" font-family="'Inter','Arial',sans-serif" fill="#4e5964">
+    LIGHT
+  </text>
+</svg>

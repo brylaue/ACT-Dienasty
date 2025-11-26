@@ -1,0 +1,14 @@
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+  <rect width="80" height="80" rx="18" fill="#ffe4da"/>
+  <path d="M28 18h24l-2 34a8 8 0 0 1-8 7h-4a8 8 0 0 1-8-7z" fill="#a3603c"/>
+  <rect x="28" y="18" width="24" height="7" rx="3.5" fill="#fff7f2" opacity="0.95"/>
+  <circle cx="34" cy="24" r="3" fill="#fef1e8" opacity="0.9"/>
+  <circle cx="46" cy="23" r="2.2" fill="#fef1e8" opacity="0.9"/>
+  <path d="M34 30h12v16a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4z" fill="#7a4025"/>
+  <text x="40" y="64" text-anchor="middle" font-size="10" font-family="'Inter','Arial',sans-serif" font-weight="600" fill="#4c2514">
+    CHOC
+  </text>
+  <text x="40" y="73" text-anchor="middle" font-size="10" font-family="'Inter','Arial',sans-serif" fill="#4c2514">
+    MILK
+  </text>
+</svg>
