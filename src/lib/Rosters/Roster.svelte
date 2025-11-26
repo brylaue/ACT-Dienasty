@@ -303,7 +303,7 @@
 		</Body>
 	</DataTable>
 	<div class="rosterBench" style="max-height: {selected}">
-		<DataTable class="teamInner" style="width: 380px" >
+		<DataTable class="teamInner" style="width: {innerWidth * 0.95 > 280 ? 280 : innerWidth * 0.95}px;" >
 			<Body class="bench">
 				<!-- 	Bench	 -->
 				{#each finalBench as bench}
