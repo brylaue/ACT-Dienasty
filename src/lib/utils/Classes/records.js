@@ -198,9 +198,11 @@ Records.prototype.finalizeAllTimeRecords = function ({
   lastYear,
 }) {
   // sort allTimeMatchupDifferentials and return the biggest blowouts and narrowest victories
+  // Exclude 2018 from All-Time Narrowest Wins and require strictly positive differential
   const [allTimeBiggestBlowouts, allTimeClosestMatchups] = sortHighAndLow(
     this.allTimeMatchupDifferentials,
     "differential",
+    { excludeYears: [2018], minDifferential: 0 },
   );
   this.allTimeBiggestBlowouts = allTimeBiggestBlowouts;
   this.allTimeClosestMatchups = allTimeClosestMatchups;

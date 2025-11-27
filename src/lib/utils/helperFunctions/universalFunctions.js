@@ -181,21 +181,29 @@ export const generateGraph = (
  * @param {string} field the field to sort on
  * @returns {arr|arr} [high, low] an array where the first element is the 10 highest records and the second is the 10 lowest elements
  */
-export const sortHighAndLow = (arr, field) => {
-	// Filter out entries with 0.00 differential or from 2018 season
-	const filtered = arr.filter(item => {
-		// If this is a matchup differential, filter out 0.00 differentials and 2018 data
-		if (field === 'differential') {
-			return item.differential > 0 && item.year !== 2018;
-		}
-		return true;
-	});
-	
-	const sorted = filtered.sort((a, b) => b[field] - a[field]);
-	const high = sorted.slice(0, 10);
-	const low = sorted.slice(-10).reverse();
-	return [high, low]
-}
+export const sortHighAndLow = (arr, field, options = {}) => {
+  const { excludeYears = [], minDifferential = null } = options;
+
+  // Apply optional filtering rules without mutating original array
+  const filtered = arr.filter((item) => {
+    if (field === "differential") {
+      // Ensure strictly positive differentials when requested
+      if (minDifferential != null && !(item.differential > minDifferential)) {
+        return false;
+      }
+      // Exclude specific years if requested
+      if (excludeYears.length && excludeYears.includes(item.year)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const sorted = filtered.sort((a, b) => b[field] - a[field]);
+  const high = sorted.slice(0, 10);
+  const low = sorted.slice(-10).reverse();
+  return [high, low];
+};
 
 /**
  * get all managers of a roster
