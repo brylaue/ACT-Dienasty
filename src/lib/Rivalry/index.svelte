@@ -1,15 +1,14 @@
 <script>
 	import Matchup from "$lib/Matchups/Matchup.svelte";
 	import TradeTransaction from "$lib/Transactions/TradeTransaction.svelte";
-	import { getLeagueRecords, getLeagueTransactions, getRivalryMatchups, loadPlayers, round } from "$lib/utils/helper";
-	import { getRosterIDFromManagerIDAndYear } from "$lib/utils/helperFunctions/universalFunctions";
+	import { getLeagueTransactions, getRivalryMatchups, loadPlayers, round } from "$lib/utils/helper";
 	import LinearProgress from '@smui/linear-progress';
 	import { onMount } from "svelte";
 	import ComparissonBar from "./ComparissonBar.svelte";
-	import ManagerSelectors from "./ManagerSelectors.svelte";
+	import TeamSelectors from "./TeamSelectors.svelte";
 	import RivalryControls from "./RivalryControls.svelte";
 
-	export let leagueTeamManagers, playersInfo, transactionsInfo, recordsInfo, playerOne, playerTwo;
+	export let leagueTeamManagers, playersInfo, transactionsInfo, teamOne, teamTwo;
 
     // refresh stale data
     onMount(async () => {
@@ -19,87 +18,70 @@
         if(playersInfo.stale) {
             playersInfo = await loadPlayers(null, true);
         }
-        if(recordsInfo.stale) {
-            recordsInfo = await getLeagueRecords(true);
-        }
     })
 
     let rivalry = null;
     let loading = true;
 
-    const analyzeRivalry = async (p1, p2) => {
+    const analyzeRivalry = async (t1, t2) => {
         loading = true;
         matchup = null;
-        if(p1 && p2) {
-            rivalry = await getRivalryMatchups(p1, p2);
+        selected = 0;
+        if(t1 && t2) {
+            rivalry = await getRivalryMatchups(t1, t2);
             loading = false;
         }
     }
 
-    $: analyzeRivalry(playerOne, playerTwo);
+    $: analyzeRivalry(teamOne, teamTwo);
 
     let selected = 0;
 
     $: matchup = rivalry?.matchups[selected]?.matchup;
     $: displayWeek = rivalry?.matchups[selected]?.week;
     $: year = rivalry?.matchups[selected]?.year;
-    
-    const setTradeHistory = (p1, p2) => {
-        if(!p1 || !p2) {
+
+    // Trade history between the two franchises - simple roster membership,
+    // which automatically includes trades made by previous owners
+    const setTradeHistory = (t1, t2) => {
+        if(!t1 || !t2) {
             return [];
         }
-        const trades = transactionsInfo.transactions.filter( transaction => {
-            if(transaction.type !== "trade") {
-                return false;
-            }
-            const rosterIDOne = parseInt(getRosterIDFromManagerIDAndYear(leagueTeamManagers, playerOne, transaction.season));
-            const rosterIDTwo = parseInt(getRosterIDFromManagerIDAndYear(leagueTeamManagers, playerTwo, transaction.season));
-            if(rosterIDOne == rosterIDTwo) {
-                return false;
-            }
-            return transaction.rosters.includes(rosterIDOne) && transaction.rosters.includes(rosterIDTwo);
-        });
+        const r1 = parseInt(t1);
+        const r2 = parseInt(t2);
+        const trades = transactionsInfo.transactions.filter( transaction =>
+            transaction.type === "trade"
+            && transaction.rosters.includes(r1)
+            && transaction.rosters.includes(r2)
+        );
         const move = (arr, from, to) => {
             arr.splice(to, 0, arr.splice(from, 1)[0]);
         };
-        // reorganize trades so that they match the left-right alignment of the rivalry page
+        // align franchise one on the left and franchise two on the right
         return trades.map(t => {
-            const rosterIDOne = parseInt(getRosterIDFromManagerIDAndYear(leagueTeamManagers, playerOne, t.season));
-            const rosterIDTwo = parseInt(getRosterIDFromManagerIDAndYear(leagueTeamManagers, playerTwo, t.season));
-            const rosterOneStartLocation = t.rosters.indexOf(rosterIDOne);
-            if(rosterOneStartLocation > 0) {
-                move(t.rosters, rosterOneStartLocation, 0);
+            const oneStart = t.rosters.indexOf(r1);
+            if(oneStart > 0) {
+                move(t.rosters, oneStart, 0);
                 for(const tradeMove of t.moves) {
-                    move(tradeMove, rosterOneStartLocation, 0);
+                    move(tradeMove, oneStart, 0);
                 }
             }
-            const rosterTwoStartLocation = t.rosters.indexOf(rosterIDTwo);
+            const twoStart = t.rosters.indexOf(r2);
             const last = t.rosters.length - 1;
-            if(rosterTwoStartLocation < last) {
-                move(t.rosters, rosterTwoStartLocation, last);
+            if(twoStart < last) {
+                move(t.rosters, twoStart, last);
                 for(const tradeMove of t.moves) {
-                    move(tradeMove, rosterTwoStartLocation, last);
+                    move(tradeMove, twoStart, last);
                 }
             }
             return t;
         })
     }
 
-    $: tradeHistory = setTradeHistory(playerOne, playerTwo);
+    $: tradeHistory = setTradeHistory(teamOne, teamTwo);
 
-    const performanceOrderOne = [
-        {field: "wins", label: "Wins", unit: "wins"},
-        {field: "losses", label: "Losses", unit: "losses"},
-        {field: "ties", label: "Ties", unit: "ties"},
-    ]
-
-    const performanceOrderTwo = [
-        {field: "fptsFor", label: "Fantasy Points For", unit: "fpts"},
-        {field: "fptsAgainst", label: "Fantasy Points Against", unit: "fpts against"},
-    ]
-
-    $: playerOneRecords = recordsInfo?.regularSeasonData?.leagueManagerRecords ? recordsInfo.regularSeasonData.leagueManagerRecords[playerOne] : null;
-    $: playerTwoRecords = recordsInfo?.regularSeasonData?.leagueManagerRecords ? recordsInfo.regularSeasonData.leagueManagerRecords[playerTwo] : null;
+    const pct = (rec) => rec.games ? round(rec.wins / rec.games * 100) : 0;
+    const perGame = (rec) => rec.games ? round(rec.fpts / rec.games) : 0;
 </script>
 
 <style>
@@ -136,6 +118,12 @@
     .center {
         text-align: center;
     }
+    .noHistory {
+        text-align: center;
+        color: var(--g555);
+        font-style: italic;
+        padding: 1em 0;
+    }
     .rivalryBackdrop {
         display: block;
         width: min(920px, 90vw);
@@ -166,11 +154,11 @@
 <h2>Rivalry</h2>
 
 <div class="rivalrySelection">
-    <ManagerSelectors bind:playerOne={playerOne} bind:playerTwo={playerTwo} {leagueTeamManagers} />
+    <TeamSelectors bind:teamOne={teamOne} bind:teamTwo={teamTwo} {leagueTeamManagers} />
 </div>
 
 {#if loading }
-    {#if playerOne && playerTwo }
+    {#if teamOne && teamTwo }
         <div class="loading">
             <p>Analyzing rivalry...</p>
             <br />
@@ -185,8 +173,8 @@
             />
         </div>
     {/if}
-{:else}
-    {#if rivalry?.matchups.length > 0 }
+{:else if rivalry}
+    {#if rivalry.matchups.length > 0 }
         <div class="scoreBoard">
             <h3>Head to Head</h3>
             <!-- wins -->
@@ -195,71 +183,47 @@
             <ComparissonBar sideOne={parseFloat(round(rivalry.points.one))} sideTwo={parseFloat(round(rivalry.points.two))} label="Points" unit="pts" />
             <h3>Matchups</h3>
             <RivalryControls bind:selected={selected} {year} {displayWeek} length={rivalry.matchups.length} />
-            <Matchup key={`${playerOne}-${playerTwo}`} ix={selected} active={selected} {year} {matchup} players={playersInfo.players} {displayWeek} expandOverride={true} {leagueTeamManagers} />
+            <Matchup key={`${teamOne}-${teamTwo}`} ix={selected} active={selected} {year} {matchup} players={playersInfo.players} {displayWeek} expandOverride={true} {leagueTeamManagers} />
+        </div>
+    {:else}
+        <div class="scoreBoard">
+            <p class="noHistory">These two franchises have never met in the regular season.</p>
         </div>
     {/if}
     <div class="scoreBoard">
-        {#if playerOne && playerTwo }
-            <!-- trades -->
-            <h3>Trade History</h3>
-            <div class="trades">
-                {#each tradeHistory as transaction }
-                    <TradeTransaction players={playersInfo.players} {transaction} {leagueTeamManagers} />
-                {:else}
-                    No trades yet...
-                {/each}
-            </div>
-        {/if}
+        <!-- trades -->
+        <h3>Trade History</h3>
+        <div class="trades">
+            {#each tradeHistory as transaction }
+                <TradeTransaction players={playersInfo.players} {transaction} {leagueTeamManagers} />
+            {:else}
+                <p class="noHistory">No trades between these franchises yet...</p>
+            {/each}
+        </div>
     </div>
-    {#if playerOne && playerTwo && playerOneRecords && playerTwoRecords }
+    {#if rivalry.overall.one.games > 0 && rivalry.overall.two.games > 0 }
         <div class="scoreBoard">
-            <!-- record comparisson -->
-            <h3>Performance Comparisson</h3>
+            <!-- all-time franchise comparison, computed from every regular season game -->
+            <h3>Franchise Comparison</h3>
             <ComparissonBar
-                sideOne={parseFloat(round(
-                    playerOneRecords.wins/(playerOneRecords.wins + playerOneRecords.ties + playerOneRecords.losses) * 100
-                    ))}
-                sideTwo={parseFloat(round(
-                    playerTwoRecords.wins/(playerTwoRecords.wins + playerTwoRecords.ties + playerTwoRecords.losses) * 100
-                    ))}
-                label="Win Percentage"
+                sideOne={parseFloat(pct(rivalry.overall.one))}
+                sideTwo={parseFloat(pct(rivalry.overall.two))}
+                label="All-Time Win Percentage"
                 unit="%"
             />
-            {#each performanceOrderOne as stat }
-                <ComparissonBar
-                    sideOne={parseFloat(round(playerOneRecords[stat.field]))}
-                    sideTwo={parseFloat(round(playerTwoRecords[stat.field]))}
-                    label={stat.label}
-                    unit={stat.unit}
-                />
-            {/each}
+            <ComparissonBar sideOne={rivalry.overall.one.wins} sideTwo={rivalry.overall.two.wins} label="All-Time Wins" unit="wins" />
+            <ComparissonBar sideOne={rivalry.overall.one.losses} sideTwo={rivalry.overall.two.losses} label="All-Time Losses" unit="losses" />
             <ComparissonBar
-                sideOne={parseFloat(round(
-                    playerOneRecords.fptsFor/(playerOneRecords.wins + playerOneRecords.ties + playerOneRecords.losses)
-                    ))}
-                sideTwo={parseFloat(round(
-                    playerTwoRecords.fptsFor/(playerTwoRecords.wins + playerTwoRecords.ties + playerTwoRecords.losses)
-                    ))}
+                sideOne={parseFloat(round(rivalry.overall.one.fpts))}
+                sideTwo={parseFloat(round(rivalry.overall.two.fpts))}
+                label="All-Time Fantasy Points"
+                unit="fpts"
+            />
+            <ComparissonBar
+                sideOne={parseFloat(perGame(rivalry.overall.one))}
+                sideTwo={parseFloat(perGame(rivalry.overall.two))}
                 label="Fantasy Points per Game"
                 unit="fpts/game"
-            />
-            {#each performanceOrderTwo as stat }
-                <ComparissonBar
-                    sideOne={parseFloat(round(playerOneRecords[stat.field]))}
-                    sideTwo={parseFloat(round(playerTwoRecords[stat.field]))}
-                    label={stat.label}
-                    unit={stat.unit}
-                />
-            {/each}
-            <ComparissonBar
-                sideOne={parseFloat(round(
-                    playerOneRecords.fptsFor/playerOneRecords.potentialPoints * 100
-                    ))}
-                sideTwo={parseFloat(round(
-                    playerTwoRecords.fptsFor/playerTwoRecords.potentialPoints * 100
-                    ))}
-                label="Lineup IQ"
-                unit="%"
             />
         </div>
     {/if}

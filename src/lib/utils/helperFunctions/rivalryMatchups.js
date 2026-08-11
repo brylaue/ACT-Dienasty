@@ -1,170 +1,218 @@
 import { getLeagueData } from "./leagueData";
 import { leagueID } from "$lib/utils/leagueInfo";
-import { getNflState } from "./nflState";
 import { waitForAll } from "./multiPromise";
-import { getRosterIDFromManagerIDAndYear } from "$lib/utils/helperFunctions/universalFunctions";
-import { getLeagueTeamManagers } from "./leagueTeamManagers";
+import { retryFetch } from "$lib/utils/errorHandler";
 
-export const getRivalryMatchups = async (userOneID, userTwoID) => {
-  if (!userOneID || !userTwoID) {
-    return;
-  }
+/*
+  Franchise-based rivalry engine.
 
-  let curLeagueID = leagueID;
+  Rivalries are computed by roster ID (the franchise), not by manager/user ID.
+  Roster IDs are stable across every season of a chained dynasty league, so
+  ownership changes and display-name changes no longer split or lose history.
 
-  const [nflState, teamManagers] = await waitForAll(
-    getNflState(),
-    getLeagueTeamManagers(),
-  ).catch((err) => {
-    console.error(err);
+  Season matchup data is cached per league ID, so switching between rivalry
+  pairs after the first load is instant instead of refetching ~120 weeks.
+*/
+
+// leagueID -> Promise<{ year, previousLeagueID, weeks }>
+const seasonCache = {};
+
+// Pre-baked matchup history, generated weekly by scripts/build-rivalry-data.mjs
+// and committed to static/data/. One CDN-cached request covers every completed
+// season; only the current in-progress season is fetched live from Sleeper.
+let bakedPromise = null;
+const loadBaked = () => {
+  if (bakedPromise) return bakedPromise;
+  bakedPromise = fetch("/data/rivalry-matchups.json")
+    .then((res) => (res.ok ? res.json() : null))
+    .catch(() => null);
+  return bakedPromise;
+};
+
+const loadSeason = (curLeagueID) => {
+  if (seasonCache[curLeagueID]) return seasonCache[curLeagueID];
+  seasonCache[curLeagueID] = (async () => {
+    // completed seasons never change - serve them from the baked file
+    const baked = await loadBaked();
+    const bakedSeason = baked?.seasons?.[curLeagueID];
+    if (bakedSeason && bakedSeason.status == "complete") {
+      return bakedSeason;
+    }
+
+    const leagueData = await getLeagueData(curLeagueID);
+    if (!leagueData || leagueData.error) {
+      throw new Error(`Failed to load league data for ${curLeagueID}`);
+    }
+    const year = leagueData.season;
+    const playoffWeekStart = leagueData.settings.playoff_week_start || 15;
+
+    const matchupsPromises = [];
+    for (let i = 1; i < playoffWeekStart; i++) {
+      matchupsPromises.push(
+        retryFetch(
+          `https://api.sleeper.app/v1/league/${curLeagueID}/matchups/${i}`,
+        )
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null),
+      );
+    }
+    const weeksRaw = await waitForAll(...matchupsPromises);
+
+    // group each week's entries by matchup_id once, so every rivalry pair
+    // reuses the same pre-grouped data
+    const weeks = weeksRaw.map((weekEntries) => {
+      if (!weekEntries || !weekEntries.length) return null;
+      const groups = {};
+      for (const entry of weekEntries) {
+        if (entry.matchup_id == null) continue;
+        if (!groups[entry.matchup_id]) groups[entry.matchup_id] = [];
+        groups[entry.matchup_id].push({
+          roster_id: entry.roster_id,
+          starters: entry.starters,
+          points: entry.starters_points,
+        });
+      }
+      return groups;
+    });
+
+    return {
+      year,
+      previousLeagueID: leagueData.previous_league_id,
+      weeks,
+    };
+  })().catch(async (err) => {
+    // live fetch failed: last week's baked copy beats an error screen
+    const baked = await loadBaked();
+    if (baked?.seasons?.[curLeagueID]) {
+      return baked.seasons[curLeagueID];
+    }
+    throw err;
   });
+  // let a failed season be retried on the next selection
+  seasonCache[curLeagueID].catch(() => {
+    delete seasonCache[curLeagueID];
+  });
+  return seasonCache[curLeagueID];
+};
 
-  let week = 1;
-  if (nflState.season_type == "regular") {
-    week = nflState.display_week;
-  } else if (nflState.season_type == "post") {
-    week = 18;
+const totalPoints = (side) =>
+  (side.points || []).reduce((t, v) => t + (v || 0), 0);
+
+const emptyRecord = () => ({ wins: 0, losses: 0, ties: 0, fpts: 0, games: 0 });
+
+const tallyGame = (record, pts, oppPts) => {
+  record.games++;
+  record.fpts += pts;
+  if (pts > oppPts) record.wins++;
+  else if (pts < oppPts) record.losses++;
+  else record.ties++;
+};
+
+export const getRivalryMatchups = async (rosterIDOne, rosterIDTwo) => {
+  rosterIDOne = parseInt(rosterIDOne);
+  rosterIDTwo = parseInt(rosterIDTwo);
+  if (!rosterIDOne || !rosterIDTwo || rosterIDOne == rosterIDTwo) {
+    return null;
   }
 
   const rivalry = {
-    points: {
-      one: 0,
-      two: 0,
-    },
-    wins: {
-      one: 0,
-      two: 0,
-    },
+    points: { one: 0, two: 0 },
+    wins: { one: 0, two: 0 },
     ties: 0,
     matchups: [],
+    // all-time regular season records for each franchise (vs the whole league)
+    overall: { one: emptyRecord(), two: emptyRecord() },
   };
 
+  let curLeagueID = leagueID;
   while (curLeagueID && curLeagueID != 0) {
-    const leagueData = await getLeagueData(curLeagueID).catch((err) => {
-      console.error(err);
-    });
-    const year = leagueData.season;
-    const rosterIDOne = getRosterIDFromManagerIDAndYear(
-      teamManagers,
-      userOneID,
-      year,
-    );
-    const rosterIDTwo = getRosterIDFromManagerIDAndYear(
-      teamManagers,
-      userTwoID,
-      year,
-    );
-    if (!rosterIDOne || !rosterIDTwo || rosterIDOne == rosterIDTwo) {
-      curLeagueID = leagueData.previous_league_id;
-      week = 18;
-      continue;
+    let season;
+    try {
+      season = await loadSeason(curLeagueID);
+    } catch (err) {
+      console.error(`Skipping rivalry season ${curLeagueID}:`, err);
+      break;
     }
 
-    // pull in all matchup data for the season
-    const matchupsPromises = [];
-    for (let i = 1; i < leagueData.settings.playoff_week_start; i++) {
-      matchupsPromises.push(
-        fetch(
-          `https://api.sleeper.app/v1/league/${curLeagueID}/matchups/${i}`,
-          { compress: true },
-        ),
-      );
-    }
-    const matchupsRes = await waitForAll(...matchupsPromises);
+    for (let weekIx = 0; weekIx < season.weeks.length; weekIx++) {
+      const groups = season.weeks[weekIx];
+      if (!groups) continue;
+      const week = weekIx + 1;
 
-    // convert the json matchup responses
-    const matchupsJsonPromises = [];
-    for (const matchupRes of matchupsRes) {
-      const data = matchupRes.json();
-      matchupsJsonPromises.push(data);
-      if (!matchupRes.ok) {
-        throw new Error(data);
-      }
-    }
-    const matchupsData = await waitForAll(...matchupsJsonPromises)
-      .catch((err) => {
-        console.error(err);
-      })
-      .catch((err) => {
-        console.error(err);
-      });
+      for (const matchupID in groups) {
+        const pair = groups[matchupID];
+        if (pair.length != 2) continue;
+        const [a, b] = pair;
+        const aPts = totalPoints(a);
+        const bPts = totalPoints(b);
+        // skip unplayed weeks (both sides at 0 in the future)
+        if (aPts == 0 && bPts == 0) continue;
 
-    // process all the matchups
-    for (let i = 1; i < matchupsData.length + 1; i++) {
-      const processed = processRivalryMatchups(
-        matchupsData[i - 1],
-        i,
-        rosterIDOne,
-        rosterIDTwo,
-      );
-      if (processed) {
-        const { matchup, week } = processed;
-        const sideA = matchup[0];
-        const sideB = matchup[1];
-        let sideAPoints = sideA.points.reduce((t, nV) => t + nV, 0);
-        let sideBPoints = sideB.points.reduce((t, nV) => t + nV, 0);
-        rivalry.points.one += sideAPoints;
-        rivalry.points.two += sideBPoints;
-        if (sideAPoints > sideBPoints) {
-          rivalry.wins.one++;
-        } else if (sideAPoints < sideBPoints) {
-          rivalry.wins.two++;
-        } else {
-          rivalry.ties++;
+        // overall franchise records (any opponent)
+        if (a.roster_id == rosterIDOne) tallyGame(rivalry.overall.one, aPts, bPts);
+        if (b.roster_id == rosterIDOne) tallyGame(rivalry.overall.one, bPts, aPts);
+        if (a.roster_id == rosterIDTwo) tallyGame(rivalry.overall.two, aPts, bPts);
+        if (b.roster_id == rosterIDTwo) tallyGame(rivalry.overall.two, bPts, aPts);
+
+        // head-to-head
+        const ids = [a.roster_id, b.roster_id];
+        if (ids.includes(rosterIDOne) && ids.includes(rosterIDTwo)) {
+          const one = a.roster_id == rosterIDOne ? a : b;
+          const two = a.roster_id == rosterIDOne ? b : a;
+          const onePts = totalPoints(one);
+          const twoPts = totalPoints(two);
+          rivalry.points.one += onePts;
+          rivalry.points.two += twoPts;
+          if (onePts > twoPts) rivalry.wins.one++;
+          else if (onePts < twoPts) rivalry.wins.two++;
+          else rivalry.ties++;
+          rivalry.matchups.push({
+            week,
+            year: season.year,
+            matchup: [one, two],
+          });
         }
-        rivalry.matchups.push({
-          week,
-          year,
-          matchup,
-        });
       }
     }
-    curLeagueID = leagueData.previous_league_id;
-    week = 18;
+
+    curLeagueID = season.previousLeagueID;
   }
 
-  rivalry.matchups.sort((a, b) => {
-    var yearOrder = b.year - a.year;
-    var weekOrder = b.week - a.week;
-    return yearOrder || weekOrder;
-  });
-
+  rivalry.matchups.sort((a, b) => b.year - a.year || b.week - a.week);
   return rivalry;
 };
 
-const processRivalryMatchups = (
-  inputMatchups,
-  week,
-  rosterIDOne,
-  rosterIDTwo,
-) => {
-  if (!inputMatchups || inputMatchups.length == 0) {
-    return false;
-  }
-  const matchups = {};
-  for (const match of inputMatchups) {
-    if (match.roster_id == rosterIDOne || match.roster_id == rosterIDTwo) {
-      if (!matchups[match.matchup_id]) {
-        matchups[match.matchup_id] = [];
+/*
+  Build the franchise list for the selector: one entry per current roster,
+  with the full name history ("a.k.a.") across all seasons.
+*/
+export const getFranchises = (leagueTeamManagers) => {
+  const currentSeason = leagueTeamManagers.currentSeason;
+  const map = leagueTeamManagers.teamManagersMap;
+  const years = Object.keys(map)
+    .map(Number)
+    .sort((a, b) => b - a);
+
+  const franchises = [];
+  const currentRosters = map[currentSeason] || {};
+  for (const rosterID in currentRosters) {
+    const current = currentRosters[rosterID].team;
+    const names = [];
+    for (const year of years) {
+      const entry = map[year]?.[rosterID];
+      if (!entry) continue;
+      const name = entry.team?.name;
+      if (name && name != current.name && !names.includes(name)) {
+        names.push(name);
       }
-      matchups[match.matchup_id].push({
-        roster_id: match.roster_id,
-        starters: match.starters,
-        points: match.starters_points,
-      });
     }
+    franchises.push({
+      rosterID: parseInt(rosterID),
+      name: current.name,
+      avatar: current.avatar,
+      formerNames: names,
+    });
   }
-  const keys = Object.keys(matchups);
-  const matchup = matchups[keys[0]];
-  // if the two teams played each other, there will only be one matchup, or if
-  // there is one matchup that only has half the matchup, then one of the teams wasn't in the league yet
-  if (keys.length > 1 || matchup.length == 1) {
-    return;
-  }
-  // make sure that the order matches
-  if (matchup[0].roster_id == rosterIDTwo) {
-    const two = matchup.shift();
-    matchup.push(two);
-  }
-  return { matchup, week };
+  franchises.sort((a, b) => a.name.localeCompare(b.name));
+  return franchises;
 };
