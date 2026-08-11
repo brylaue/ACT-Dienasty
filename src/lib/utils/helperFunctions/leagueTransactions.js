@@ -128,9 +128,31 @@ const combThroughTransactions = async (week, currentLeagueID) => {
     currentLeagueID = leagueData.previous_league_id;
   }
 
+  // Completed seasons' transactions are pre-baked into a static archive by
+  // the weekly data refresh (scripts/build-rivalry-data.mjs), because they
+  // can never change. Loading them from one static file instead of
+  // re-fetching ~18 weeks per season from Sleeper cuts a cold load of this
+  // data from ~160 requests down to the current season's weeks only.
+  let archive = {};
+  try {
+    const archiveRes = await fetch("/data/transactions-archive.json");
+    if (archiveRes.ok) {
+      archive = (await archiveRes.json())?.seasons || {};
+    }
+  } catch (err) {
+    /* archive unavailable - fall back to fetching everything live */
+  }
+
+  let transactionsData = [];
   const transactionPromises = [];
 
   for (const singleLeagueID of leagueIDs) {
+    if (archive[singleLeagueID]) {
+      // completed season - straight from the baked archive, zero requests
+      transactionsData = transactionsData.concat(archive[singleLeagueID]);
+      week = 18;
+      continue;
+    }
     while (week > 0) {
       transactionPromises.push(
         retryFetch(
@@ -155,8 +177,6 @@ const combThroughTransactions = async (week, currentLeagueID) => {
   }
 
   const transactionsDataJson = await waitForAll(...transactionDataPromises);
-
-  let transactionsData = [];
 
   for (const transactionDataJson of transactionsDataJson) {
     if (!transactionDataJson) continue;

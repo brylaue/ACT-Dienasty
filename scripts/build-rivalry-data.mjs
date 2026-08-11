@@ -5,7 +5,7 @@
   The site loads this file instead of hammering the Sleeper API with ~120
   requests per visitor; only the current in-progress season is fetched live.
 */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -132,3 +132,60 @@ writeFileSync(
 console.log(
   `wrote static/data/rivalry-matchups.json (${chain.length} seasons)`,
 );
+
+/*
+  Transactions archive: raw Sleeper transaction arrays for COMPLETED seasons,
+  baked once and reused forever. Without this, four pages (/transactions,
+  /records, /rivalry, /manager) each trigger ~160 browser requests to Sleeper
+  on a cold load (9 seasons x 18 weeks), ~145 of which re-fetch history that
+  can never change. The client (leagueTransactions.js) loads this file and
+  only fetches the current, still-in-progress season live.
+
+  Incremental: seasons already in the file are never re-fetched, so after the
+  first bake this step costs nothing until a season newly completes.
+*/
+const ARCHIVE_PATH = join(root, "static/data/transactions-archive.json");
+let archive = { seasons: {} };
+if (existsSync(ARCHIVE_PATH)) {
+  try {
+    archive = JSON.parse(readFileSync(ARCHIVE_PATH, "utf8"));
+    archive.seasons ||= {};
+  } catch {
+    /* corrupt file - rebuild from scratch */
+    archive = { seasons: {} };
+  }
+}
+
+let archivedNew = 0;
+for (const lid of chain) {
+  if (seasons[lid].status !== "complete") continue; // only immutable seasons
+  if (archive.seasons[lid]) continue; // already baked - free
+  const weekPromises = [];
+  for (let w = 1; w <= 18; w++) {
+    weekPromises.push(
+      get(`https://api.sleeper.app/v1/league/${lid}/transactions/${w}`).catch(
+        () => [],
+      ),
+    );
+  }
+  const weeks = await Promise.all(weekPromises);
+  const all = [];
+  for (const weekTx of weeks) {
+    if (Array.isArray(weekTx)) all.push(...weekTx);
+  }
+  archive.seasons[lid] = all;
+  archivedNew++;
+  console.log(
+    `archived ${seasons[lid].year} transactions: ${all.length} entries`,
+  );
+}
+
+if (archivedNew || !existsSync(ARCHIVE_PATH)) {
+  archive.generated = new Date().toISOString();
+  writeFileSync(ARCHIVE_PATH, JSON.stringify(archive));
+  console.log(
+    `wrote static/data/transactions-archive.json (${Object.keys(archive.seasons).length} completed seasons)`,
+  );
+} else {
+  console.log("transactions archive unchanged (no newly completed seasons)");
+}

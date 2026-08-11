@@ -167,6 +167,18 @@ const winPcts = teams.map((t) => t.wins / Math.max(t.wins + t.losses + t.ties, 1
 const fptsArr = teams.map((t) => t.fpts);
 const valueArr = teams.map((t) => t.rosterValue);
 
+// previous run's ranks, so the page can show week-over-week movement
+const PR_PATH = join(root, "static/data/power-rankings.json");
+let prevRanks = {};
+if (existsSync(PR_PATH)) {
+  try {
+    const prev = JSON.parse(readFileSync(PR_PATH, "utf8"));
+    for (const t of prev.teams || []) prevRanks[t.rosterID] = t.rank;
+  } catch {
+    /* no previous data - movement just won't show this week */
+  }
+}
+
 const ranked = teams
   .map((t, ix) => ({
     ...t,
@@ -176,7 +188,11 @@ const ranked = teams
       0.2 * norm(t.rosterValue, valueArr),
   }))
   .sort((a, b) => b.composite - a.composite)
-  .map((t, ix) => ({ ...t, rank: ix + 1 }));
+  .map((t, ix) => ({
+    ...t,
+    rank: ix + 1,
+    prevRank: prevRanks[t.rosterID] ?? null,
+  }));
 
 const blurbs = await askClaudeJSON(
   `You write short, punchy one-line blurbs for a fantasy football dynasty league's weekly Power Rankings. Deadpan, confident, a little cocky for teams near the top and a little pitying for teams near the bottom - but never mean-spirited. Reply with ONLY a JSON object mapping each rosterID (as a string) to a blurb under 15 words, no trailing period. Vary phrasing and structure widely across teams - don't reuse the same setup twice.`,
@@ -273,6 +289,18 @@ for (let sim = 0; sim < SIMS; sim++) {
   finalOrder.slice(0, playoffTeams).forEach((t) => madePlayoffs[t.rosterID]++);
 }
 
+// previous run's odds, so the page can show week-over-week movement
+const ODDS_PATH = join(root, "static/data/playoff-odds.json");
+let prevPcts = {};
+if (existsSync(ODDS_PATH)) {
+  try {
+    const prev = JSON.parse(readFileSync(ODDS_PATH, "utf8"));
+    for (const t of prev.teams || []) prevPcts[t.rosterID] = t.playoffPct;
+  } catch {
+    /* no previous data - movement just won't show this week */
+  }
+}
+
 const odds = teams
   .map((t) => ({
     rosterID: t.rosterID,
@@ -281,6 +309,7 @@ const odds = teams
     losses: t.losses,
     ties: t.ties,
     playoffPct: Math.round((madePlayoffs[t.rosterID] / SIMS) * 1000) / 10,
+    prevPct: prevPcts[t.rosterID] ?? null,
   }))
   .sort((a, b) => b.playoffPct - a.playoffPct);
 

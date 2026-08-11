@@ -16,6 +16,12 @@
         loading = false;
     })();
 
+    // week-over-week odds change, rounded to 1 decimal
+    const delta = (team) => {
+        if (team.prevPct == null) return null;
+        return Math.round((team.playoffPct - team.prevPct) * 10) / 10;
+    };
+
     const colorFor = (pct) => {
         if (pct >= 75) return '#00ceb8';
         if (pct >= 40) return '#0082c3';
@@ -51,7 +57,14 @@
                     <div class="main">
                         <div class="nameRow">
                             <span class="name">{team.name}</span>
-                            <span class="pct" style="color: {colorFor(team.playoffPct)}">{team.playoffPct}%</span>
+                            <span class="pctWrap">
+                                {#if delta(team) !== null && delta(team) !== 0}
+                                    <span class="delta" class:up={delta(team) > 0} class:down={delta(team) < 0}>
+                                        {delta(team) > 0 ? '▲' : '▼'}{Math.abs(delta(team))}
+                                    </span>
+                                {/if}
+                                <span class="pct" style="color: {colorFor(team.playoffPct)}">{team.playoffPct}%</span>
+                            </span>
                         </div>
                         <div class="record">{team.wins}-{team.losses}{team.ties ? `-${team.ties}` : ''}</div>
                         <div class="barTrack">
@@ -120,6 +133,20 @@
         font-size: 1.15em;
         white-space: nowrap;
     }
+    .pctWrap {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        white-space: nowrap;
+    }
+    .delta {
+        font-size: 0.7em;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 10px;
+    }
+    .delta.up { color: #007a6c; background: rgba(0, 206, 184, 0.15); }
+    .delta.down { color: #c21a50; background: rgba(255, 42, 109, 0.12); }
     .record {
         color: var(--g999);
         font-size: 0.8em;

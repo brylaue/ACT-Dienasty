@@ -17,6 +17,9 @@
     })();
 
     const medalFor = (rank) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
+
+    // week-over-week movement: positive = climbed, negative = fell
+    const movement = (team) => team.prevRank == null ? null : team.prevRank - team.rank;
 </script>
 
 <svelte:head>
@@ -48,7 +51,16 @@
                     <div class="main">
                         <div class="nameRow">
                             <span class="name">{team.name}</span>
-                            <span class="record">{team.wins}-{team.losses}{team.ties ? `-${team.ties}` : ''}</span>
+                            <span class="right">
+                                {#if movement(team) !== null && movement(team) !== 0}
+                                    <span class="move" class:up={movement(team) > 0} class:down={movement(team) < 0}>
+                                        {movement(team) > 0 ? '▲' : '▼'}{Math.abs(movement(team))}
+                                    </span>
+                                {:else if movement(team) === 0}
+                                    <span class="move flat">–</span>
+                                {/if}
+                                <span class="record">{team.wins}-{team.losses}{team.ties ? `-${team.ties}` : ''}</span>
+                            </span>
                         </div>
                         {#if team.blurb}
                             <div class="blurb">{team.blurb}</div>
@@ -143,6 +155,21 @@
         font-size: 0.85em;
         white-space: nowrap;
     }
+    .right {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        white-space: nowrap;
+    }
+    .move {
+        font-size: 0.75em;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 10px;
+    }
+    .move.up { color: #007a6c; background: rgba(0, 206, 184, 0.15); }
+    .move.down { color: #c21a50; background: rgba(255, 42, 109, 0.12); }
+    .move.flat { color: var(--g999); background: var(--eee); }
     .blurb {
         font-style: italic;
         color: var(--g555);
