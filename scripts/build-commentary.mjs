@@ -10,6 +10,11 @@
   into it client-side exactly like it always did with the template pool -
   see src/lib/utils/helperFunctions/tradeAnalysis.js and waiverHeadlines.js.
 
+  Only bakes commentary for the CURRENT season's leagueID (src/lib/utils/
+  leagueInfo.js) - it never walks into previous_league_id / prior seasons,
+  so 2025 and earlier are never touched. Next season, updating leagueID the
+  same way you always do is all that's needed for this to follow along.
+
   Requires the ANTHROPIC_API_KEY secret. If it's not set, this step logs a
   warning and exits without writing anything - the site just keeps using
   the template pool as a fallback, so a missing/expired key never breaks
@@ -58,15 +63,13 @@ const get = async (url, retries = 5) => {
   }
 };
 
-// --- gather every trade + waiver transaction across the whole league chain ---
+// --- gather trade + waiver transactions for the CURRENT season only ---
+// (2026 leagueID above, no walk into previous_league_id / prior seasons -
+// by design: history from 2025 and earlier is never baked or re-baked,
+// this only ever looks at the current season's leagueID going forward)
 
-const seasonsRaw = [];
-let cur = leagueID;
-while (cur && cur != 0) {
-  const league = await get(`https://api.sleeper.app/v1/league/${cur}`);
-  seasonsRaw.push({ id: cur, league });
-  cur = league.previous_league_id;
-}
+const league = await get(`https://api.sleeper.app/v1/league/${leagueID}`);
+const seasonsRaw = [{ id: leagueID, league }];
 
 const allTransactions = [];
 for (const { id } of seasonsRaw) {
@@ -139,10 +142,14 @@ const digest = (transaction) => {
     type: transaction.type == "trade" ? "trade" : "waiver",
     rosters,
     moves,
+    statusUpdated: transaction.status_updated || 0,
   };
 };
 
 const digested = allTransactions.map(digest).filter(Boolean);
+// newest first: on a big backfill we want the most recent activity baked
+// before older history, since that's what people are actually looking at
+digested.sort((a, b) => b.statusUpdated - a.statusUpdated);
 
 // --- load existing baked commentary so we only pay for NEW transactions ---
 
