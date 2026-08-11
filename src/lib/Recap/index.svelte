@@ -3,6 +3,7 @@
     import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
     import { retryFetch } from '$lib/utils/errorHandler';
     import { round } from '$lib/utils/helper';
+    import { getCommentary } from '$lib/utils/helperFunctions/commentary';
 
     export let leagueTeamManagers;
 
@@ -136,15 +137,20 @@
                 benchKing.bench > Math.abs(p[0].pts - p[1].pts)
             );
 
+            // fresh, AI-written flavor lines baked weekly per year-week (see
+            // scripts/build-commentary.mjs) - falls back to the template pool
+            // below for a week that hasn't gone through a bake cycle yet
+            const baked = (await getCommentary()).recaps?.[`${year}-${week}`];
+
             recap = {
                 year, week, top, toilet, benchKing, blowout, heartbreak,
                 lines: {
                     bench: benchLost
-                        ? `left ${round(benchKing.bench)} on the bench in a game they lost — ${pickLine(BENCH_LINES, seed)}`
-                        : `left ${round(benchKing.bench)} points riding the pine — ${pickLine(BENCH_LINES, seed + 1)}`,
-                    toilet: pickLine(TOILET_LINES, seed + 2),
-                    blowout: pickLine(BLOWOUT_LINES, seed + 3),
-                    heartbreak: pickLine(HEARTBREAK_LINES, seed + 4),
+                        ? `left ${round(benchKing.bench)} on the bench in a game they lost — ${baked?.bench || pickLine(BENCH_LINES, seed)}`
+                        : `left ${round(benchKing.bench)} points riding the pine — ${baked?.bench || pickLine(BENCH_LINES, seed + 1)}`,
+                    toilet: baked?.toilet || pickLine(TOILET_LINES, seed + 2),
+                    blowout: baked?.blowout || pickLine(BLOWOUT_LINES, seed + 3),
+                    heartbreak: baked?.heartbreak || pickLine(HEARTBREAK_LINES, seed + 4),
                 },
             };
         } catch (err) {
