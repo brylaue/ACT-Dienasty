@@ -75,10 +75,67 @@ const loadSeason = (curLeagueID) => {
       return groups;
     });
 
+    // playoff games come from the winners bracket (consolation excluded)
+    const playoffGames = [];
+    const playoffWeeks = {};
+    try {
+      const bracketRes = await retryFetch(
+        `https://api.sleeper.app/v1/league/${curLeagueID}/winners_bracket`,
+      );
+      const bracket = bracketRes.ok ? await bracketRes.json() : [];
+      const resolved = (bracket || []).filter(
+        (g) => Number.isInteger(g.t1) && Number.isInteger(g.t2),
+      );
+      if (resolved.length) {
+        const weeksNeeded = [
+          ...new Set(resolved.map((g) => playoffWeekStart + g.r - 1)),
+        ];
+        const weekData = await waitForAll(
+          ...weeksNeeded.map((w) =>
+            retryFetch(
+              `https://api.sleeper.app/v1/league/${curLeagueID}/matchups/${w}`,
+            )
+              .then((res) => (res.ok ? res.json() : null))
+              .catch(() => null),
+          ),
+        );
+        weeksNeeded.forEach((w, ix) => {
+          const entries = weekData[ix];
+          if (!entries || !entries.length) return;
+          const groups = {};
+          let hasPoints = false;
+          for (const entry of entries) {
+            if (entry.matchup_id == null) continue;
+            if (!groups[entry.matchup_id]) groups[entry.matchup_id] = [];
+            groups[entry.matchup_id].push({
+              roster_id: entry.roster_id,
+              starters: entry.starters,
+              points: entry.starters_points,
+            });
+            if ((entry.points || 0) > 0) hasPoints = true;
+          }
+          if (hasPoints) playoffWeeks[w] = groups;
+        });
+        for (const g of resolved) {
+          playoffGames.push({
+            week: playoffWeekStart + g.r - 1,
+            round: g.r,
+            t1: g.t1,
+            t2: g.t2,
+            place: g.p ?? null,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Playoff bracket load failed:", err);
+    }
+
     return {
       year,
       previousLeagueID: leagueData.previous_league_id,
       weeks,
+      playoffWeeks,
+      playoffGames,
     };
   })().catch(async (err) => {
     // live fetch failed: last week's baked copy beats an error screen
@@ -122,6 +179,13 @@ export const getRivalryMatchups = async (rosterIDOne, rosterIDTwo) => {
     matchups: [],
     // all-time regular season records for each franchise (vs the whole league)
     overall: { one: emptyRecord(), two: emptyRecord() },
+    // head-to-head in the playoffs (winners bracket only)
+    playoffs: {
+      wins: { one: 0, two: 0 },
+      ties: 0,
+      points: { one: 0, two: 0 },
+      meetings: 0,
+    },
   };
 
   let curLeagueID = leagueID;
@@ -173,6 +237,39 @@ export const getRivalryMatchups = async (rosterIDOne, rosterIDTwo) => {
           });
         }
       }
+    }
+
+    // head-to-head playoff meetings (winners bracket games only)
+    for (const game of season.playoffGames || []) {
+      const ids = [game.t1, game.t2];
+      if (!(ids.includes(rosterIDOne) && ids.includes(rosterIDTwo))) continue;
+      const groups = season.playoffWeeks?.[game.week];
+      if (!groups) continue;
+      let one = null;
+      let two = null;
+      for (const matchupID in groups) {
+        for (const entry of groups[matchupID]) {
+          if (entry.roster_id == rosterIDOne) one = entry;
+          if (entry.roster_id == rosterIDTwo) two = entry;
+        }
+      }
+      if (!one || !two) continue;
+      const onePts = totalPoints(one);
+      const twoPts = totalPoints(two);
+      if (onePts == 0 && twoPts == 0) continue;
+      rivalry.playoffs.meetings++;
+      rivalry.playoffs.points.one += onePts;
+      rivalry.playoffs.points.two += twoPts;
+      if (onePts > twoPts) rivalry.playoffs.wins.one++;
+      else if (onePts < twoPts) rivalry.playoffs.wins.two++;
+      else rivalry.playoffs.ties++;
+      rivalry.matchups.push({
+        week: game.week,
+        year: season.year,
+        matchup: [one, two],
+        playoff: true,
+        place: game.place,
+      });
     }
 
     curLeagueID = season.previousLeagueID;

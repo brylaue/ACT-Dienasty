@@ -19,7 +19,7 @@ const leagueInfo = readFileSync(
 const leagueID = leagueInfo.match(/leagueID\s*=\s*"(\d+)"/)?.[1];
 if (!leagueID) throw new Error("Could not find leagueID in leagueInfo.js");
 
-const get = async (url, retries = 3) => {
+const get = async (url, retries = 5) => {
   for (let attempt = 0; ; attempt++) {
     try {
       const res = await fetch(url);
@@ -61,22 +61,58 @@ while (cur && cur != 0) {
   const weekPromises = [];
   for (let i = 1; i < playoffWeekStart; i++) {
     weekPromises.push(
-      get(`https://api.sleeper.app/v1/league/${cur}/matchups/${i}`).catch(
-        () => null,
-      ),
+      get(`https://api.sleeper.app/v1/league/${cur}/matchups/${i}`),
     );
   }
+  // any failed fetch throws and aborts the bake: better no commit than a
+  // committed file with silent holes in the history
   const weeksRaw = await Promise.all(weekPromises);
+
+  // playoff games come from the winners bracket (consolation games are not
+  // playoffs, so the losers bracket is ignored)
+  const bracket = await get(
+    `https://api.sleeper.app/v1/league/${cur}/winners_bracket`,
+  ).catch(() => []);
+  const playoffGames = [];
+  const playoffWeeks = {};
+  const resolved = (bracket || []).filter(
+    (g) => Number.isInteger(g.t1) && Number.isInteger(g.t2),
+  );
+  if (resolved.length) {
+    const weeksNeeded = [
+      ...new Set(resolved.map((g) => playoffWeekStart + g.r - 1)),
+    ];
+    const weekData = await Promise.all(
+      weeksNeeded.map((w) =>
+        get(`https://api.sleeper.app/v1/league/${cur}/matchups/${w}`),
+      ),
+    );
+    weeksNeeded.forEach((w, ix) => {
+      const grouped = groupWeek(weekData[ix]);
+      if (grouped) playoffWeeks[w] = grouped;
+    });
+    for (const g of resolved) {
+      playoffGames.push({
+        week: playoffWeekStart + g.r - 1,
+        round: g.r,
+        t1: g.t1,
+        t2: g.t2,
+        place: g.p ?? null,
+      });
+    }
+  }
 
   seasons[cur] = {
     year: league.season,
     status: league.status,
     previousLeagueID: league.previous_league_id,
     weeks: weeksRaw.map(groupWeek),
+    playoffWeeks,
+    playoffGames,
   };
   chain.push(cur);
   console.log(
-    `baked ${league.season} (${league.status}): ${seasons[cur].weeks.filter(Boolean).length} played weeks`,
+    `baked ${league.season} (${league.status}): ${seasons[cur].weeks.filter(Boolean).length} played weeks, ${playoffGames.length} playoff games`,
   );
   cur = league.previous_league_id;
 }

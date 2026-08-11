@@ -40,6 +40,8 @@
     $: matchup = rivalry?.matchups[selected]?.matchup;
     $: displayWeek = rivalry?.matchups[selected]?.week;
     $: year = rivalry?.matchups[selected]?.year;
+    $: isPlayoff = rivalry?.matchups[selected]?.playoff || false;
+    $: playoffPlace = rivalry?.matchups[selected]?.place || null;
 
     // Trade history between the two franchises - simple roster membership,
     // which automatically includes trades made by previous owners
@@ -178,11 +180,16 @@
         <div class="scoreBoard">
             <h3>Head to Head</h3>
             <!-- wins -->
-            <ComparissonBar sideOne={rivalry.wins.one} sideTwo={rivalry.wins.two} label="Wins" unit="wins" />
+            <ComparissonBar sideOne={rivalry.wins.one} sideTwo={rivalry.wins.two} label="Regular Season Wins" unit="wins" />
             <!-- points -->
-            <ComparissonBar sideOne={parseFloat(round(rivalry.points.one))} sideTwo={parseFloat(round(rivalry.points.two))} label="Points" unit="pts" />
+            <ComparissonBar sideOne={parseFloat(round(rivalry.points.one))} sideTwo={parseFloat(round(rivalry.points.two))} label="Regular Season Points" unit="pts" />
+            {#if rivalry.playoffs.meetings > 0}
+                <!-- playoff head-to-head (winners bracket games only) -->
+                <ComparissonBar sideOne={rivalry.playoffs.wins.one} sideTwo={rivalry.playoffs.wins.two} label="Playoff Wins" unit="wins" />
+                <ComparissonBar sideOne={parseFloat(round(rivalry.playoffs.points.one))} sideTwo={parseFloat(round(rivalry.playoffs.points.two))} label="Playoff Points" unit="pts" />
+            {/if}
             <h3>Matchups</h3>
-            <RivalryControls bind:selected={selected} {year} {displayWeek} length={rivalry.matchups.length} />
+            <RivalryControls bind:selected={selected} {year} {displayWeek} {isPlayoff} {playoffPlace} length={rivalry.matchups.length} />
             <Matchup key={`${teamOne}-${teamTwo}`} ix={selected} active={selected} {year} {matchup} players={playersInfo.players} {displayWeek} expandOverride={true} {leagueTeamManagers} />
         </div>
     {:else}
