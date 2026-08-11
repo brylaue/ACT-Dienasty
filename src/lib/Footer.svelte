@@ -102,5 +102,5 @@
 		</ul>
 	</div>
 	<!-- PLEASE DO NOT REMOVE THE BUILT BY -->
-	<span class="creator">Build forked from <a href="http://www.nmelhado.com/">Nicholas Melhado</a><br /></span>
+	<span class="creator">Build forked from <a href="http://www.nmelhado.com/">Nicholas Melhado</a> and significantly enhanced by brylaue<br /></span>
 </footer>
