@@ -499,10 +499,45 @@ if (predictionWeekInfo) {
         return `${s.wins || 0}-${s.losses || 0}${s.ties ? `-${s.ties}` : ""}`;
       };
 
+      // all-time head-to-head series per pairing, franchise-based by roster
+      // ID (matches how the Rivalry page tracks franchises), from the
+      // already-baked rivalry data - regular season + playoffs combined
+      let h2hFor = () => null;
+      try {
+        const rivalry = JSON.parse(readFileSync(RIVALRY_PATH, "utf8"));
+        h2hFor = (ra, rb) => {
+          let aWins = 0, bWins = 0, ties = 0;
+          for (const lid of rivalry.chain || []) {
+            const season = rivalry.seasons[lid];
+            const weekGroups = [
+              ...season.weeks.filter(Boolean),
+              ...Object.values(season.playoffWeeks || {}),
+            ];
+            for (const w of weekGroups) {
+              for (const mid in w) {
+                const entries = w[mid];
+                const ea = entries.find((e) => e.roster_id === ra);
+                const eb = entries.find((e) => e.roster_id === rb);
+                if (!ea || !eb) continue;
+                const pa = (ea.points || []).reduce((s, v) => s + (v || 0), 0);
+                const pb = (eb.points || []).reduce((s, v) => s + (v || 0), 0);
+                if (pa > pb) aWins++;
+                else if (pb > pa) bWins++;
+                else ties++;
+              }
+            }
+          }
+          return aWins + bWins + ties > 0 ? { aWins, bWins, ties } : null;
+        };
+      } catch {
+        /* rivalry data unavailable - predictions just won't show h2h */
+      }
+
       const matchupList = validPairs.map(([a, b], ix) => ({
         ix,
         a: { rosterID: a, name: nameFor(a), record: recordFor(a) },
         b: { rosterID: b, name: nameFor(b), record: recordFor(b) },
+        h2h: h2hFor(a, b),
       }));
 
       const PREDICTION_SYSTEM = `You write short, confident, deadpan matchup previews for a fantasy football dynasty league's upcoming week. You'll get a list of matchups (each with two teams and their records) and must reply with ONLY a JSON object (no markdown fences, no preamble) mapping each matchup's index (as a string) to a one-sentence preview under 20 words. Lean into records where they're lopsided, stay neutral and teasing where they're close. Vary phrasing and structure widely across matchups. NEVER use "irreconcilable differences," "philosophical differences," "creative differences," or any close variant.`;
@@ -518,6 +553,7 @@ if (predictionWeekInfo) {
           teamB: m.b.name,
           recordA: m.a.record,
           recordB: m.b.record,
+          h2h: m.h2h, // {aWins, bWins, ties} all-time, or null
           blurb: predResult[String(m.ix)] || null,
         }));
       }

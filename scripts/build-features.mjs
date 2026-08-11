@@ -179,9 +179,52 @@ if (existsSync(PR_PATH)) {
   }
 }
 
+// All-Play record: your record if you'd played every team every week.
+// Uses the same current-season weekly data as the sim below.
+const allPlay = {};
+for (const t of teams) allPlay[t.rosterID] = { w: 0, l: 0 };
+{
+  // group scores per played week so we can rank within each week
+  const perWeek = {}; // week -> [{rosterID, pts}]
+  if (existsSync(RIVALRY_PATH)) {
+    try {
+      const rivalry = JSON.parse(readFileSync(RIVALRY_PATH, "utf8"));
+      const season = rivalry.seasons?.[leagueID];
+      if (season) {
+        season.weeks.forEach((w, ix) => {
+          if (!w) return;
+          const entries = [];
+          for (const mid in w) {
+            for (const e of w[mid]) {
+              entries.push({
+                rosterID: e.roster_id,
+                pts: (e.points || []).reduce((s, v) => s + (v || 0), 0),
+              });
+            }
+          }
+          perWeek[ix + 1] = entries;
+        });
+      }
+    } catch {
+      /* no data - all-play stays 0-0 */
+    }
+  }
+  for (const week in perWeek) {
+    for (const a of perWeek[week]) {
+      for (const b of perWeek[week]) {
+        if (a.rosterID === b.rosterID) continue;
+        if (a.pts > b.pts) allPlay[a.rosterID].w++;
+        else if (a.pts < b.pts) allPlay[a.rosterID].l++;
+      }
+    }
+  }
+}
+
 const ranked = teams
   .map((t, ix) => ({
     ...t,
+    allPlayW: allPlay[t.rosterID]?.w || 0,
+    allPlayL: allPlay[t.rosterID]?.l || 0,
     composite:
       0.5 * norm(winPcts[ix], winPcts) +
       0.3 * norm(t.fpts, fptsArr) +
@@ -324,3 +367,130 @@ writeFileSync(
   }),
 );
 console.log(`wrote static/data/playoff-odds.json (${odds.length} teams, ${remainingWeeks.length} weeks remaining, ${SIMS} sims)`);
+
+// ============================================================
+// RECORD WATCH: how this season's performances stack up against
+// all-time regular-season records (single-week highs, biggest
+// blowouts, closest games). Franchise-based by roster ID, names
+// shown as the franchise's current name. Pure math on already-
+// baked data - no AI, no extra API cost.
+// ============================================================
+
+const nameByRoster = Object.fromEntries(teams.map((t) => [t.rosterID, t.name]));
+let recordWatch = null;
+
+if (existsSync(RIVALRY_PATH)) {
+  try {
+    const rivalry = JSON.parse(readFileSync(RIVALRY_PATH, "utf8"));
+    const currentYear = parseInt(rivalry.seasons?.[leagueID]?.year);
+    const scores = []; // every single-week team score, all seasons
+    const games = []; // every head-to-head game with margin
+
+    for (const lid of rivalry.chain || []) {
+      const season = rivalry.seasons[lid];
+      const year = parseInt(season.year);
+      season.weeks.forEach((w, ix) => {
+        if (!w) return;
+        const week = ix + 1;
+        for (const mid in w) {
+          const entries = w[mid].map((e) => ({
+            rosterID: e.roster_id,
+            pts: (e.points || []).reduce((s, v) => s + (v || 0), 0),
+          }));
+          for (const e of entries) {
+            scores.push({ ...e, year, week });
+          }
+          if (entries.length === 2) {
+            const [a, b] = entries;
+            const winner = a.pts >= b.pts ? a : b;
+            const loser = a.pts >= b.pts ? b : a;
+            games.push({
+              year,
+              week,
+              margin: Math.round((winner.pts - loser.pts) * 100) / 100,
+              winnerID: winner.rosterID,
+              loserID: loser.rosterID,
+            });
+          }
+        }
+      });
+    }
+
+    const dress = (list) =>
+      list.map((e) => ({
+        ...e,
+        name: nameByRoster[e.rosterID] || `Team ${e.rosterID}`,
+        winnerName: e.winnerID != null ? nameByRoster[e.winnerID] || `Team ${e.winnerID}` : undefined,
+        loserName: e.loserID != null ? nameByRoster[e.loserID] || `Team ${e.loserID}` : undefined,
+        current: e.year === currentYear,
+      }));
+
+    const top5Highs = dress(
+      [...scores].sort((a, b) => b.pts - a.pts).slice(0, 5),
+    );
+    const top5Blowouts = dress(
+      [...games].sort((a, b) => b.margin - a.margin).slice(0, 5),
+    );
+    const top5Closest = dress(
+      [...games].sort((a, b) => a.margin - b.margin).slice(0, 5),
+    );
+
+    // best current-season challenger per category (only meaningful once
+    // the season has scores; empty preseason -> page section stays hidden)
+    const curScores = scores.filter((s) => s.year === currentYear);
+    const curGames = games.filter((g) => g.year === currentYear);
+
+    const challenger = (currentBest, top5, valueKey, higherIsBetter) => {
+      if (!currentBest) return null;
+      const inTop5 = top5.some((e) => e.current);
+      if (inTop5) return null; // already on the board - no challenger note needed
+      const threshold = top5[top5.length - 1]?.[valueKey];
+      if (threshold == null) return null;
+      const gap = higherIsBetter
+        ? Math.round((threshold - currentBest[valueKey]) * 100) / 100
+        : Math.round((currentBest[valueKey] - threshold) * 100) / 100;
+      return { ...dress([currentBest])[0], gap };
+    };
+
+    recordWatch = {
+      generated: new Date().toISOString(),
+      currentYear,
+      hasCurrentData: curScores.length > 0,
+      highs: top5Highs,
+      blowouts: top5Blowouts,
+      closest: top5Closest,
+      challengers: {
+        high: challenger(
+          [...curScores].sort((a, b) => b.pts - a.pts)[0],
+          top5Highs,
+          "pts",
+          true,
+        ),
+        blowout: challenger(
+          [...curGames].sort((a, b) => b.margin - a.margin)[0],
+          top5Blowouts,
+          "margin",
+          true,
+        ),
+        closest: challenger(
+          [...curGames].sort((a, b) => a.margin - b.margin)[0],
+          top5Closest,
+          "margin",
+          false,
+        ),
+      },
+    };
+  } catch (err) {
+    console.warn(`record watch skipped: ${err}`);
+  }
+}
+
+if (recordWatch) {
+  writeFileSync(
+    join(root, "static/data/record-watch.json"),
+    JSON.stringify(recordWatch),
+  );
+  console.log(
+    `wrote static/data/record-watch.json (current season has data: ${recordWatch.hasCurrentData})`,
+  );
+}

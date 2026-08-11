@@ -4,6 +4,7 @@
     import AllTimeRecords from './AllTimeRecords.svelte';
     import PerSeasonRecords from './PerSeasonRecords.svelte';
     import ThisSeasonSoFar from './ThisSeasonSoFar.svelte';
+    import RecordWatch from './RecordWatch.svelte';
 
     let {leagueData, totals, stale, leagueTeamManagers} = $props();;
 
@@ -109,6 +110,8 @@
 <div class="rankingsWrapper">
 
     <ThisSeasonSoFar />
+
+    <RecordWatch />
 
     <div class="buttonHolder">
         <Group variant="outlined">

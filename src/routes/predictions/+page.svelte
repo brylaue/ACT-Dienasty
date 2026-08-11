@@ -60,6 +60,18 @@
                             <span class="trecord">{m.recordB}</span>
                         </div>
                     </div>
+                    {#if m.h2h}
+                        <div class="h2h">
+                            All-time series:
+                            {#if m.h2h.aWins > m.h2h.bWins}
+                                <b>{m.teamA}</b> leads {m.h2h.aWins}–{m.h2h.bWins}{m.h2h.ties ? `–${m.h2h.ties}` : ''}
+                            {:else if m.h2h.bWins > m.h2h.aWins}
+                                <b>{m.teamB}</b> leads {m.h2h.bWins}–{m.h2h.aWins}{m.h2h.ties ? `–${m.h2h.ties}` : ''}
+                            {:else}
+                                tied {m.h2h.aWins}–{m.h2h.bWins}{m.h2h.ties ? `–${m.h2h.ties}` : ''}
+                            {/if}
+                        </div>
+                    {/if}
                     {#if m.blurb}
                         <div class="blurb">{m.blurb}</div>
                     {/if}
@@ -137,6 +149,13 @@
         flex-shrink: 0;
         padding: 0 4px;
     }
+    .h2h {
+        margin-top: 10px;
+        font-size: 0.75em;
+        color: var(--g999);
+        text-align: center;
+    }
+    .h2h b { color: var(--blueTwo); font-weight: 600; }
     .blurb {
         margin-top: 10px;
         padding-top: 10px;

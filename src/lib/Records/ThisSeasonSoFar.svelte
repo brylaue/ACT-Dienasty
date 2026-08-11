@@ -5,7 +5,11 @@
       Self-contained on purpose - doesn't touch the Records page's existing
       (and more complex) all-time record logic.
     */
-    let data = null;
+    // explicit runes mode ($state/$derived): this component lives inside the
+    // runes-mode Records parent, and leaving reactivity to legacy-mode
+    // inference silently produced a non-reactive `data` (component mounted,
+    // fetch succeeded, UI never updated)
+    let data = $state(null);
 
     (async () => {
         try {
@@ -16,9 +20,9 @@
         }
     })();
 
-    $: topScorer = data?.teams ? [...data.teams].sort((a, b) => b.fpts - a.fpts)[0] : null;
-    $: bestRecord = data?.teams ? [...data.teams].sort((a, b) => (b.wins - b.losses) - (a.wins - a.losses))[0] : null;
-    $: bestValue = data?.teams ? [...data.teams].sort((a, b) => b.rosterValue - a.rosterValue)[0] : null;
+    const topScorer = $derived(data?.teams ? [...data.teams].sort((a, b) => b.fpts - a.fpts)[0] : null);
+    const bestRecord = $derived(data?.teams ? [...data.teams].sort((a, b) => (b.wins - b.losses) - (a.wins - a.losses))[0] : null);
+    const bestValue = $derived(data?.teams ? [...data.teams].sort((a, b) => b.rosterValue - a.rosterValue)[0] : null);
 </script>
 
 {#if data?.teams?.length}

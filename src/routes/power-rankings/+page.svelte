@@ -72,6 +72,10 @@
                             <span>{team.fpts.toFixed(1)} pts for</span>
                             <span>•</span>
                             <span>roster value {Math.round(team.rosterValue).toLocaleString()}</span>
+                            {#if (team.allPlayW || 0) + (team.allPlayL || 0) > 0}
+                                <span>•</span>
+                                <span title="Your record if you'd played every team every week">all-play {team.allPlayW}-{team.allPlayL}</span>
+                            {/if}
                         </div>
                     </div>
                 </div>
