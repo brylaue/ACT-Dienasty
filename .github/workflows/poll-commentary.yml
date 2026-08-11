@@ -1,0 +1,58 @@
+name: Poll for new trades/waivers (fresh commentary)
+
+# Runs much more often than the weekly league-data refresh, so trades and
+# waiver moves get an AI-written line within ~30 min of happening instead
+# of waiting until the next Tuesday. This does NOT cost more overall: the
+# script only ever pays for transactions it hasn't seen before (cached in
+# static/data/commentary.json), so checking more often just finds smaller
+# batches of "new" each time rather than one big batch once a week - same
+# total spend, distributed finer. A run that finds nothing new commits
+# nothing and costs nothing beyond a few seconds of a free Action minute.
+#
+# Sunday Shame recap lines stay tied to the weekly job on purpose - a
+# week's score isn't final until Monday Night Football wraps, so checking
+# for finished weeks every 30 min wouldn't find anything new in between;
+# no reason to burn extra runs on it here.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *" # every 30 minutes - adjust below if you want faster/slower
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: poll-commentary
+  cancel-in-progress: false # let an in-flight run finish rather than killing it mid-write
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Check for new trades/waivers and generate fresh commentary
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node scripts/build-commentary.mjs
+        continue-on-error: true # missing/expired key just falls back to the template pool
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "league-data-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add static/data/commentary.json
+          if git diff --cached --quiet; then
+            echo "No new trades/waivers this check."
+          else
+            git commit -m "Fresh commentary for new trades/waivers"
+            # the weekly job also writes to static/data - pull --rebase first
+            # in case both happened to land at the same time
+            git pull --rebase origin master
+            git push
+          fi

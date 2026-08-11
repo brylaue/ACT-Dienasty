@@ -38,5 +38,6 @@ jobs:
             echo "No data changes this week."
           else
             git commit -m "Weekly league data refresh"
+            git pull --rebase origin master
             git push
           fi
