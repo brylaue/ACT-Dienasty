@@ -57,6 +57,11 @@ export const tabs = [
         dest: "/drafts",
       },
       {
+        icon: "style",
+        label: "Pick Tracker",
+        dest: "/picks",
+      },
+      {
         icon: "emoji_events",
         label: "Trophy Room",
         dest: "/awards",

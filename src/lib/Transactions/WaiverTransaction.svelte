@@ -1,10 +1,13 @@
 <script>
 	import { gotoManager } from '$lib/utils/helper';
 	import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+	import { waiverHeadline } from '$lib/utils/helperFunctions/waiverHeadlines';
 
 	export let transaction, players, leagueTeamManagers;
 
     const owner = transaction.rosters[0];
+
+    $: headline = waiverHeadline(transaction, players, getTeamFromTeamManagers(leagueTeamManagers, owner, transaction.season).name);
 
     const getAvatar = (pos, player) => {
         if(pos == 'DEF') {
@@ -134,6 +137,15 @@
         font-style: italic;
     }
 
+    .headline {
+        font-size: 0.75em;
+        font-style: italic;
+        color: var(--g555);
+        text-align: center;
+        padding: 0.7em 1.2em 0;
+        line-height: 1.4;
+    }
+
     .date {
         color: var(--g999);
         font-style: italic;
@@ -202,6 +214,9 @@
                 {/each}
             </div>
         </div>
+        {#if headline}
+            <div class="headline">{headline}</div>
+        {/if}
         <span class="date">
             {transaction.date}
         </span>
