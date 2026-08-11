@@ -62,6 +62,16 @@ export const tabs = [
         dest: "/picks",
       },
       {
+        icon: "casino",
+        label: "Luck Index",
+        dest: "/luck",
+      },
+      {
+        icon: "newspaper",
+        label: "Sunday Shame",
+        dest: "/recap",
+      },
+      {
         icon: "emoji_events",
         label: "Trophy Room",
         dest: "/awards",

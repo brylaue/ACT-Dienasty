@@ -29,7 +29,7 @@ const loadBaked = () => {
   return bakedPromise;
 };
 
-const loadSeason = (curLeagueID) => {
+export const loadSeason = (curLeagueID) => {
   if (seasonCache[curLeagueID]) return seasonCache[curLeagueID];
   seasonCache[curLeagueID] = (async () => {
     // completed seasons never change - serve them from the baked file
