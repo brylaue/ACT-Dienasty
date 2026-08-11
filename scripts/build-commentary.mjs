@@ -44,7 +44,12 @@ import { classifyWaiver } from "../src/lib/utils/helperFunctions/waiverHeadlines
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_PATH = join(root, "static/data/commentary.json");
-const MODEL = "claude-haiku-4-5-20251001"; // cheap/fast is plenty for one-liners
+// Model is overridable via the ANTHROPIC_MODEL env var (set it as a repo
+// Variable in GitHub Settings > Secrets and variables > Actions > Variables
+// to experiment without a code change - e.g. "claude-sonnet-4-6" for
+// better joke variety, or "claude-fable-5" for the strongest/priciest).
+// Haiku default: cheap/fast is plenty for one-liners.
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 
 const API_KEY = process.env.ANTHROPIC_API_KEY;
 if (!API_KEY) {
@@ -193,6 +198,7 @@ const newWaivers = digested.filter(
 
 const RIVALRY_PATH = join(root, "static/data/rivalry-matchups.json");
 let newRecapWeeks = [];
+let predictionWeekInfo = null; // upcoming week needing a matchup-prediction bake
 if (existsSync(RIVALRY_PATH)) {
   try {
     const rivalry = JSON.parse(readFileSync(RIVALRY_PATH, "utf8"));
@@ -206,14 +212,31 @@ if (existsSync(RIVALRY_PATH)) {
           newRecapWeeks.push({ year: season.year, week, key });
         }
       });
+      // the first unplayed week is the upcoming one - flag it here (BEFORE
+      // the early exit below) so predictions still bake on quiet runs with
+      // no new transactions or finished weeks
+      const upcomingIx = season.weeks.findIndex((w) => !w);
+      if (
+        upcomingIx !== -1 &&
+        !existing.predictions[`${season.year}-${upcomingIx + 1}`]
+      ) {
+        predictionWeekInfo = { year: season.year, week: upcomingIx + 1 };
+      }
     }
   } catch {
-    /* rivalry data missing/corrupt - skip recap baking this run */
+    /* rivalry data missing/corrupt - skip recap/prediction baking this run */
   }
 }
 
-if (!newTrades.length && !newWaivers.length && !newRecapWeeks.length) {
-  console.log("No new transactions or finished weeks since last bake - nothing to generate.");
+if (
+  !newTrades.length &&
+  !newWaivers.length &&
+  !newRecapWeeks.length &&
+  !predictionWeekInfo
+) {
+  console.log(
+    "No new transactions, finished weeks, or upcoming-week predictions since last bake - nothing to generate.",
+  );
   process.exit(0);
 }
 
@@ -442,22 +465,10 @@ for (const { year, week, key } of newRecapWeeks) {
 
 // ============================================================
 // Matchup Predictor: one AI preview per matchup for the upcoming week
-// (the first week with no scores yet), skipped once the season is over
+// (the first week with no scores yet), skipped once the season is over.
+// predictionWeekInfo was detected up top, before the early exit, so this
+// still runs on quiet weeks with no new transactions or finished weeks.
 // ============================================================
-
-let predictionWeekInfo = null;
-if (existsSync(RIVALRY_PATH)) {
-  try {
-    const rivalry = JSON.parse(readFileSync(RIVALRY_PATH, "utf8"));
-    const season = rivalry.seasons?.[leagueID];
-    if (season) {
-      const ix = season.weeks.findIndex((w) => !w);
-      if (ix !== -1) predictionWeekInfo = { year: season.year, week: ix + 1 };
-    }
-  } catch {
-    /* rivalry data missing/corrupt - skip predictions this run */
-  }
-}
 
 if (predictionWeekInfo) {
   const { year, week } = predictionWeekInfo;

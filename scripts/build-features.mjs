@@ -22,7 +22,8 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = "claude-haiku-4-5-20251001";
+// Overridable via ANTHROPIC_MODEL repo variable - see build-commentary.mjs
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 
 const leagueInfo = readFileSync(join(root, "src/lib/utils/leagueInfo.js"), "utf8");
 const leagueID = leagueInfo.match(/leagueID\s*=\s*"(\d+)"/)?.[1];
