@@ -270,7 +270,7 @@
                 Goals
             </div>
             <div class="infoIcon">
-                <img class="rebuildOrWin" src="/{viewManager.mode.replace(' ', '%20')}.png" alt="manager goals"/>
+                <img class="rebuildOrWin" src="/{viewManager.mode.replaceAll(' ', '%20')}.png" alt="manager goals"/>
             </div>
             <div class="infoAnswer">
                 {viewManager.mode}

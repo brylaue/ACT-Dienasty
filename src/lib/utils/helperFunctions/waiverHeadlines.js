@@ -39,7 +39,13 @@ const joinNames = (names) => {
   return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 };
 
-export const waiverHeadline = (transaction, players, teamName) => {
+/*
+  Pure, name-agnostic classification of a waiver move: what kind of move it
+  is (swap/add/drop) and the FAAB bid, with no player or team names
+  involved, so it can run identically in the browser and in the Node bake
+  script.
+*/
+export const classifyWaiver = (transaction, players) => {
   const adds = [];
   const drops = [];
   let bid = null;
@@ -57,9 +63,28 @@ export const waiverHeadline = (transaction, players, teamName) => {
   }
   if (!adds.length && !drops.length) return null;
 
-  const pool = adds.length && drops.length ? SWAP : adds.length ? ADD : DROP;
-  const seed = hashString(transaction.id);
-  let line = pool[seed % pool.length]
+  const category = adds.length && drops.length ? "SWAP" : adds.length ? "ADD" : "DROP";
+  return { category, adds, drops, bid };
+};
+
+/*
+  Build the final waiver headline. If a fresh, AI-written line for this
+  exact transaction is available (baked weekly into
+  static/data/commentary.json, keyed by transaction id), that's used - so
+  every move gets its own take instead of picking from a small repeating
+  pool. Falls back to the template pool for moves that haven't gone
+  through a bake cycle yet.
+*/
+export const waiverHeadline = (transaction, players, teamName, commentary) => {
+  const classified = classifyWaiver(transaction, players);
+  if (!classified) return null;
+  const { category, adds, drops, bid } = classified;
+
+  const pool = category == "SWAP" ? SWAP : category == "ADD" ? ADD : DROP;
+  const template =
+    commentary?.waivers?.[transaction.id] ||
+    pool[hashString(transaction.id) % pool.length];
+  let line = template
     .replace(/\{T\}/g, teamName)
     .replace(/\{A\}/g, joinNames(adds))
     .replace(/\{D\}/g, joinNames(drops));

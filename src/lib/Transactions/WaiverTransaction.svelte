@@ -2,12 +2,19 @@
 	import { gotoManager } from '$lib/utils/helper';
 	import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
 	import { waiverHeadline } from '$lib/utils/helperFunctions/waiverHeadlines';
+	import { getCommentary } from '$lib/utils/helperFunctions/commentary';
 
 	export let transaction, players, leagueTeamManagers;
 
     const owner = transaction.rosters[0];
 
-    $: headline = waiverHeadline(transaction, players, getTeamFromTeamManagers(leagueTeamManagers, owner, transaction.season).name);
+    let headline = waiverHeadline(transaction, players, getTeamFromTeamManagers(leagueTeamManagers, owner, transaction.season).name);
+
+    // once the baked AI commentary loads, swap in the fresh per-transaction
+    // take if one exists (falls back to the template pool above until then)
+    getCommentary().then((commentary) => {
+        headline = waiverHeadline(transaction, players, getTeamFromTeamManagers(leagueTeamManagers, owner, transaction.season).name, commentary);
+    });
 
     const getAvatar = (pos, player) => {
         if(pos == 'DEF') {

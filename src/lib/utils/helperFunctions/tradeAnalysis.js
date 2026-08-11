@@ -1,4 +1,5 @@
 import { browser } from "$app/environment";
+import { classifyTrade, gradeFor } from "./tradeClassification";
 
 /*
   Trade-o-Meter analysis engine.
@@ -8,6 +9,8 @@ import { browser } from "$app/environment";
   Values are cached in localStorage for 6 hours so the whole transactions
   page costs a single extra request at most.
 */
+
+export { classifyTrade, valueForPick } from "./tradeClassification";
 
 const FC_URL =
   "https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=0.5";
@@ -61,27 +64,6 @@ const loadValues = async () => {
   return data;
 };
 
-const ordinal = (n) =>
-  n + (["th", "st", "nd", "rd"][n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] || "th");
-
-// Estimate a pick's value: average all FantasyCalc entries matching that
-// season + round (e.g. all "2026 Pick 2.xx" slots, or "2027 2nd (Early/Mid/Late)")
-export const valueForPick = (picks, season, round) => {
-  const specific = new RegExp(`^${season} Pick ${round}\\.`);
-  const general = new RegExp(`^${season} ${ordinal(round)}`);
-  const matches = picks.filter(
-    (p) => specific.test(p.name) || general.test(p.name),
-  );
-  if (matches.length) {
-    return Math.round(
-      matches.reduce((sum, p) => sum + p.value, 0) / matches.length,
-    );
-  }
-  // fallback for rounds FantasyCalc doesn't track (4th+ rounders, far-future)
-  const fallback = { 1: 2500, 2: 800, 3: 300 };
-  return fallback[round] || 100;
-};
-
 const hashString = (str) => {
   let h = 0;
   for (let i = 0; i < String(str).length; i++) {
@@ -120,67 +102,31 @@ const VERDICTS = {
   ],
 };
 
-const gradeFor = (gapPct, isWinner) => {
-  if (gapPct < 0.08) return "B+";
-  if (gapPct < 0.2) return isWinner ? "A-" : "B";
-  if (gapPct < 0.4) return isWinner ? "A" : "C+";
-  return isWinner ? "A+" : "D";
-};
-
 /*
-  Analyze a digested trade transaction (2-team trades only).
-  Returns null when the trade can't be meaningfully graded.
+  Analyze a digested trade transaction (2-team trades only) and attach a
+  comedic verdict line. If a fresh, AI-written line for this exact
+  transaction is available (baked weekly into static/data/commentary.json,
+  keyed by transaction id), that's used - so every trade gets its own take
+  instead of picking from a small repeating pool. Falls back to the
+  template pool for trades that haven't gone through a bake cycle yet.
 */
-export const analyzeTrade = (transaction, values, teamNames) => {
-  if (transaction.type != "trade") return null;
-  if (transaction.rosters.length != 2) return null; // 3-team chaos: not today
+export const analyzeTrade = (transaction, values, teamNames, commentary) => {
+  const classified = classifyTrade(transaction, values);
+  if (!classified) return null;
+  const { totals, winnerIx, loserIx, gapPct, tier } = classified;
 
   const sides = transaction.rosters.map((rosterID, ix) => ({
     rosterID,
     name: teamNames[ix] || `Team ${rosterID}`,
-    total: 0,
-    assets: [],
-    unknowns: 0,
+    total: totals[ix],
   }));
+  const winner = sides[winnerIx];
+  const loser = sides[loserIx];
 
-  for (const move of transaction.moves) {
-    for (let ix = 0; ix < move.length; ix++) {
-      const asset = move[ix];
-      if (!asset || asset === "origin" || typeof asset !== "object") continue;
-      if (asset.player) {
-        const v = values.players[asset.player];
-        if (v == null) {
-          sides[ix].unknowns++;
-        } else {
-          sides[ix].total += v;
-        }
-      } else if (asset.pick) {
-        sides[ix].total += valueForPick(
-          values.picks,
-          asset.pick.season,
-          asset.pick.round,
-        );
-      } else if (asset.budget) {
-        // FAAB dollars are worth roughly a late-round dart throw
-        sides[ix].total += asset.budget.amount * 2;
-      }
-    }
-  }
-
-  if (sides[0].total + sides[1].total < 100) return null; // nothing gradeable
-
-  const [a, b] = sides;
-  const winner = a.total >= b.total ? a : b;
-  const loser = a.total >= b.total ? b : a;
-  const gapPct = (winner.total - loser.total) / Math.max(loser.total, 1);
-
-  let tier = "even";
-  if (gapPct >= 0.4) tier = "fleece";
-  else if (gapPct >= 0.2) tier = "clear";
-  else if (gapPct >= 0.08) tier = "edge";
-
-  const lines = VERDICTS[tier];
-  const line = lines[hashString(transaction.id) % lines.length]
+  const template =
+    commentary?.trades?.[transaction.id] ||
+    VERDICTS[tier][hashString(transaction.id) % VERDICTS[tier].length];
+  const line = template
     .replace(/\{W\}/g, winner.name)
     .replace(/\{L\}/g, loser.name);
 

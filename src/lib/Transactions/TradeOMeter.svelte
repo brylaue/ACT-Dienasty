@@ -1,6 +1,7 @@
 <script>
     import { getTradeValues, analyzeTrade } from '$lib/utils/helperFunctions/tradeAnalysis';
     import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+    import { getCommentary } from '$lib/utils/helperFunctions/commentary';
 
     export let transaction, leagueTeamManagers;
 
@@ -17,7 +18,9 @@
     );
 
     const analysisPromise = gradeable
-        ? getTradeValues().then((values) => analyzeTrade(transaction, values, teamNames))
+        ? Promise.all([getTradeValues(), getCommentary()]).then(
+            ([values, commentary]) => analyzeTrade(transaction, values, teamNames, commentary)
+        )
         : Promise.resolve(null);
 </script>
 
