@@ -2,6 +2,7 @@
 	import { gotoManager } from '$lib/utils/helper';
 	import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
 	import TransactionMove from './TransactionMove.svelte';
+	import TradeOMeter from './TradeOMeter.svelte';
 
 	export let transaction, players, leagueTeamManagers;
 </script>
@@ -117,6 +118,7 @@
             {/each}
         </tbody>
     </table>
+    <TradeOMeter {transaction} {leagueTeamManagers} />
     <span class="date">
         {transaction.date}
     </span>

@@ -34,12 +34,30 @@ export const loadPlayers = async (servFetch, refresh = false) => {
   }
 
   if (!playersInfo || !expiration || now > expiration) {
-    const res = await smartFetch(`/api/fetch_players_info`, { compress: true });
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data);
+    let res;
+    let lastErr;
+    // the player DB fetch is large; retry a couple of times before giving up
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        res = await smartFetch(`/api/fetch_players_info`, { compress: true });
+        if (res.ok) break;
+      } catch (err) {
+        lastErr = err;
+        res = null;
+      }
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
     }
+    if (!res || !res.ok) {
+      // fall back to a stale local copy if we have one - old player names
+      // beat an error screen
+      if (playersInfo && playersInfo[1426]) {
+        return { players: playersInfo, stale: true };
+      }
+      throw new Error(
+        `Failed to load player database${lastErr ? `: ${lastErr.message}` : ""}`,
+      );
+    }
+    const data = await res.json();
 
     if (browser) {
       localStorage.setItem("playersInfo", JSON.stringify(data));
