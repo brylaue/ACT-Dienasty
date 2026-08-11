@@ -1,5 +1,5 @@
 /*   STEP 1   */
-export const leagueID = "1180244317552857088"; // your league ID
+export const leagueID = "1312159501335416832"; // your league ID (2026 season)
 export const leagueName = "ACT, or Die."; // your league name
 export const dues = 100; // (optional) used in template constitution page
 export const dynasty = true; // true for dynasty leagues, false for redraft and keeper
@@ -81,12 +81,12 @@ export const managers = [
     "bio": null,
     "photo": "/managers/keith.png",
     "fantasyStart": null,
-    "favoriteTeam": "Pittsburgh Steelers",
+    "favoriteTeam": "pit",
     "mode": "Survive + Vibes",
     "rival": {
         "name": "Everyone",
-        "link": null
-        "image": "/managers/everyone.png"
+        "link": null,
+        "image": "/managers/everyone.png",
     },
     "favoritePlayer": "4070",
     "valuePosition": "WR",
@@ -98,7 +98,7 @@ export const managers = [
     "sideBetInterest": "9",
     "beverage": "Old Fashioned",
     "dreamDraftLocation": "Hawaii",
-    "phoneNumber": "863-289-2445:,
+    "phoneNumber": "863-289-2445",
   },
   {
     "roster": 2,
@@ -468,4 +468,3 @@ export const managers = [
     //   "tradingScale": 10, // 1 - 10 (optional)
     //   "preferredContact": "Text",  // (optional) 'Text', 'WhatsApp', 'Sleeper', 'Email', 'Phone', 'Discord', and 'Carrier Pigeon' are currently supplied in the template
     // },
-    
