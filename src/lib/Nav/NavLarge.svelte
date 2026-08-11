@@ -67,20 +67,24 @@
 	}
 
 	:global(.navBar .mdc-tab .mdc-tab__text-label) {
-		color: rgba(244, 239, 227, 0.75);
+		color: var(--muted);
 		font-family: var(--bodyFont);
 		font-weight: 600;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		font-size: 0.86em;
+		letter-spacing: 0;
+		text-transform: none;
+		font-size: 0.95em;
 	}
 
 	:global(.navBar .mdc-tab) {
-		height: 52px;
+		height: 48px;
+	}
+
+	:global(.navBar .mdc-tab:hover .mdc-tab__text-label) {
+		color: var(--ink);
 	}
 
 	:global(.navBar .mdc-tab--active .mdc-tab__text-label) {
-		color: var(--gold);
+		color: var(--accent);
 	}
 
 	:global(.navBar .mdc-tab-indicator__content--underline) {
@@ -104,7 +108,18 @@
 		position: absolute;
 		z-index: 5;
 		background-color: var(--fff);
-		transition: all 0.4s;
+		transition: all 0.25s;
+		/* size to the longest title instead of the parent tab's width -
+		   the old fixed width clipped "Power Rankings", "Constitution",
+		   etc. min-width still matches the tab so it never looks narrower
+		   than its trigger. */
+		width: max-content !important;
+		min-width: 200px;
+		border-radius: 0 0 10px 10px;
+	}
+
+	.subMenu :global(.subText) {
+		white-space: nowrap;
 	}
 
 	.overlay {
@@ -162,7 +177,7 @@
 			{/if}
 		{/snippet}
 	</TabBar>
-	<div class="subMenu" style="max-height: {display ? 49 * tabChildren.length - 1 - (managers.length ? 0 : 48) : 0}px; width: {width}px; top: {height}px; left: {left}px; box-shadow: 0 0 {display ? "3px" : "0"} 0 #00316b; border: {display ? "1px" : "0"} solid #00316b; border-top: none;">
+	<div class="subMenu" style="max-height: {display ? 49 * tabChildren.length - 1 - (managers.length ? 0 : 48) : 0}px; width: {width}px; top: {height}px; left: {left}px; box-shadow: 0 8px 24px rgba(16, 24, 40, {display ? "0.12" : "0"}); border: {display ? "1px" : "0"} solid var(--line); border-top: none;">
 		<List>
 			{#each tabChildren as subTab, ix}
 				{#if subTab.label == 'Managers'}

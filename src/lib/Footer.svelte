@@ -25,15 +25,15 @@
 
 <style>
 	footer {
-		background: linear-gradient(180deg, var(--plaque) 0%, var(--plaqueDeep) 100%);
+		background: var(--fff);
 		width: 100%;
         display: block;
         position: relative;
 		z-index: 1;
-		border-top: 3px solid var(--gold);
+		border-top: 1px solid var(--line);
 		padding: 30px 0 60px;
 		text-align: center;
-		color: rgba(244, 239, 227, 0.6);
+		color: var(--muted);
 		margin-top: 3em;
 	}
 
@@ -59,12 +59,12 @@
 		display: inline-block;
 		cursor: pointer;
 		padding: 6px 10px;
-		color: rgba(244, 239, 227, 0.78);
+		color: var(--muted);
 		font-weight: 500;
 	}
 
 	.navLink:hover {
-		color: var(--gold);
+		color: var(--accent);
 	}
 
 	.updateNotice {

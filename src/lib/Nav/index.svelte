@@ -28,27 +28,26 @@
 
 <style>
 	nav {
-		background: linear-gradient(180deg, var(--plaque) 0%, var(--plaqueDeep) 100%);
-		position: relative;
-		z-index: 2;
-		border-bottom: 3px solid var(--gold);
-		/* tab colors while sitting on the plaque */
-		--mdc-theme-primary: var(--gold);
+		background: var(--fff);
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		border-bottom: 1px solid var(--line);
+		--mdc-theme-primary: var(--accent);
 	}
 
 	.plaque {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 18px;
-		padding: 16px 56px 10px;
+		gap: 12px;
+		padding: 12px 56px 6px;
 		text-decoration: none;
 	}
 
 	#logo {
-		width: 64px;
+		width: 40px;
 		display: block;
-		filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
 	}
 
 	.wordmark {
@@ -56,42 +55,27 @@
 	}
 
 	.eyebrow {
-		display: block;
-		font-family: var(--bodyFont);
-		font-weight: 600;
-		font-size: 0.62em;
-		letter-spacing: 0.28em;
-		color: var(--gold);
-		text-transform: uppercase;
-		margin-bottom: 2px;
+		display: none; /* clean header: crest + name only */
 	}
 
 	.leagueName {
 		display: block;
-		font-family: var(--displayFont);
-		font-size: 1.55em;
+		font-family: var(--bodyFont);
+		font-weight: 800;
+		font-size: 1.25em;
 		line-height: 1;
-		color: var(--cream);
-		letter-spacing: 0.05em;
-		text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+		color: var(--ink);
+		letter-spacing: -0.015em;
 	}
 
 	.rule {
-		display: block;
-		margin-top: 6px;
-		height: 2px;
-		width: 100%;
-		background: linear-gradient(90deg, var(--gold), rgba(201, 162, 39, 0));
+		display: none;
 	}
 
 	@media (max-width: 500px) {
-		.plaque { gap: 12px; padding: 14px 48px 8px; }
-		#logo { width: 48px; }
-		.leagueName { font-size: 1.15em; }
-		/* the homepage hero carries the full title treatment; on a phone
-		   the plaque stays crest + name so it doesn't fight the menu and
-		   theme buttons for space */
-		.eyebrow { display: none; }
+		.plaque { gap: 10px; padding: 10px 48px 4px; }
+		#logo { width: 34px; }
+		.leagueName { font-size: 1.05em; }
 	}
 
     .large {
@@ -109,7 +93,7 @@
 	}
 
 	:global(.lightDark) {
-		color: var(--cream);
+		color: var(--muted);
 	}
 
 	@media (max-width: 950px) { /* width of the large navBar */

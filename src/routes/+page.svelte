@@ -165,11 +165,9 @@
 
     /* ── hero ── */
     .hero {
-        background:
-            radial-gradient(1100px 420px at 22% -10%, rgba(201, 162, 39, 0.16), rgba(201, 162, 39, 0) 60%),
-            linear-gradient(180deg, var(--plaqueDeep) 0%, var(--plaque) 100%);
-        border-bottom: 3px solid var(--gold);
-        color: var(--cream);
+        background: var(--fff);
+        border-bottom: 1px solid var(--line);
+        color: var(--ink);
         padding: 46px 20px 42px;
     }
 
@@ -189,11 +187,11 @@
 
     .heroEyebrow {
         display: block;
-        font-weight: 600;
+        font-weight: 700;
         font-size: 0.7em;
-        letter-spacing: 0.34em;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: var(--gold);
+        color: var(--accent);
         margin-bottom: 18px;
     }
 
@@ -203,7 +201,7 @@
         height: 168px;
         margin: 0 auto;
         cursor: pointer;
-        filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45));
+        filter: drop-shadow(0 8px 20px rgba(16, 24, 40, 0.15));
     }
 
     .champAvatar {
@@ -212,7 +210,8 @@
         width: 92px;
         height: 92px;
         border-radius: 100%;
-        border: 2px solid var(--gold);
+        border: 2px solid var(--fff);
+        box-shadow: 0 0 0 1px var(--line);
         left: 50%;
         top: 43%;
     }
@@ -227,18 +226,17 @@
     }
 
     .champName {
-        font-family: var(--displayFont);
-        font-size: 1.7em;
-        letter-spacing: 0.04em;
+        font-weight: 800;
+        font-size: 1.9em;
+        letter-spacing: -0.02em;
         margin-top: 16px;
-        text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+        color: var(--ink);
     }
 
     .champSub {
         margin-top: 6px;
-        font-size: 0.82em;
-        color: rgba(244, 239, 227, 0.75);
-        letter-spacing: 0.04em;
+        font-size: 0.85em;
+        color: var(--muted);
     }
 
     .ctaSide {
@@ -251,12 +249,12 @@
 
     .seasonChip {
         align-self: flex-start;
-        font-weight: 700;
-        font-size: 0.72em;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--gold);
-        border: 1px solid rgba(201, 162, 39, 0.55);
+        font-weight: 600;
+        font-size: 0.75em;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        background: var(--pageBg);
+        border: 1px solid var(--line);
         border-radius: 999px;
         padding: 5px 14px;
         margin-bottom: 4px;
@@ -268,25 +266,36 @@
         align-items: center;
         gap: 16px;
         text-decoration: none;
-        color: var(--cream);
-        border: 1px solid rgba(244, 239, 227, 0.28);
-        border-left: 3px solid var(--gold);
-        border-radius: 8px;
+        color: var(--ink);
+        border: 1px solid var(--line);
+        border-radius: 10px;
         padding: 13px 16px;
         font-weight: 600;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        font-size: 0.82em;
-        background: rgba(255, 255, 255, 0.03);
-        transition: background 0.18s ease, transform 0.18s ease;
+        font-size: 0.92em;
+        background: var(--fff);
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
     }
 
     .ticket:hover {
-        background: rgba(201, 162, 39, 0.14);
-        transform: translateX(3px);
+        border-color: var(--accent);
+        box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+        transform: translateY(-1px);
     }
 
-    .tArrow { color: var(--gold); }
+    .ticket:first-of-type {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+    }
+
+    .ticket:first-of-type .tArrow { color: #fff; }
+
+    .ticket:first-of-type:hover {
+        filter: brightness(1.06);
+    }
+
+    .tArrow { color: var(--accent); }
 
     /* ── pulse cards ── */
     .pulse { padding: 34px 20px 6px; }
@@ -304,25 +313,25 @@
         text-decoration: none;
         color: var(--ink);
         background: var(--fff);
-        border: 1px solid var(--ddd);
-        border-top: 3px solid var(--gold);
+        border: 1px solid var(--line);
         border-radius: 12px;
         padding: 18px 18px 14px;
-        box-shadow: 0 1px 4px rgba(2, 28, 61, 0.07);
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
     }
 
     .pulseCard:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 16px rgba(2, 28, 61, 0.12);
+        transform: translateY(-2px);
+        border-color: var(--accent);
+        box-shadow: 0 6px 16px rgba(16, 24, 40, 0.09);
     }
 
     .cardKicker {
-        font-weight: 700;
-        font-size: 0.68em;
-        letter-spacing: 0.22em;
+        font-weight: 600;
+        font-size: 0.7em;
+        letter-spacing: 0.07em;
         text-transform: uppercase;
-        color: var(--gold);
+        color: var(--muted);
         margin-bottom: 12px;
     }
 
@@ -337,7 +346,7 @@
     .pMedal { flex-shrink: 0; }
     .pName {
         font-weight: 600;
-        color: var(--blueOne);
+        color: var(--ink);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -366,9 +375,10 @@
 
     .recordCard { text-align: center; }
     .bigNumber {
-        font-family: var(--displayFont);
-        font-size: 2.6em;
-        color: var(--blueOne);
+        font-weight: 800;
+        font-size: 2.8em;
+        letter-spacing: -0.03em;
+        color: var(--ink);
         line-height: 1;
         margin: 6px 0 4px;
     }
@@ -378,12 +388,10 @@
     .cardMore {
         margin-top: 12px;
         padding-top: 10px;
-        border-top: 1px dashed var(--ddd);
-        font-size: 0.72em;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--blueTwo);
+        border-top: 1px solid var(--line);
+        font-size: 0.8em;
+        font-weight: 600;
+        color: var(--accent);
     }
 
     /* ── about ── */
@@ -401,16 +409,16 @@
 
     .sectionKicker {
         display: block;
-        font-weight: 600;
-        font-size: 0.66em;
-        letter-spacing: 0.3em;
+        font-weight: 700;
+        font-size: 0.7em;
+        letter-spacing: 0.1em;
         text-transform: uppercase;
-        color: var(--gold);
+        color: var(--accent);
     }
 
     .sectionTitle {
         font-size: 1.5em;
-        color: var(--blueOne);
+        color: var(--ink);
         margin: 4px 0 10px;
     }
 

@@ -1,4 +1,3 @@
-import { waitForAll } from "./multiPromise";
 import { get } from "svelte/store";
 import { news } from "$lib/stores";
 import { dynasty } from "$lib/utils/leagueInfo";
@@ -19,12 +18,26 @@ export const getNews = async (servFetch, bypass = false) => {
     newsSources.push(getFeed(REDDIT_FANTASY, processReddit));
   }
 
-  const [serverRes, reddit] = await waitForAll(...newsSources).catch((err) => {
-    console.error(err);
-  });
-  const serverData = await serverRes.json().catch((err) => {
-    console.error(err);
-  });
+  // Each source fails independently: one dead feed (Reddit throttles
+  // automated requests often) should cost us that feed's articles, not
+  // the whole page. The old `const [a, b] = await ...catch(console.error)`
+  // destructured undefined on any rejection and crashed the page with
+  // "(intermediate value) is not iterable".
+  const results = await Promise.allSettled(newsSources);
+
+  let serverData = [];
+  if (results[0].status === "fulfilled" && results[0].value) {
+    serverData = await results[0].value.json().catch((err) => {
+      console.error(err);
+      return [];
+    });
+  }
+  if (!Array.isArray(serverData)) serverData = [];
+
+  let reddit = [];
+  if (results[1]?.status === "fulfilled" && Array.isArray(results[1].value)) {
+    reddit = results[1].value;
+  }
 
   const articles = [...reddit, ...serverData].sort((a, b) =>
     a.ts < b.ts ? 1 : -1,
@@ -37,10 +50,13 @@ export const getNews = async (servFetch, bypass = false) => {
 const getFeed = async (feed, callback) => {
   const res = await fetch(feed, { compress: true }).catch((err) => {
     console.error(err);
+    return null;
   });
+  if (!res) return [];
 
   const data = await res.json().catch((err) => {
     console.error(err);
+    return null;
   });
 
   if (res.ok && data && data.data) {

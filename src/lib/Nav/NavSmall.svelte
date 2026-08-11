@@ -29,13 +29,14 @@
 	}
 
 	:global(.small .mdc-tab .mdc-tab__text-label) {
-		color: rgba(244, 239, 227, 0.75);
+		color: var(--muted);
 		font-family: var(--bodyFont);
 		font-weight: 600;
+		text-transform: none;
 	}
 
 	:global(.small .mdc-tab--active .mdc-tab__text-label) {
-		color: var(--gold);
+		color: var(--accent);
 	}
 
 	:global(.small .mdc-tab-indicator__content--underline) {

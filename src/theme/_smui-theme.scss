@@ -70,7 +70,7 @@
   --r1: #f7f9fd;
   --r2: #fbf7f7;
   --r3: #f7fbf7;
-  --headerPrimary: #00316b; /* plaque navy - was light blue */
+  --headerPrimary: #f8fafc; /* neutral band - clean modern */
   --borderOverride: rgba(0, 0, 0, 0.12);
   --rivalryBack: #f8f8f8;
 
@@ -195,20 +195,25 @@ a:visited {
   background-color: #f9f9f9 !important;
 }
 
-/* ── ACT, or DIE. "Varsity Clubhouse" design tokens ───────────────
-   Palette drawn from the league crest: navy shield, antique gold,
-   cream banner. Display face (Graduate) is reserved for the wordmark
-   and page titles; Barlow carries everything else. */
+/* ── ACT, or DIE. "Clean Modern" design tokens ────────────────────
+   Contemporary product UI: Inter everywhere, white surfaces, one
+   blue accent, hairline borders, soft shadows. (--gold is kept as a
+   legacy alias and now points at the accent so every prior accent
+   use follows the new scheme automatically.) */
 :root {
-  --gold: #c9a227;
-  --goldSoft: rgba(201, 162, 39, 0.16);
-  --pageBg: #faf7f0;
-  --ink: #1d2a44;
-  --plaque: #00316b;
-  --plaqueDeep: #021c3d;
-  --cream: #f4efe3;
-  --displayFont: 'Graduate', 'Arial Black', sans-serif;
-  --bodyFont: 'Barlow', 'Roboto', sans-serif;
+  --accent: #2563eb;
+  --accentSoft: rgba(37, 99, 235, 0.08);
+  --gold: #2563eb;
+  --goldSoft: rgba(37, 99, 235, 0.08);
+  --line: #e5e7eb;
+  --muted: #64748b;
+  --pageBg: #f6f7f9;
+  --ink: #111827;
+  --plaque: #ffffff;
+  --plaqueDeep: #ffffff;
+  --cream: #111827;
+  --displayFont: 'Inter', -apple-system, sans-serif;
+  --bodyFont: 'Inter', -apple-system, sans-serif;
 }
 
 /* ── Universal interior system ─────────────────────────────────────
@@ -219,10 +224,10 @@ a:visited {
    into the stylesheet - zero runtime cost. */
 
 .mdc-data-table {
-  border: 1px solid rgba(0, 49, 107, 0.14);
+  border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--fff);
-  box-shadow: 0 1px 4px rgba(2, 28, 61, 0.07);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
   max-width: 100%;
   overflow: hidden; /* clips the band into the rounded corners */
 }
@@ -236,23 +241,22 @@ a:visited {
 /* the big title band on record tables (background comes from the
    --headerPrimary token above) */
 .mdc-data-table .headerPrimary {
-  color: var(--cream);
+  color: var(--ink);
   font-family: var(--bodyFont);
-  font-weight: 700;
-  font-size: 0.8rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  border-bottom: 2px solid var(--gold);
+  font-weight: 600;
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
+  border-bottom: 1px solid var(--line);
 }
 
 /* regular column headers: quiet, structured */
 .mdc-data-table__header-cell {
   font-family: var(--bodyFont);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.72rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  opacity: 0.82;
+  color: var(--muted);
 }
 
 .mdc-data-table__cell {
@@ -261,11 +265,11 @@ a:visited {
 
 /* zebra + hover keyed to each theme */
 .mdc-data-table__content tr:nth-child(even) {
-  background: rgba(0, 49, 107, 0.035);
+  background: #fafbfc;
 }
 
 .mdc-data-table__content tr:hover {
-  background: rgba(201, 162, 39, 0.12);
+  background: #f1f5f9;
 }
 
 /* buttons pick up the system's radius and weight */
