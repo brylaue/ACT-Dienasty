@@ -26,12 +26,14 @@ jobs:
       - name: Bake Power Rankings and Playoff Odds
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
         run: node scripts/build-features.mjs
         continue-on-error: true # missing/expired key just skips the AI blurbs; math still bakes
 
       - name: Generate fresh AI commentary for new trades/waivers
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
         run: node scripts/build-commentary.mjs
         continue-on-error: true # missing/expired key just falls back to the template pool
 

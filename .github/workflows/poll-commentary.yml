@@ -39,6 +39,7 @@ jobs:
       - name: Check for new trades/waivers and generate fresh commentary
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
         run: node scripts/build-commentary.mjs
         continue-on-error: true # missing/expired key just falls back to the template pool
 
