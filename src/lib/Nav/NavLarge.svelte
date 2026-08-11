@@ -58,19 +58,28 @@
     	justify-content: center;
     }
 
-	/* tab treatment on the navy plaque: quiet cream, gold when active */
-	:global(.navBar .mdc-tab .mdc-tab__text-label),
+	/* Clean text-only top nav. The previous version set font-family on
+	   .mdc-tab__icon, which broke Material Icons ligatures in production
+	   and rendered icon names as literal text ("home", "sports") - so
+	   icons are hidden here entirely and labels carry the bar. */
 	:global(.navBar .mdc-tab .mdc-tab__icon) {
-		color: rgba(244, 239, 227, 0.72);
-		font-family: var(--bodyFont);
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		font-size: 0.82em;
+		display: none;
 	}
 
-	:global(.navBar .mdc-tab--active .mdc-tab__text-label),
-	:global(.navBar .mdc-tab--active .mdc-tab__icon) {
+	:global(.navBar .mdc-tab .mdc-tab__text-label) {
+		color: rgba(244, 239, 227, 0.75);
+		font-family: var(--bodyFont);
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		font-size: 0.86em;
+	}
+
+	:global(.navBar .mdc-tab) {
+		height: 52px;
+	}
+
+	:global(.navBar .mdc-tab--active .mdc-tab__text-label) {
 		color: var(--gold);
 	}
 

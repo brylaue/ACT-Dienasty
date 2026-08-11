@@ -23,15 +23,18 @@
 </script>
 
 <style>
-	:global(.small .mdc-tab .mdc-tab__text-label),
+	/* text-only mobile tab bar; see NavLarge for why icons are hidden */
 	:global(.small .mdc-tab .mdc-tab__icon) {
-		color: rgba(244, 239, 227, 0.72);
+		display: none;
+	}
+
+	:global(.small .mdc-tab .mdc-tab__text-label) {
+		color: rgba(244, 239, 227, 0.75);
 		font-family: var(--bodyFont);
 		font-weight: 600;
 	}
 
-	:global(.small .mdc-tab--active .mdc-tab__text-label),
-	:global(.small .mdc-tab--active .mdc-tab__icon) {
+	:global(.small .mdc-tab--active .mdc-tab__text-label) {
 		color: var(--gold);
 	}
 

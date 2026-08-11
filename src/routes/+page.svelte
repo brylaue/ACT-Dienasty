@@ -7,241 +7,437 @@
     const nflState = getNflState();
     const podiumsData = getAwards();
     const leagueTeamManagersData = getLeagueTeamManagers();
+
+    // league pulse cards, fed by the weekly-baked static data (explicit
+    // runes state - this repo's mixed-mode inference bit us before)
+    let pr = $state(null);
+    let odds = $state(null);
+    let recordWatch = $state(null);
+
+    (async () => {
+        try {
+            const [a, b, c] = await Promise.all([
+                fetch('/data/power-rankings.json').then((r) => r.ok ? r.json() : null).catch(() => null),
+                fetch('/data/playoff-odds.json').then((r) => r.ok ? r.json() : null).catch(() => null),
+                fetch('/data/record-watch.json').then((r) => r.ok ? r.json() : null).catch(() => null),
+            ]);
+            pr = a; odds = b; recordWatch = c;
+        } catch { /* cards simply don't render */ }
+    })();
+
+    const prTop = $derived(pr?.teams?.slice(0, 3) || []);
+    const oddsTop = $derived(odds?.teams?.slice(0, 3) || []);
+    const recordToBeat = $derived(recordWatch?.highs?.[0] || null);
+
+    const medal = (rank) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+    const oddsColor = (pct) => pct >= 75 ? '#00ceb8' : pct >= 40 ? '#58a7ff' : pct >= 15 ? '#ffae58' : '#ff2a6d';
 </script>
+
+<svelte:head>
+    <title>Home | League Page</title>
+</svelte:head>
+
+<div id="home">
+
+    <!-- ── HERO: the defending champion holds the belt ─────────── -->
+    <section class="hero">
+        <div class="heroInner">
+            <div class="champSide">
+                {#await waitForAll(podiumsData, leagueTeamManagersData)}
+                    <div class="heroLoading">
+                        <LinearProgress indeterminate />
+                    </div>
+                {:then [podiums, leagueTeamManagers]}
+                    {#if podiums[0]}
+                        <span class="heroEyebrow">Defending Champion</span>
+                        <div class="champRing" role="button" tabindex="0"
+                            onclick={() => {if(managers.length) gotoManager({year: podiums[0].year, leagueTeamManagers, rosterID: parseInt(podiums[0].champion)})}}
+                            onkeydown={(e) => {if(e.key === 'Enter' && managers.length) gotoManager({year: podiums[0].year, leagueTeamManagers, rosterID: parseInt(podiums[0].champion)})}}>
+                            <img src={getAvatarFromTeamManagers(leagueTeamManagers, podiums[0].champion, podiums[0].year)} class="champAvatar" alt="reigning champion" />
+                            <img src="/laurel.png" class="champLaurel" alt="" />
+                        </div>
+                        <div class="champName">{getTeamFromTeamManagers(leagueTeamManagers, podiums[0].champion, podiums[0].year).name}</div>
+                        <div class="champSub">{podiums[0].year} League Champion &middot; the belt is on the line</div>
+                    {:else}
+                        <span class="heroEyebrow">Season One</span>
+                        <div class="champName">The throne sits empty.</div>
+                    {/if}
+                {:catch error}
+                    <p class="heroErr">Something went wrong: {error.message}</p>
+                {/await}
+            </div>
+
+            <div class="ctaSide">
+                {#await nflState then nflStateData}
+                    <div class="seasonChip">
+                        NFL {nflStateData.season}
+                        {#if nflStateData.season_type == 'pre'}&middot; Preseason
+                        {:else if nflStateData.season_type == 'post'}&middot; Postseason
+                        {:else}&middot; {nflStateData.week > 0 ? `Week ${nflStateData.week}` : "Preseason"}{/if}
+                    </div>
+                {/await}
+                <a class="ticket" href="/power-rankings"><span class="tLabel">Power Rankings</span><span class="tArrow">&rarr;</span></a>
+                <a class="ticket" href="/playoff-odds"><span class="tLabel">Playoff Odds</span><span class="tArrow">&rarr;</span></a>
+                <a class="ticket" href="/matchups"><span class="tLabel">This Week's Matchups</span><span class="tArrow">&rarr;</span></a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── LEAGUE PULSE: the numbers that matter right now ─────── -->
+    {#if prTop.length || oddsTop.length || recordToBeat}
+        <section class="pulse">
+            <div class="pulseGrid">
+                {#if prTop.length}
+                    <a class="pulseCard" href="/power-rankings">
+                        <div class="cardKicker">Power Pulse</div>
+                        {#each prTop as t (t.rosterID)}
+                            <div class="pulseRow">
+                                <span class="pMedal">{medal(t.rank)}</span>
+                                <span class="pName">{t.name}</span>
+                                {#if t.prevRank != null && t.prevRank !== t.rank}
+                                    <span class="pMove" class:up={t.prevRank > t.rank} class:down={t.prevRank < t.rank}>
+                                        {t.prevRank > t.rank ? '▲' : '▼'}{Math.abs(t.prevRank - t.rank)}
+                                    </span>
+                                {/if}
+                            </div>
+                        {/each}
+                        <div class="cardMore">Full rankings &rarr;</div>
+                    </a>
+                {/if}
+
+                {#if oddsTop.length}
+                    <a class="pulseCard" href="/playoff-odds">
+                        <div class="cardKicker">Playoff Picture</div>
+                        {#each oddsTop as t (t.rosterID)}
+                            <div class="pulseRow oddsRow">
+                                <span class="pName">{t.name}</span>
+                                <span class="pPct" style="color: {oddsColor(t.playoffPct)}">{t.playoffPct}%</span>
+                            </div>
+                            <div class="oddsTrack"><div class="oddsBar" style="width: {t.playoffPct}%; background: {oddsColor(t.playoffPct)}"></div></div>
+                        {/each}
+                        <div class="cardMore">All 12 teams &rarr;</div>
+                    </a>
+                {/if}
+
+                {#if recordToBeat}
+                    <a class="pulseCard recordCard" href="/records">
+                        <div class="cardKicker">The Record to Beat</div>
+                        <div class="bigNumber">{recordToBeat.pts.toFixed(1)}</div>
+                        <div class="recordWho">{recordToBeat.name}</div>
+                        <div class="recordWhen">{recordToBeat.year} &middot; Week {recordToBeat.week} &middot; all-time single-week high</div>
+                        <div class="cardMore">Record book &rarr;</div>
+                    </a>
+                {/if}
+            </div>
+        </section>
+    {/if}
+
+    <!-- ── ABOUT + LATEST POST ──────────────────────────────────── -->
+    <section class="about">
+        <div class="aboutInner">
+            <div class="aboutText">
+                <span class="sectionKicker">The League</span>
+                <h2 class="sectionTitle">{leagueName}</h2>
+                {@html homepageText }
+            </div>
+            {#if enableBlog}
+                <div class="aboutPost">
+                    <HomePost />
+                </div>
+            {/if}
+        </div>
+    </section>
+
+    <!-- ── POWER GRAPH + LATEST MOVES (existing widgets) ────────── -->
+    <section class="widgets">
+        <PowerRankings />
+        <div class="transactions">
+            <Transactions />
+        </div>
+    </section>
+</div>
 
 <style>
     #home {
-        display: flex;
-        flex-wrap: nowrap;
         position: relative;
-        overflow-y: hidden;
         z-index: 1;
     }
 
-    #main {
-        flex-grow: 1;
-        min-width: 320px;
-        margin: 0 auto;
-        padding: 60px 0;
+    /* ── hero ── */
+    .hero {
+        background:
+            radial-gradient(1100px 420px at 22% -10%, rgba(201, 162, 39, 0.16), rgba(201, 162, 39, 0) 60%),
+            linear-gradient(180deg, var(--plaqueDeep) 0%, var(--plaque) 100%);
+        border-bottom: 3px solid var(--gold);
+        color: var(--cream);
+        padding: 46px 20px 42px;
     }
 
-    .text {
-        padding: 0 30px;
-        max-width: 620px;
+    .heroInner {
+        max-width: 980px;
         margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 40px;
+        flex-wrap: wrap;
     }
 
-    .text :global(p) {
-        line-height: 1.65;
-        color: var(--ink);
-    }
+    .champSide { text-align: center; flex: 1 1 340px; }
+    .heroLoading { max-width: 300px; margin: 40px auto; }
+    .heroErr { color: var(--cream); opacity: 0.8; }
 
     .heroEyebrow {
         display: block;
-        text-align: center;
-        font-family: var(--bodyFont);
         font-weight: 600;
-        font-size: 0.68em;
-        letter-spacing: 0.3em;
+        font-size: 0.7em;
+        letter-spacing: 0.34em;
         text-transform: uppercase;
         color: var(--gold);
-        margin: 34px 0 6px;
+        margin-bottom: 18px;
     }
 
-    .heroRules {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        max-width: 380px;
-        margin: 10px auto 26px;
-    }
-
-    .heroRules::before,
-    .heroRules::after {
-        content: "";
-        flex: 1;
-        height: 2px;
-        background: linear-gradient(90deg, rgba(201, 162, 39, 0), var(--gold));
-    }
-
-    .heroRules::after {
-        background: linear-gradient(90deg, var(--gold), rgba(201, 162, 39, 0));
-    }
-
-    .heroRules span {
-        color: var(--gold);
-        font-size: 0.8em;
-    }
-
-    .leagueData {
+    .champRing {
         position: relative;
-        z-index: 1;
-        width: 100%;
-        min-width: 470px;
-        max-width: 470px;
-        min-height: 100%;
-		background-color: var(--ebebeb);
-        border-left: var(--eee);
-		box-shadow: inset 8px 0px 6px -6px rgb(0 0 0 / 24%);
-    }
-
-    @media (max-width: 950px) {
-        .leagueData {
-            max-width: 100%;
-            min-width: 100%;
-            width: 100%;
-		    box-shadow: none;
-        }
-        #home {
-            flex-wrap: wrap;
-        }
-    }
-
-    .transactions {
-        display: block;
-        width: 95%;
-        margin: 10px auto;
-    }
-
-    .center {
-        text-align: center;
-    }
-
-    h6 {
-        text-align: center;
-        font-family: var(--displayFont);
-        font-weight: 400;
-        font-size: 2em;
-        letter-spacing: 0.04em;
-        color: var(--blueOne);
-        margin: 0;
-    }
-
-    .homeBanner {
-        background-color: var(--blueOne);
-        color: #fff;
-        padding: 0.5em 0;
-        font-weight: 500;
-        font-size: 1.5em;
-    }
-
-    /* champ styling */
-    #currentChamp {
-        padding: 25px 0;
-		background-color: var(--f3f3f3);
-        box-shadow: 5px 0 8px var(--champShadow);
-        border-left: 1px solid var(--ddd);
-    }
-
-    #champ {
-        position: relative;
-        width: 150px;
-        height: 150px;
+        width: 168px;
+        height: 168px;
         margin: 0 auto;
         cursor: pointer;
+        filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45));
     }
 
-    .first {
+    .champAvatar {
         position: absolute;
         transform: translate(-50%, -50%);
-        width: 80px;
-        height: 80px;
+        width: 92px;
+        height: 92px;
         border-radius: 100%;
-        border: 1px solid #ccc;
+        border: 2px solid var(--gold);
         left: 50%;
         top: 43%;
     }
 
-    .laurel {
+    .champLaurel {
         position: absolute;
         transform: translate(-50%, -50%);
-        width: 135px;
+        width: 152px;
         height: auto;
         left: 50%;
         top: 50%;
     }
 
-    h4 {
-        text-align: center;
-        font-size: 1.8em;
-        margin: 10px;
+    .champName {
+        font-family: var(--displayFont);
+        font-size: 1.7em;
+        letter-spacing: 0.04em;
+        margin-top: 16px;
+        text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+    }
+
+    .champSub {
+        margin-top: 6px;
+        font-size: 0.82em;
+        color: rgba(244, 239, 227, 0.75);
+        letter-spacing: 0.04em;
+    }
+
+    .ctaSide {
+        flex: 0 1 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin: 0 auto;
+    }
+
+    .seasonChip {
+        align-self: flex-start;
+        font-weight: 700;
+        font-size: 0.72em;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--gold);
+        border: 1px solid rgba(201, 162, 39, 0.55);
+        border-radius: 999px;
+        padding: 5px 14px;
+        margin-bottom: 4px;
+    }
+
+    .ticket {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        text-decoration: none;
+        color: var(--cream);
+        border: 1px solid rgba(244, 239, 227, 0.28);
+        border-left: 3px solid var(--gold);
+        border-radius: 8px;
+        padding: 13px 16px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        font-size: 0.82em;
+        background: rgba(255, 255, 255, 0.03);
+        transition: background 0.18s ease, transform 0.18s ease;
+    }
+
+    .ticket:hover {
+        background: rgba(201, 162, 39, 0.14);
+        transform: translateX(3px);
+    }
+
+    .tArrow { color: var(--gold); }
+
+    /* ── pulse cards ── */
+    .pulse { padding: 34px 20px 6px; }
+
+    .pulseGrid {
+        max-width: 980px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+    }
+
+    .pulseCard {
+        display: block;
+        text-decoration: none;
+        color: var(--ink);
+        background: var(--fff);
+        border: 1px solid var(--ddd);
+        border-top: 3px solid var(--gold);
+        border-radius: 12px;
+        padding: 18px 18px 14px;
+        box-shadow: 0 1px 4px rgba(2, 28, 61, 0.07);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .pulseCard:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 16px rgba(2, 28, 61, 0.12);
+    }
+
+    .cardKicker {
+        font-weight: 700;
+        font-size: 0.68em;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--gold);
+        margin-bottom: 12px;
+    }
+
+    .pulseRow {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 4px 0;
+        font-size: 0.95em;
+    }
+
+    .pMedal { flex-shrink: 0; }
+    .pName {
+        font-weight: 600;
+        color: var(--blueOne);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+    }
+
+    .pMove {
+        font-size: 0.72em;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 10px;
+    }
+    .pMove.up { color: #007a6c; background: rgba(0, 206, 184, 0.15); }
+    .pMove.down { color: #c21a50; background: rgba(255, 42, 109, 0.12); }
+
+    .oddsRow { padding-bottom: 2px; }
+    .pPct { font-weight: 700; font-size: 0.9em; }
+    .oddsTrack {
+        height: 5px;
+        border-radius: 3px;
+        background: var(--eee);
+        overflow: hidden;
+        margin-bottom: 6px;
+    }
+    .oddsBar { height: 100%; border-radius: 3px; }
+
+    .recordCard { text-align: center; }
+    .bigNumber {
+        font-family: var(--displayFont);
+        font-size: 2.6em;
+        color: var(--blueOne);
+        line-height: 1;
+        margin: 6px 0 4px;
+    }
+    .recordWho { font-weight: 700; color: var(--ink); }
+    .recordWhen { font-size: 0.72em; color: var(--g999); margin-top: 3px; letter-spacing: 0.04em; }
+
+    .cardMore {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--ddd);
+        font-size: 0.72em;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--blueTwo);
+    }
+
+    /* ── about ── */
+    .about { padding: 30px 20px 0; }
+    .aboutInner {
+        max-width: 980px;
+        margin: 0 auto;
+        display: flex;
+        gap: 40px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+    .aboutText { flex: 1 1 420px; max-width: 620px; }
+    .aboutPost { flex: 1 1 300px; min-width: 280px; }
+
+    .sectionKicker {
+        display: block;
+        font-weight: 600;
+        font-size: 0.66em;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--gold);
+    }
+
+    .sectionTitle {
+        font-size: 1.5em;
+        color: var(--blueOne);
+        margin: 4px 0 10px;
+    }
+
+    .aboutText :global(p) {
+        line-height: 1.65;
+        color: var(--ink);
+    }
+
+    /* ── existing widgets ── */
+    .widgets { padding-top: 10px; }
+    .transactions {
+        display: block;
+        width: 95%;
+        max-width: 980px;
+        margin: 10px auto;
+    }
+
+    :global(.curOwner) {
+        font-size: 0.75em;
+        color: #bbb;
         font-style: italic;
     }
 
-    .label {
-        display: table;
-        text-align: center;
-        line-height: 1.1em;
-        font-size: 1.7em;
-        margin: 6px auto 10px;
-        cursor: pointer;
+    @media (max-width: 700px) {
+        .hero { padding: 34px 16px 30px; }
+        .heroInner { gap: 26px; }
+        .ctaSide { flex: 1 1 100%; }
+        .seasonChip { align-self: center; }
     }
-    
-	:global(.curOwner) {
-		font-size: 0.75em;
-		color: #bbb;
-		font-style: italic;
-	}
 </style>
-
-<div id="home">
-    <div id="main">
-        <div class="text">
-            <span class="heroEyebrow">Est. 2018 &middot; 12-Team Superflex Dynasty</span>
-            <h6>{leagueName}</h6>
-            <div class="heroRules"><span>&#9733;</span></div>
-            <!-- homepageText contains the intro text for your league, this gets edited in /src/lib/utils/leagueInfo.js -->
-            {@html homepageText }
-            <!-- Most recent Blog Post (if enabled) -->
-            {#if enableBlog}
-                <HomePost />
-            {/if}
-        </div>
-        <PowerRankings />
-    </div>
-    
-    <div class="leagueData">
-        <div class="homeBanner">
-            {#await nflState}
-                <div class="center">Retrieving NFL state...</div>
-                <LinearProgress indeterminate />
-            {:then nflStateData}
-                <div class="center">NFL {nflStateData.season} 
-                    {#if nflStateData.season_type == 'pre'}
-                        Preseason
-                    {:else if nflStateData.season_type == 'post'}
-                        Postseason
-                    {:else}
-                        Season - {nflStateData.week > 0 ? `Week ${nflStateData.week}` : "Preseason"}
-                    {/if}
-                </div>
-            {:catch error}
-                <div class="center">Something went wrong: {error.message}</div>
-            {/await}
-        </div>
-
-        <div id="currentChamp">
-            {#await waitForAll(podiumsData, leagueTeamManagersData)}
-                <p class="center">Retrieving awards...</p>
-                <LinearProgress indeterminate />
-            {:then [podiums, leagueTeamManagers]}
-                {#if podiums[0]}
-                    <h4>{podiums[0].year} Fantasy Champ</h4>
-                    <div id="champ" onclick={() => {if(managers.length) gotoManager({year: podiums[0].year, leagueTeamManagers, rosterID: parseInt(podiums[0].champion)})}} >
-                        <img src="{getAvatarFromTeamManagers(leagueTeamManagers, podiums[0].champion, podiums[0].year)}" class="first" alt="champion" />
-                        <img src="/laurel.png" class="laurel" alt="laurel" />
-                    </div>
-                    <span class="label" onclick={() => gotoManager({year: podiums[0].year, leagueTeamManagers, rosterID: parseInt(podiums[0].champion)})} >{getTeamFromTeamManagers(leagueTeamManagers, podiums[0].champion, podiums[0].year).name}</span>
-                {:else}
-                    <p class="center">No former champs.</p>
-                {/if}
-            {:catch error}
-                <p class="center">Something went wrong: {error.message}</p>
-            {/await}
-        </div>
-
-        <div class="transactions" >
-            <Transactions />
-        </div>
-    </div>
-</div>

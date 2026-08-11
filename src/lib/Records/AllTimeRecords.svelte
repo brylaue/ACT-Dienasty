@@ -5,46 +5,26 @@
 
     let { key, leagueManagerRecords, leagueTeamManagers, leagueWeekHighs, leagueWeekLows, allTimeBiggestBlowouts, allTimeClosestMatchups, mostSeasonLongPoints, leastSeasonLongPoints, transactionTotals } = $props();
 
-    let winPercentages = $state([]);
-    let lineupIQs = $state([]);
-    let fptsHistories = $state([]);
+    // Pure derivation: every ranking list is computed from props in one
+    // pass with no $effect and no mutable state. The previous
+    // effect-that-sorts-deriveds version could self-retrigger into an
+    // infinite loop (effect_update_depth_exceeded, seen on mobile).
+    const rankings = $derived.by(() => {
+        const winPercentages = [];
+        const lineupIQs = [];
+        const fptsHistories = [];
+        const tradesData = [];
+        const waiversData = [];
+        let showTies = false;
 
-    let showTies = $state(false);
-
-    // $derived so a mid-session transactions refresh (which replaces the
-    // transactionTotals prop) flows through to the trade/waiver rankings -
-    // the old init-only loop captured the first value forever
-    const tradesData = $derived(
-        Object.keys(transactionTotals.allTime).map((managerID) => ({
-            managerID,
-            trades: transactionTotals.allTime[managerID].trade,
-        }))
-    );
-    const waiversData = $derived(
-        Object.keys(transactionTotals.allTime).map((managerID) => ({
-            managerID,
-            waivers: transactionTotals.allTime[managerID].waiver,
-        }))
-    );
-
-
-    const setRankingsData = (lRR) => {
-        winPercentages = [];
-        lineupIQs = [];
-        fptsHistories = [];
-        // tradesData/waiversData are $derived from transactionTotals now -
-        // the old resets here silently wiped them on every rankings
-        // recompute with nothing ever re-populating them
-        showTies = false;
-
-        for(const key in lRR) {
-            const leagueManagerRecord = lRR[key];
+        for(const key in leagueManagerRecords) {
+            const leagueManagerRecord = leagueManagerRecords[key];
             const denominator = (leagueManagerRecord.wins + leagueManagerRecord.ties + leagueManagerRecord.losses) > 0 ? (leagueManagerRecord.wins + leagueManagerRecord.ties + leagueManagerRecord.losses) : 1;
-            
+
             // Get rosterID for this managerID to support co-owner display
             const rosterInfo = getRosterIDFromManagerID(leagueTeamManagers, key);
             const rosterID = rosterInfo ? rosterInfo.rosterID : null;
-            
+
             winPercentages.push({
                 managerID: key,
                 rosterID: rosterID,
@@ -66,7 +46,7 @@
             }
 
             lineupIQs.push(lineupIQ)
-        
+
             fptsHistories.push({
                 managerID: key,
                 rosterID: rosterID,
@@ -74,7 +54,7 @@
                 fptsAgainst: round(leagueManagerRecord.fptsAgainst),
                 fptsPerGame: round(leagueManagerRecord.fptsFor / denominator),
             })
-        
+
             if(leagueManagerRecord.ties > 0) showTies = true;
         }
 
@@ -82,7 +62,7 @@
             // Get rosterID for this managerID to support co-owner display
             const rosterInfo = getRosterIDFromManagerID(leagueTeamManagers, managerID);
             const rosterID = rosterInfo ? rosterInfo.rosterID : null;
-            
+
             tradesData.push({
                 managerID,
                 rosterID: rosterID,
@@ -95,17 +75,21 @@
             })
         }
 
-
         winPercentages.sort((a, b) => b.percentage - a.percentage);
         lineupIQs.sort((a, b) => b.iq - a.iq);
         fptsHistories.sort((a, b) => b.fptsFor - a.fptsFor);
         tradesData.sort((a, b) => b.trades - a.trades);
         waiversData.sort((a, b) => b.waivers - a.waivers);
-    }
 
-    $effect(() => {
-        setRankingsData(leagueManagerRecords);
+        return { winPercentages, lineupIQs, fptsHistories, tradesData, waiversData, showTies };
     });
+
+    const winPercentages = $derived(rankings.winPercentages);
+    const lineupIQs = $derived(rankings.lineupIQs);
+    const fptsHistories = $derived(rankings.fptsHistories);
+    const tradesData = $derived(rankings.tradesData);
+    const waiversData = $derived(rankings.waiversData);
+    const showTies = $derived(rankings.showTies);
 </script>
 
 <RecordsAndRankings

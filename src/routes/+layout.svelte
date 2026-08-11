@@ -18,7 +18,7 @@
 
 	/* Varsity display face for page-level titles only - everything else
 	   stays quiet. Emoji prefixes fall through to the emoji font. */
-	:global(h1), :global(h2) {
+	:global(h1), :global(h2), :global(h4) {
 		font-family: var(--displayFont);
 		font-weight: 400;
 		letter-spacing: 0.04em;

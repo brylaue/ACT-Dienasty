@@ -70,7 +70,7 @@
   --r1: #1c1c1d;
   --r2: #1f1d1d;
   --r3: #181a18;
-  --headerPrimary: #2a2e31;
+  --headerPrimary: #001f45; /* plaque navy - was gray */
   --borderOverride: rgba(255, 255, 255, 0.3);
   --rivalryBack: #333;
 
@@ -209,4 +209,68 @@ a:visited {
   --cream: #f4efe3;
   --displayFont: 'Graduate', 'Arial Black', sans-serif;
   --bodyFont: 'Barlow', 'Roboto', sans-serif;
+}
+
+/* ── Universal interior system ─────────────────────────────────────
+   One treatment for every SMUI DataTable in the app (Records,
+   Standings, Rosters, Drafts): card-like container, plaque-echo
+   primary band, quiet uppercase column headers, zebra rows, and
+   guaranteed horizontal scroll on narrow screens. CSS-only, compiled
+   into the stylesheet - zero runtime cost. */
+
+.mdc-data-table {
+  border: 1px solid rgba(201, 162, 39, 0.22);
+  border-radius: 12px;
+  background: var(--fff);
+  box-shadow: 0 1px 4px rgba(2, 28, 61, 0.07);
+  max-width: 100%;
+  overflow: hidden; /* clips the band into the rounded corners */
+}
+
+/* wide tables scroll inside their card instead of stretching the page */
+.mdc-data-table__table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* the big title band on record tables (background comes from the
+   --headerPrimary token above) */
+.mdc-data-table .headerPrimary {
+  color: var(--cream);
+  font-family: var(--bodyFont);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--gold);
+}
+
+/* regular column headers: quiet, structured */
+.mdc-data-table__header-cell {
+  font-family: var(--bodyFont);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+.mdc-data-table__cell {
+  font-family: var(--bodyFont);
+}
+
+/* zebra + hover keyed to each theme */
+.mdc-data-table__content tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.mdc-data-table__content tr:hover {
+  background: rgba(201, 162, 39, 0.14);
+}
+
+/* buttons pick up the system's radius and weight */
+.mdc-button {
+  border-radius: 8px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
 }
