@@ -30,6 +30,10 @@ jobs:
         run: node scripts/build-features.mjs
         continue-on-error: true # missing/expired key just skips the AI blurbs; math still bakes
 
+      - name: Sync the Trade Block from Sleeper
+        run: node scripts/build-tradeblock.mjs
+        continue-on-error: true # a Sleeper hiccup keeps the last good block
+
       - name: Generate fresh AI commentary for new trades/waivers
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
