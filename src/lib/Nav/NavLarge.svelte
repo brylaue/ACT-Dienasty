@@ -58,6 +58,27 @@
     	justify-content: center;
     }
 
+	/* tab treatment on the navy plaque: quiet cream, gold when active */
+	:global(.navBar .mdc-tab .mdc-tab__text-label),
+	:global(.navBar .mdc-tab .mdc-tab__icon) {
+		color: rgba(244, 239, 227, 0.72);
+		font-family: var(--bodyFont);
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		font-size: 0.82em;
+	}
+
+	:global(.navBar .mdc-tab--active .mdc-tab__text-label),
+	:global(.navBar .mdc-tab--active .mdc-tab__icon) {
+		color: var(--gold);
+	}
+
+	:global(.navBar .mdc-tab-indicator__content--underline) {
+		border-color: var(--gold);
+		border-top-width: 3px;
+	}
+
 	:global(.navBar .material-icons) {
 		font-size: 1.8em;
 		height: 25px;

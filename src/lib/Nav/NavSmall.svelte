@@ -23,6 +23,23 @@
 </script>
 
 <style>
+	:global(.small .mdc-tab .mdc-tab__text-label),
+	:global(.small .mdc-tab .mdc-tab__icon) {
+		color: rgba(244, 239, 227, 0.72);
+		font-family: var(--bodyFont);
+		font-weight: 600;
+	}
+
+	:global(.small .mdc-tab--active .mdc-tab__text-label),
+	:global(.small .mdc-tab--active .mdc-tab__icon) {
+		color: var(--gold);
+	}
+
+	:global(.small .mdc-tab-indicator__content--underline) {
+		border-color: var(--gold);
+		border-top-width: 3px;
+	}
+
 	:global(.menuIcon) {
 		position: absolute;
 		top: 15px;

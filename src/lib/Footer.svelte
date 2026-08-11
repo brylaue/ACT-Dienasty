@@ -25,15 +25,15 @@
 
 <style>
 	footer {
-		background-color: var(--f8f8f8);
+		background: linear-gradient(180deg, var(--plaque) 0%, var(--plaqueDeep) 100%);
 		width: 100%;
         display: block;
         position: relative;
 		z-index: 1;
-		border-top: 1px solid #920505;
+		border-top: 3px solid var(--gold);
 		padding: 30px 0 60px;
 		text-align: center;
-		color: #777;
+		color: rgba(244, 239, 227, 0.6);
 		margin-top: 3em;
 	}
 
@@ -59,10 +59,12 @@
 		display: inline-block;
 		cursor: pointer;
 		padding: 6px 10px;
+		color: rgba(244, 239, 227, 0.78);
+		font-weight: 500;
 	}
 
 	.navLink:hover {
-		color: #920505;
+		color: var(--gold);
 	}
 
 	.updateNotice {
@@ -102,5 +104,5 @@
 		</ul>
 	</div>
 	<!-- PLEASE DO NOT REMOVE THE BUILT BY -->
-	<span class="creator">Build forked from <a href="http://www.nmelhado.com/">Nicholas Melhado</a> and significantly enhanced by brylaue<br /></span>
+	<span class="creator">Build forked from <a href="http://www.nmelhado.com/">Nicholas Melhado</a><br /></span>
 </footer>

@@ -27,23 +27,71 @@
 </svelte:head>
 
 <style>
-	a {
-		display: table;
-    	margin: 0 auto;
-	}
 	nav {
-		background-color: var(--fff);
+		background: linear-gradient(180deg, var(--plaque) 0%, var(--plaqueDeep) 100%);
 		position: relative;
 		z-index: 2;
-		border-bottom: 1px solid #00316b;
-		box-shadow: 0 0 8px 0 #00316b;
+		border-bottom: 3px solid var(--gold);
+		/* tab colors while sitting on the plaque */
+		--mdc-theme-primary: var(--gold);
+	}
+
+	.plaque {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 18px;
+		padding: 16px 56px 10px;
+		text-decoration: none;
 	}
 
 	#logo {
-		width: 80px;
+		width: 64px;
 		display: block;
-		margin: 0 auto;
-		padding: 10px;
+		filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+	}
+
+	.wordmark {
+		text-align: left;
+	}
+
+	.eyebrow {
+		display: block;
+		font-family: var(--bodyFont);
+		font-weight: 600;
+		font-size: 0.62em;
+		letter-spacing: 0.28em;
+		color: var(--gold);
+		text-transform: uppercase;
+		margin-bottom: 2px;
+	}
+
+	.leagueName {
+		display: block;
+		font-family: var(--displayFont);
+		font-size: 1.55em;
+		line-height: 1;
+		color: var(--cream);
+		letter-spacing: 0.05em;
+		text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+	}
+
+	.rule {
+		display: block;
+		margin-top: 6px;
+		height: 2px;
+		width: 100%;
+		background: linear-gradient(90deg, var(--gold), rgba(201, 162, 39, 0));
+	}
+
+	@media (max-width: 500px) {
+		.plaque { gap: 12px; padding: 14px 48px 8px; }
+		#logo { width: 48px; }
+		.leagueName { font-size: 1.15em; }
+		/* the homepage hero carries the full title treatment; on a phone
+		   the plaque stays crest + name so it doesn't fight the menu and
+		   theme buttons for space */
+		.eyebrow { display: none; }
 	}
 
     .large {
@@ -61,7 +109,7 @@
 	}
 
 	:global(.lightDark) {
-		color: var(--g555)
+		color: var(--cream);
 	}
 
 	@media (max-width: 950px) { /* width of the large navBar */
@@ -76,7 +124,14 @@
 </style>
 
 <nav>
-	<a href="/"><img id="logo" alt="league logo" src="/badge.png" /></a>
+	<a href="/" class="plaque">
+		<img id="logo" alt="league logo" src="/badge.png" />
+		<span class="wordmark">
+			<span class="eyebrow">Est. 2018 &middot; 12-Team Superflex Dynasty</span>
+			<span class="leagueName">ACT, OR DIE.</span>
+			<span class="rule"></span>
+		</span>
+	</a>
 
 	<div class="container">
 		<IconButton

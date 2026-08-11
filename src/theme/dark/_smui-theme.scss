@@ -194,3 +194,19 @@ a:visited {
 .mdc-button--outlined:not(:disabled) {
   background-color: #070707 !important;
 }
+
+/* ── ACT, or DIE. "Varsity Clubhouse" design tokens ───────────────
+   Palette drawn from the league crest: navy shield, antique gold,
+   cream banner. Display face (Graduate) is reserved for the wordmark
+   and page titles; Barlow carries everything else. */
+:root {
+  --gold: #c9a227;
+  --goldSoft: rgba(201, 162, 39, 0.16);
+  --pageBg: #0f1626;
+  --ink: #e8e4d8;
+  --plaque: #001f45;
+  --plaqueDeep: #021c3d;
+  --cream: #f4efe3;
+  --displayFont: 'Graduate', 'Arial Black', sans-serif;
+  --bodyFont: 'Barlow', 'Roboto', sans-serif;
+}

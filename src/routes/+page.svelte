@@ -31,6 +31,48 @@
         margin: 0 auto;
     }
 
+    .text :global(p) {
+        line-height: 1.65;
+        color: var(--ink);
+    }
+
+    .heroEyebrow {
+        display: block;
+        text-align: center;
+        font-family: var(--bodyFont);
+        font-weight: 600;
+        font-size: 0.68em;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--gold);
+        margin: 34px 0 6px;
+    }
+
+    .heroRules {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        max-width: 380px;
+        margin: 10px auto 26px;
+    }
+
+    .heroRules::before,
+    .heroRules::after {
+        content: "";
+        flex: 1;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(201, 162, 39, 0), var(--gold));
+    }
+
+    .heroRules::after {
+        background: linear-gradient(90deg, var(--gold), rgba(201, 162, 39, 0));
+    }
+
+    .heroRules span {
+        color: var(--gold);
+        font-size: 0.8em;
+    }
+
     .leagueData {
         position: relative;
         z-index: 1;
@@ -67,6 +109,12 @@
 
     h6 {
         text-align: center;
+        font-family: var(--displayFont);
+        font-weight: 400;
+        font-size: 2em;
+        letter-spacing: 0.04em;
+        color: var(--blueOne);
+        margin: 0;
     }
 
     .homeBanner {
@@ -139,7 +187,9 @@
 <div id="home">
     <div id="main">
         <div class="text">
+            <span class="heroEyebrow">Est. 2018 &middot; 12-Team Superflex Dynasty</span>
             <h6>{leagueName}</h6>
+            <div class="heroRules"><span>&#9733;</span></div>
             <!-- homepageText contains the intro text for your league, this gets edited in /src/lib/utils/leagueInfo.js -->
             {@html homepageText }
             <!-- Most recent Blog Post (if enabled) -->
