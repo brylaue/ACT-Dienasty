@@ -8,29 +8,33 @@
     let winPercentages = $state([]);
     let lineupIQs = $state([]);
     let fptsHistories = $state([]);
-    let tradesData = $state([]);
-    let waiversData = $state([]);
 
     let showTies = $state(false);
-    
-    for(const managerID in transactionTotals.allTime) {
-        tradesData.push({
+
+    // $derived so a mid-session transactions refresh (which replaces the
+    // transactionTotals prop) flows through to the trade/waiver rankings -
+    // the old init-only loop captured the first value forever
+    const tradesData = $derived(
+        Object.keys(transactionTotals.allTime).map((managerID) => ({
             managerID,
             trades: transactionTotals.allTime[managerID].trade,
-        })
-        waiversData.push({
+        }))
+    );
+    const waiversData = $derived(
+        Object.keys(transactionTotals.allTime).map((managerID) => ({
             managerID,
             waivers: transactionTotals.allTime[managerID].waiver,
-        })
-    }
+        }))
+    );
 
 
     const setRankingsData = (lRR) => {
         winPercentages = [];
         lineupIQs = [];
         fptsHistories = [];
-        tradesData = [];
-        waiversData = [];
+        // tradesData/waiversData are $derived from transactionTotals now -
+        // the old resets here silently wiped them on every rankings
+        // recompute with nothing ever re-populating them
         showTies = false;
 
         for(const key in lRR) {

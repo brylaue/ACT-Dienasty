@@ -3,11 +3,7 @@
 
     let { leagueTeamManagers, managerID = null, rosterID = null, year, compressed = false, points = null } = $props();
 
-    let user = null;
-
-    if(managerID) {
-        user = leagueTeamManagers.users[managerID];
-    }
+    const user = managerID ? leagueTeamManagers.users[managerID] : null;
 </script>
 
 <style>

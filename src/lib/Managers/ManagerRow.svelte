@@ -6,18 +6,14 @@
 
     let { manager, leagueTeamManagers, key } = $props();
 
-    let retired = false;
-
     // manager.roster is deprecated, pages should be using managerID now
-    let rosterID = manager.roster;
-    let year = null;
-
-    if(manager.managerID) {
-        const dates = getDatesActive(leagueTeamManagers, manager.managerID);
-        if(dates.end) retired = true;
-
-        ({rosterID, year} = getRosterIDFromManagerID(leagueTeamManagers, manager.managerID) || {rosterID, year});
-    }
+    const _dates = manager.managerID ? getDatesActive(leagueTeamManagers, manager.managerID) : null;
+    const retired = !!_dates?.end;
+    const _resolved = manager.managerID
+        ? (getRosterIDFromManagerID(leagueTeamManagers, manager.managerID) || {})
+        : {};
+    const rosterID = _resolved.rosterID ?? manager.roster;
+    const year = _resolved.year ?? null;
 
     const commissioner = manager.managerID ? leagueTeamManagers.users[manager.managerID].is_owner : false;
 </script>
@@ -256,7 +252,7 @@
     </div>
     <div class="name">{manager.name}</div>
     <div class="team">{getTeamNameFromTeamManagers(leagueTeamManagers, rosterID, year)}</div>
-    <div class="spacer" />
+    <div class="spacer"></div>
     <div class="info">
         <!-- Favorite team (optional) -->
         <div class="infoSlot infoTeam">

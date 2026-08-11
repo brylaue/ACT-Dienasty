@@ -7,7 +7,7 @@ const dockerBuild = process.env.DOCKER_BUILD;
 const config = {
   kit: {
     adapter: dockerBuild ? node() : vercel({
-      runtime: 'nodejs20.x',
+      runtime: 'nodejs22.x', // nodejs20.x hit end-of-life April 2026; Vercel retires EOL runtimes
       regions: ['iad1']
     }),
   },

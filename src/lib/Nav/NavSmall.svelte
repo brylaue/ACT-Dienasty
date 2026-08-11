@@ -73,7 +73,7 @@
 				{#if !tab.nest && (tab.label != 'Blog' || (tab.label == 'Blog' && enableBlog))}
 					<Item href="javascript:void(0)" onSMUIAction={() => selectTab(tab)} ontouchstart={() => preloadData(tab.dest)} onmouseover={() => preloadData(tab.dest)} activated={active == tab.dest} >
 						<Graphic class="material-icons{active == tab.dest ? "" : " nav-item"}" aria-hidden="true">{tab.icon}</Graphic>
-						<Text class="{active == tab.dest ? "" : "nav-item"}">{tab.label}</Text>
+						<Text class={active == tab.dest ? "" : "nav-item"}>{tab.label}</Text>
 					</Item>
 				{/if}
 			{/each}
@@ -86,13 +86,13 @@
 							{#if managers.length}
 								<Item href="javascript:void(0)" onSMUIAction={() => selectTab(subTab)} activated={active == subTab.dest}  ontouchstart={() => preloadData(subTab.dest)} onmouseover={() => preloadData(subTab.dest)}>
 									<Graphic class="material-icons{active == subTab.dest ? "" : " nav-item"}" aria-hidden="true">{subTab.icon}</Graphic>
-									<Text class="{active == subTab.dest ? "" : "nav-item"}">{subTab.label}</Text>
+									<Text class={active == subTab.dest ? "" : "nav-item"}>{subTab.label}</Text>
 								</Item>
 							{/if}
 						{:else}
 							<Item href="javascript:void(0)" onSMUIAction={() => selectTab(subTab)} activated={active == subTab.dest}  ontouchstart={() => {if(subTab.label != 'Go to Sleeper') preloadData(subTab.dest)}} onmouseover={() => {if(subTab.label != 'Go to Sleeper') preloadData(subTab.dest)}}>
 								<Graphic class="material-icons{active == subTab.dest ? "" : " nav-item"}" aria-hidden="true">{subTab.icon}</Graphic>
-								<Text class="{active == subTab.dest ? "" : "nav-item"}">{subTab.label}</Text>
+								<Text class={active == subTab.dest ? "" : "nav-item"}>{subTab.label}</Text>
 							</Item>
 						{/if}
 					{/each}

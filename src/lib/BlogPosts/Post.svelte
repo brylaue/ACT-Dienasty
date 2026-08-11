@@ -5,15 +5,14 @@
 
     let { leagueTeamManagers, post, createdAt, id = null, direction = 1 } = $props();
 
-    let safePost = false;
-    let title, body, type, author;
-
-    // Safely validate post structure
-    if(post && typeof post === 'object') {
-        // Safely destructure post properties
-        ({title, body, type, author} = post);
-        
-        // Validate required fields exist and are not empty
+    // Safely validate post structure (init-only, so consts - reassigning
+    // plain lets is non-reactive in runes mode)
+    const { title, body, type, author } = (post && typeof post === 'object') ? post : {};
+    const validatePost = () => {
+        if(!post || typeof post !== 'object') {
+            console.error('Invalid post: Post is null, undefined, or not an object');
+            return false;
+        }
         if(!title || typeof title !== 'string' || title.trim() === '') {
             console.error('Invalid post: No title provided or title is empty');
         } else if(!body || typeof body !== 'object') {
@@ -23,15 +22,17 @@
         } else if(!author || typeof author !== 'string' || author.trim() === '') {
             console.error(`Invalid post (${title}): No author provided or author is empty`)
         } else {
-            safePost = true;
+            return true;
         }
-    } else {
-        console.error('Invalid post: Post is null, undefined, or not an object');
-    }
+        return false;
+    };
+    const safePost = validatePost();
 
     const duration = 300;
 
-    let e;
+    // $state is required for bind:this - without it, isOverflown never
+    // recomputed and the read-more affordance could never appear
+    let e = $state();
 
     let isOverflown = $derived(e ? e.scrollHeight > e.clientHeight : false);
 </script>
@@ -213,8 +214,8 @@
                 {/each}
                 {#if isOverflown}
                     <div class="fade">
-                        <div class="fadeTop" />
-                        <div class="fadeBottom" />
+                        <div class="fadeTop"></div>
+                        <div class="fadeBottom"></div>
                     </div>
                 {/if}
             </div>

@@ -119,7 +119,7 @@
 				</div>
 			{:else}
 				<Tab
-					class="{tab.label == 'Blog' && !enableBlog ? 'dontDisplay' : ''}"
+					class={tab.label == 'Blog' && !enableBlog ? 'dontDisplay' : ''}
 					{tab}
 					onTouchstart={() => preloadData(tab.dest)}
 					onMouseover={() => preloadData(tab.dest)}
@@ -136,7 +136,7 @@
 		<List>
 			{#each tabChildren as subTab, ix}
 				{#if subTab.label == 'Managers'}
-					<Item class="{managers.length ? '' : 'dontDisplay'}" onSMUIAction={() => subGoto(subTab.dest)} ontouchstart={() => preloadData(subTab.dest)} onmouseover={() => preloadData(subTab.dest)}>
+					<Item class={managers.length ? '' : 'dontDisplay'} onSMUIAction={() => subGoto(subTab.dest)} ontouchstart={() => preloadData(subTab.dest)} onmouseover={() => preloadData(subTab.dest)}>
 						<Graphic class="material-icons">{subTab.icon}</Graphic>
 						<Text class="subText">{subTab.label}</Text>
 					</Item>
