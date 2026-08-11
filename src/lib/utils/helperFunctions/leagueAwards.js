@@ -30,7 +30,14 @@ const getPodiums = async (previousSeasonID) => {
 
   while (previousSeasonID && previousSeasonID != 0) {
     // use the previous season ID to get the previous league, roster, user, and bracket data
-    const previousSeasonData = await getPreviousLeagueData(previousSeasonID);
+    // if one season fails to load, show the podiums gathered so far instead of erroring out
+    let previousSeasonData;
+    try {
+      previousSeasonData = await getPreviousLeagueData(previousSeasonID);
+    } catch (err) {
+      console.error(`Skipping awards for league ${previousSeasonID}:`, err);
+      break;
+    }
 
     const {
       losersData,

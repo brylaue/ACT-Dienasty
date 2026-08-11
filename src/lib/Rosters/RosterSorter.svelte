@@ -39,19 +39,22 @@
 	.banner {
 		display: flex;
 		align-items: center;
-		height: 140px;
-		width: 500px;
+		min-height: 120px;
+		width: min(500px, calc(100% - 8px));
+		max-width: 100%;
+		box-sizing: border-box;
 		border-radius: 40px;
 		margin: 10px auto;
 		background-color: #f5f5f5;
 		border: 2px solid #ddd;
-		padding: 0 20px;
+		padding: 12px 20px;
 		gap: 20px;
+		overflow: hidden;
 	}
 
 	.banner-image {
-		height: 120px;
-		width: 200px;
+		height: 110px;
+		width: clamp(110px, 32vw, 190px);
 		background-repeat: no-repeat;
 		background-size: contain;
 		background-position: center;
@@ -72,6 +75,7 @@
 
 	.banner-text {
 		flex: 1;
+		min-width: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -79,44 +83,23 @@
 
 	h2 {
 		text-align: center;
-		font-size: 3em;
+		font-size: clamp(1.5em, 3.5vw + 0.6em, 2.6em);
+		line-height: 1.15;
+		overflow-wrap: break-word;
 		margin: 0;
 		color: #333;
 	}
 
 	@media (max-width: 460px) {
 		.banner {
-			height: 110px;
-			width: 380px;
-			padding: 0 15px;
-			gap: 15px;
+			min-height: 90px;
+			padding: 10px 15px;
+			gap: 12px;
+			border-radius: 30px;
 		}
 
 		.banner-image {
-			height: 90px;
-			width: 150px;
-		}
-
-		h2 {
-			font-size: 2.5em;
-		}
-	}
-
-	@media (max-width: 360px) {
-		.banner {
-			height: 90px;
-			width: 320px;
-			padding: 0 10px;
-			gap: 10px;
-		}
-
-		.banner-image {
-			height: 70px;
-			width: 120px;
-		}
-
-		h2 {
-			font-size: 2em;
+			height: 80px;
 		}
 	}
 
