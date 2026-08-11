@@ -23,6 +23,12 @@ jobs:
       - name: Rebuild baked league data
         run: node scripts/build-rivalry-data.mjs
 
+      - name: Generate fresh AI commentary for new trades/waivers
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node scripts/build-commentary.mjs
+        continue-on-error: true # missing/expired key just falls back to the template pool
+
       - name: Commit and push if changed
         run: |
           git config user.name "league-data-bot"
