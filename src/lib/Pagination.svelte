@@ -1,6 +1,6 @@
 <script>
 	import { Icon } from '@smui/tab';
-    let { total, perPage, page, target, scroll = true } = $props();
+    let { total, perPage, page = $bindable(0), target, scroll = true } = $props();
 
     let pageLabels = $state([]);
 

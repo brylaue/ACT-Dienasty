@@ -50,7 +50,7 @@
 	// filtered subset based on filter
 	$: filteredTransactions = setFilter(show, transactions);
 
-	const setQuery = (query, filteredTransactions) => {
+	const setQuery = (query, filteredTransactions, page) => {
 		if(!filteredTransactions) {
 			return [];
 		}
@@ -66,7 +66,10 @@
 		const end = (page + 1) * perPage;
 		return subsetTransactions.slice(start, end);
 	}
-	$: displayTransactions = setQuery(query, filteredTransactions);
+	// page is passed explicitly so this re-runs when Pagination changes it -
+	// referencing it only inside the function body is invisible to Svelte's
+	// legacy reactivity and left the list stuck on page 1
+	$: displayTransactions = setQuery(query, filteredTransactions, page);
 
 	const changePage = (dest, pageChange = false) => {
 		if(queryPage == dest && pageChange) return;
@@ -74,7 +77,7 @@
 		if(dest > (filteredTransactions.length / perPage) || dest < 0) {
 			page = 0;
 		}
-		displayTransactions = setQuery(query, filteredTransactions);
+		displayTransactions = setQuery(query, filteredTransactions, page);
 		if(postUpdate) {
             goto(`/transactions?show=${show}&query=${query}&page=${page+1}`, {noscroll: true,  keepfocus: true});
 		}
