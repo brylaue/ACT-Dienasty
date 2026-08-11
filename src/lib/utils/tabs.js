@@ -67,6 +67,26 @@ export const tabs = [
         dest: "/luck",
       },
       {
+        icon: "trending_up",
+        label: "Power Rankings",
+        dest: "/power-rankings",
+      },
+      {
+        icon: "insights",
+        label: "Playoff Odds",
+        dest: "/playoff-odds",
+      },
+      {
+        icon: "auto_awesome",
+        label: "Predictions",
+        dest: "/predictions",
+      },
+      {
+        icon: "storefront",
+        label: "Trade Block",
+        dest: "/tradeblock",
+      },
+      {
         icon: "newspaper",
         label: "Sunday Shame",
         dest: "/recap",

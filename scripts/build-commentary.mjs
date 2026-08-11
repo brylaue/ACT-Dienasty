@@ -177,6 +177,7 @@ if (existsSync(OUT_PATH)) {
 existing.trades ||= {};
 existing.waivers ||= {};
 existing.recaps ||= {};
+existing.predictions ||= {};
 
 const newTrades = digested.filter(
   (t) => t.type == "trade" && !existing.trades[t.id],
@@ -439,8 +440,82 @@ for (const { year, week, key } of newRecapWeeks) {
   }
 }
 
+// ============================================================
+// Matchup Predictor: one AI preview per matchup for the upcoming week
+// (the first week with no scores yet), skipped once the season is over
+// ============================================================
+
+let predictionWeekInfo = null;
+if (existsSync(RIVALRY_PATH)) {
+  try {
+    const rivalry = JSON.parse(readFileSync(RIVALRY_PATH, "utf8"));
+    const season = rivalry.seasons?.[leagueID];
+    if (season) {
+      const ix = season.weeks.findIndex((w) => !w);
+      if (ix !== -1) predictionWeekInfo = { year: season.year, week: ix + 1 };
+    }
+  } catch {
+    /* rivalry data missing/corrupt - skip predictions this run */
+  }
+}
+
+if (predictionWeekInfo) {
+  const { year, week } = predictionWeekInfo;
+  const predKey = `${year}-${week}`;
+  if (!existing.predictions[predKey]) {
+    const matchups = await get(
+      `https://api.sleeper.app/v1/league/${leagueID}/matchups/${week}`,
+    ).catch(() => []);
+    const pairs = {};
+    for (const m of matchups || []) {
+      if (m.matchup_id == null) continue;
+      (pairs[m.matchup_id] ||= []).push(m.roster_id);
+    }
+    const validPairs = Object.values(pairs).filter((p) => p.length === 2);
+
+    if (validPairs.length) {
+      const rosters = await get(`https://api.sleeper.app/v1/league/${leagueID}/rosters`);
+      const users = await get(`https://api.sleeper.app/v1/league/${leagueID}/users`);
+      const userById = Object.fromEntries(users.map((u) => [u.user_id, u]));
+      const rosterById = Object.fromEntries(rosters.map((r) => [r.roster_id, r]));
+      const nameFor = (rosterID) => {
+        const r = rosterById[rosterID];
+        const u = r && userById[r.owner_id];
+        return u?.metadata?.team_name || u?.display_name || `Team ${rosterID}`;
+      };
+      const recordFor = (rosterID) => {
+        const s = rosterById[rosterID]?.settings || {};
+        return `${s.wins || 0}-${s.losses || 0}${s.ties ? `-${s.ties}` : ""}`;
+      };
+
+      const matchupList = validPairs.map(([a, b], ix) => ({
+        ix,
+        a: { rosterID: a, name: nameFor(a), record: recordFor(a) },
+        b: { rosterID: b, name: nameFor(b), record: recordFor(b) },
+      }));
+
+      const PREDICTION_SYSTEM = `You write short, confident, deadpan matchup previews for a fantasy football dynasty league's upcoming week. You'll get a list of matchups (each with two teams and their records) and must reply with ONLY a JSON object (no markdown fences, no preamble) mapping each matchup's index (as a string) to a one-sentence preview under 20 words. Lean into records where they're lopsided, stay neutral and teasing where they're close. Vary phrasing and structure widely across matchups. NEVER use "irreconcilable differences," "philosophical differences," "creative differences," or any close variant.`;
+
+      const predResult = await askClaudeJSON(
+        PREDICTION_SYSTEM,
+        `${year} Week ${week} matchups:\n${matchupList.map((m) => `${m.ix}: ${m.a.name} (${m.a.record}) vs ${m.b.name} (${m.b.record})`).join("\n")}`,
+      );
+
+      if (predResult) {
+        existing.predictions[predKey] = matchupList.map((m) => ({
+          teamA: m.a.name,
+          teamB: m.b.name,
+          recordA: m.a.record,
+          recordB: m.b.record,
+          blurb: predResult[String(m.ix)] || null,
+        }));
+      }
+    }
+  }
+}
+
 mkdirSync(join(root, "static/data"), { recursive: true });
 writeFileSync(OUT_PATH, JSON.stringify(existing));
 console.log(
-  `wrote static/data/commentary.json (${Object.keys(existing.trades).length} trades, ${Object.keys(existing.waivers).length} waivers, ${Object.keys(existing.recaps).length} recap weeks total)`,
+  `wrote static/data/commentary.json (${Object.keys(existing.trades).length} trades, ${Object.keys(existing.waivers).length} waivers, ${Object.keys(existing.recaps).length} recap weeks, ${Object.keys(existing.predictions).length} prediction weeks total)`,
 );
