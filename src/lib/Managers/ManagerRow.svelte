@@ -2,6 +2,7 @@
     import { goto } from "$app/navigation";
 	import { getDatesActive, getRosterIDFromManagerID, getTeamNameFromTeamManagers } from "$lib/utils/helperFunctions/universalFunctions";
     import {dynasty} from "$lib/utils/leagueInfo"
+    import { modeIconSrc } from "$lib/utils/helperFunctions/modeIcon";
 
     let { manager, leagueTeamManagers, key } = $props();
 
@@ -300,7 +301,7 @@
             <div class="infoSlot infoRebuild">
                 {#if manager.mode}
                     <div class="infoIcon">
-                        <img class="infoImg" src="/{manager.mode.replaceAll(' ', '%20')}.png" alt="manager goals"/>
+                        <img class="infoImg" src="{modeIconSrc(manager.mode)}" alt="manager goals"/>
                     </div>
                     <div class="infoAnswer">
                         {manager.mode}

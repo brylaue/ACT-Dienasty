@@ -1,5 +1,6 @@
 <script>
     import { dreamDraftLocationImages, beverageImages } from '$lib/utils/leagueInfo';
+    import { modeIconSrc } from '$lib/utils/helperFunctions/modeIcon';
 
     export let viewManager, players, changeManager;
 </script>
@@ -270,7 +271,7 @@
                 Goals
             </div>
             <div class="infoIcon">
-                <img class="rebuildOrWin" src="/{viewManager.mode.replaceAll(' ', '%20')}.png" alt="manager goals"/>
+                <img class="rebuildOrWin" src="{modeIconSrc(viewManager.mode)}" alt="manager goals"/>
             </div>
             <div class="infoAnswer">
                 {viewManager.mode}
