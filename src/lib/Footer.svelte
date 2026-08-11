@@ -104,5 +104,5 @@
 		</ul>
 	</div>
 	<!-- PLEASE DO NOT REMOVE THE BUILT BY -->
-	<span class="creator">Build forked from <a href="http://www.nmelhado.com/">Nicholas Melhado</a><br /></span>
+	<span class="creator">Build forked from <a href="http://www.nmelhado.com/">Nicholas Melhado</a> &middot; significantly edited by <a href="https://github.com/brylaue">brylaue</a><br /></span>
 </footer>
