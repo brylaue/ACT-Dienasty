@@ -1,6 +1,7 @@
 import { getLeagueData } from "./leagueData";
 import { getLeagueRosters } from "./leagueRosters";
 import { waitForAll } from "./multiPromise";
+import { retryFetch } from "$lib/utils/errorHandler";
 import { get } from "svelte/store";
 import { awards } from "$lib/stores";
 
@@ -92,37 +93,29 @@ const getPodiums = async (previousSeasonID) => {
 // fetch the previous season's data from sleeper
 const getPreviousLeagueData = async (previousSeasonID) => {
   const resPromises = [
-    fetch(`https://api.sleeper.app/v1/league/${previousSeasonID}`, {
-      compress: true,
-    }),
+    retryFetch(`https://api.sleeper.app/v1/league/${previousSeasonID}`),
     getLeagueRosters(previousSeasonID),
-    fetch(
+    retryFetch(
       `https://api.sleeper.app/v1/league/${previousSeasonID}/losers_bracket`,
-      { compress: true },
     ),
-    fetch(
+    retryFetch(
       `https://api.sleeper.app/v1/league/${previousSeasonID}/winners_bracket`,
-      { compress: true },
     ),
   ];
 
-  const [leagueRes, rostersData, losersRes, winnersRes] = await waitForAll(
-    ...resPromises,
-  ).catch((err) => {
-    console.error(err);
-  });
+  const [leagueRes, rostersData, losersRes, winnersRes] =
+    await waitForAll(...resPromises);
 
   if (!leagueRes.ok || !losersRes.ok || !winnersRes.ok) {
-    throw new Error(data);
+    throw new Error(
+      `Sleeper API error loading awards data for league ${previousSeasonID}`,
+    );
   }
 
   const jsonPromises = [leagueRes.json(), losersRes.json(), winnersRes.json()];
 
-  const [prevLeagueData, losersData, winnersData] = await waitForAll(
-    ...jsonPromises,
-  ).catch((err) => {
-    console.error(err);
-  });
+  const [prevLeagueData, losersData, winnersData] =
+    await waitForAll(...jsonPromises);
 
   const year = prevLeagueData.season;
 

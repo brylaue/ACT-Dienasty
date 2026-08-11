@@ -4,6 +4,36 @@
  */
 
 /**
+ * Fetch with automatic retries and exponential backoff.
+ * Retries on network errors and non-ok responses; returns the last
+ * response (ok or not) after retries are exhausted, and only throws
+ * if every attempt failed at the network level.
+ * @param {string} url - The URL to fetch
+ * @param {number} retries - Number of retry attempts after the first try
+ * @returns {Promise<Response>}
+ */
+export async function retryFetch(url, retries = 3) {
+  let lastError = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, { compress: true });
+      if (res.ok || attempt === retries) {
+        return res;
+      }
+    } catch (error) {
+      lastError = error;
+      if (attempt === retries) {
+        throw lastError;
+      }
+    }
+    // Exponential backoff: 300ms, 600ms, 1200ms...
+    await new Promise((resolve) =>
+      setTimeout(resolve, 300 * Math.pow(2, attempt)),
+    );
+  }
+}
+
+/**
  * Handle API errors with proper logging and fallback
  * @param {Error} error - The error object
  * @param {string} context - Context where the error occurred

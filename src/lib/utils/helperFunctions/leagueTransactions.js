@@ -6,6 +6,7 @@ import { get } from "svelte/store";
 import { transactionsStore } from "$lib/stores";
 import { browser } from "$app/environment";
 import { getLeagueTeamManagers } from "./leagueTeamManagers";
+import { retryFetch } from "$lib/utils/errorHandler";
 
 export const getLeagueTransactions = async (preview, refresh = false) => {
   const transactionsStoreVal = get(transactionsStore);
@@ -47,9 +48,7 @@ export const getLeagueTransactions = async (preview, refresh = false) => {
   const { transactionsData, currentSeason } = await combThroughTransactions(
     week,
     leagueID,
-  ).catch((err) => {
-    console.error(err);
-  });
+  );
 
   const { transactions, totals } = await digestTransactions({
     transactionsData,
@@ -134,21 +133,16 @@ const combThroughTransactions = async (week, currentLeagueID) => {
   for (const singleLeagueID of leagueIDs) {
     while (week > 0) {
       transactionPromises.push(
-        fetch(
+        retryFetch(
           `https://api.sleeper.app/v1/league/${singleLeagueID}/transactions/${week}`,
-          { compress: true },
-        ),
+        ).catch(() => null),
       );
       week--;
     }
     week = 18;
   }
 
-  const transactionRess = await waitForAll(...transactionPromises).catch(
-    (err) => {
-      console.error(err);
-    },
-  );
+  const transactionRess = await waitForAll(...transactionPromises);
 
   const transactionDataPromises = [];
 
@@ -157,18 +151,15 @@ const combThroughTransactions = async (week, currentLeagueID) => {
       console.error(transactionRes);
       continue;
     }
-    transactionDataPromises.push(transactionRes.json());
+    transactionDataPromises.push(transactionRes.json().catch(() => null));
   }
 
-  const transactionsDataJson = await waitForAll(
-    ...transactionDataPromises,
-  ).catch((err) => {
-    console.error(err);
-  });
+  const transactionsDataJson = await waitForAll(...transactionDataPromises);
 
   let transactionsData = [];
 
   for (const transactionDataJson of transactionsDataJson) {
+    if (!transactionDataJson) continue;
     transactionsData = transactionsData.concat(transactionDataJson);
   }
 

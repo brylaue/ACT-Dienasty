@@ -1,6 +1,7 @@
 import { leagueID } from "$lib/utils/leagueInfo";
 import { get } from "svelte/store";
 import { rostersStore } from "$lib/stores";
+import { retryFetch } from "$lib/utils/errorHandler";
 
 export const getLeagueRosters = async (queryLeagueID = leagueID) => {
   const storedRoster = get(rostersStore)[queryLeagueID];
@@ -12,15 +13,15 @@ export const getLeagueRosters = async (queryLeagueID = leagueID) => {
   ) {
     return storedRoster;
   }
-  const res = await fetch(
+  const res = await retryFetch(
     `https://api.sleeper.app/v1/league/${queryLeagueID}/rosters`,
-    { compress: true },
-  ).catch((err) => {
-    console.error(err);
-  });
-  const data = await res.json().catch((err) => {
-    console.error(err);
-  });
+  );
+  if (!res.ok) {
+    throw new Error(
+      `Sleeper API error loading rosters for league ${queryLeagueID}`,
+    );
+  }
+  const data = await res.json();
 
   if (res.ok) {
     const processedRosters = processRosters(data);
@@ -30,7 +31,9 @@ export const getLeagueRosters = async (queryLeagueID = leagueID) => {
     });
     return processedRosters;
   } else {
-    throw new Error(data);
+    throw new Error(
+      `Sleeper API error loading rosters for league ${queryLeagueID}`,
+    );
   }
 };
 
