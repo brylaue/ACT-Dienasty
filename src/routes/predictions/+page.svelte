@@ -60,6 +60,9 @@
                             <span class="trecord">{m.recordB}</span>
                         </div>
                     </div>
+                    {#if m.h2h && (m.h2h.aWins + m.h2h.bWins + m.h2h.ties) >= 8}
+                        <div class="rivalryBadge">🔥 Rivalry Game — {m.h2h.aWins + m.h2h.bWins + m.h2h.ties} all-time meetings</div>
+                    {/if}
                     {#if m.h2h}
                         <div class="h2h">
                             All-time series:
@@ -149,6 +152,21 @@
         flex-shrink: 0;
         padding: 0 4px;
     }
+    .rivalryBadge {
+        margin-top: 10px;
+        text-align: center;
+        font-size: 0.72em;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: #b45309;
+        background: rgba(245, 158, 11, 0.12);
+        border-radius: 999px;
+        padding: 4px 12px;
+        display: table;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
     .h2h {
         margin-top: 10px;
         font-size: 0.75em;

@@ -18,6 +18,22 @@
 
     const medalFor = (rank) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
 
+    // inline sparkline path from a team's value history (needs 2+ points)
+    const sparkPath = (hist) => {
+        if (!hist || hist.length < 2) return null;
+        const vals = hist.map((h) => h.v);
+        const min = Math.min(...vals);
+        const max = Math.max(...vals);
+        const range = max - min || 1;
+        const W = 72, H = 20, P = 2;
+        return vals.map((v, i) => {
+            const x = P + (i / (vals.length - 1)) * (W - P * 2);
+            const y = H - P - ((v - min) / range) * (H - P * 2);
+            return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+    };
+    const trendUp = (hist) => hist && hist.length >= 2 && hist[hist.length - 1].v >= hist[0].v;
+
     // week-over-week movement: positive = climbed, negative = fell
     const movement = (team) => team.prevRank == null ? null : team.prevRank - team.rank;
 </script>
@@ -75,6 +91,13 @@
                             {#if (team.allPlayW || 0) + (team.allPlayL || 0) > 0}
                                 <span>•</span>
                                 <span title="Your record if you'd played every team every week">all-play {team.allPlayW}-{team.allPlayL}</span>
+                            {/if}
+                            {#if sparkPath(team.valueHistory)}
+                                <span>•</span>
+                                <svg class="spark" viewBox="0 0 72 20" title="Dynasty roster value trend">
+                                    <path d={sparkPath(team.valueHistory)} fill="none"
+                                        stroke={trendUp(team.valueHistory) ? '#16a34a' : '#dc2626'} stroke-width="1.6" />
+                                </svg>
                             {/if}
                         </div>
                     </div>
@@ -193,6 +216,12 @@
         border-radius: 3px;
         transition: width 0.6s ease;
     }
+    .spark {
+        width: 72px;
+        height: 20px;
+        vertical-align: middle;
+    }
+
     .stats {
         margin-top: 6px;
         display: flex;

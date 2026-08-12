@@ -167,17 +167,34 @@ const winPcts = teams.map((t) => t.wins / Math.max(t.wins + t.losses + t.ties, 1
 const fptsArr = teams.map((t) => t.fpts);
 const valueArr = teams.map((t) => t.rosterValue);
 
-// previous run's ranks, so the page can show week-over-week movement
+// previous run's ranks + value history, so the page can show
+// week-over-week movement and roster-value trendlines
 const PR_PATH = join(root, "static/data/power-rankings.json");
 let prevRanks = {};
+let prevValueHistory = {};
 if (existsSync(PR_PATH)) {
   try {
     const prev = JSON.parse(readFileSync(PR_PATH, "utf8"));
-    for (const t of prev.teams || []) prevRanks[t.rosterID] = t.rank;
+    for (const t of prev.teams || []) {
+      prevRanks[t.rosterID] = t.rank;
+      if (Array.isArray(t.valueHistory)) prevValueHistory[t.rosterID] = t.valueHistory;
+    }
   } catch {
-    /* no previous data - movement just won't show this week */
+    /* no previous data - movement/trends just won't show this week */
   }
 }
+
+// append this run's dynasty value to each team's history (one point per
+// calendar day at most, capped at a year of weekly-ish points)
+const todayStamp = new Date().toISOString().slice(0, 10);
+const valueHistoryFor = (rosterID, currentValue) => {
+  const hist = [...(prevValueHistory[rosterID] || [])];
+  const last = hist[hist.length - 1];
+  const point = { d: todayStamp, v: Math.round(currentValue) };
+  if (last && last.d === todayStamp) hist[hist.length - 1] = point;
+  else hist.push(point);
+  return hist.slice(-52);
+};
 
 // All-Play record: your record if you'd played every team every week.
 // Uses the same current-season weekly data as the sim below.
@@ -235,6 +252,7 @@ const ranked = teams
     ...t,
     rank: ix + 1,
     prevRank: prevRanks[t.rosterID] ?? null,
+    valueHistory: valueHistoryFor(t.rosterID, t.rosterValue),
   }));
 
 const blurbs = await askClaudeJSON(
@@ -299,6 +317,10 @@ const shuffle = (arr) => {
 
 const SIMS = 3000;
 const madePlayoffs = Object.fromEntries(teams.map((t) => [t.rosterID, 0]));
+// draft order = reverse final standings for the teams that miss; tally
+// how often each team lands the #1 overall and any top-3 pick
+const topPick = Object.fromEntries(teams.map((t) => [t.rosterID, 0]));
+const top3Pick = Object.fromEntries(teams.map((t) => [t.rosterID, 0]));
 
 for (let sim = 0; sim < SIMS; sim++) {
   const state = Object.fromEntries(
@@ -330,6 +352,11 @@ for (let sim = 0; sim < SIMS; sim++) {
     .sort((x, y) => y.wins - x.wins || y.fpts - x.fpts);
 
   finalOrder.slice(0, playoffTeams).forEach((t) => madePlayoffs[t.rosterID]++);
+
+  // everyone below the playoff line, worst first, is the draft order
+  const missed = finalOrder.slice(playoffTeams).reverse();
+  if (missed[0]) topPick[missed[0].rosterID]++;
+  missed.slice(0, 3).forEach((t) => top3Pick[t.rosterID]++);
 }
 
 // previous run's odds, so the page can show week-over-week movement
@@ -353,6 +380,8 @@ const odds = teams
     ties: t.ties,
     playoffPct: Math.round((madePlayoffs[t.rosterID] / SIMS) * 1000) / 10,
     prevPct: prevPcts[t.rosterID] ?? null,
+    topPickPct: Math.round((topPick[t.rosterID] / SIMS) * 1000) / 10,
+    top3PickPct: Math.round((top3Pick[t.rosterID] / SIMS) * 1000) / 10,
   }))
   .sort((a, b) => b.playoffPct - a.playoffPct);
 
@@ -452,9 +481,28 @@ if (existsSync(RIVALRY_PATH)) {
       return { ...dress([currentBest])[0], gap };
     };
 
+    // "this week in league history": the best performance ever recorded in
+    // the UPCOMING week number, across all seasons - a homepage tidbit
+    const upcomingIx = rivalry.seasons[leagueID]?.weeks?.findIndex((w) => !w) ?? -1;
+    const upcomingWeek = upcomingIx === -1 ? null : upcomingIx + 1;
+    let weekHistory = null;
+    if (upcomingWeek) {
+      const sameWeek = scores.filter((sc) => sc.week === upcomingWeek && sc.year !== currentYear);
+      const best = [...sameWeek].sort((a, b) => b.pts - a.pts)[0];
+      if (best) {
+        weekHistory = {
+          week: upcomingWeek,
+          year: best.year,
+          name: nameByRoster[best.rosterID] || `Team ${best.rosterID}`,
+          pts: Math.round(best.pts * 100) / 100,
+        };
+      }
+    }
+
     recordWatch = {
       generated: new Date().toISOString(),
       currentYear,
+      weekHistory,
       hasCurrentData: curScores.length > 0,
       highs: top5Highs,
       blowouts: top5Blowouts,

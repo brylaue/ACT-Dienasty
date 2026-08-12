@@ -26,6 +26,31 @@
     })();
 
     const prTop = $derived(pr?.teams?.slice(0, 3) || []);
+    const weekHistory = $derived(recordWatch?.weekHistory || null);
+
+    // gameday scoreboard: current week's scores, in-season only. Team
+    // names come from the already-fetched power-rankings bake, so this
+    // costs one extra request and only during the regular season.
+    let scoreboard = $state(null);
+    (async () => {
+        try {
+            const st = await nflState;
+            if (st?.season_type !== 'regular' || !(st.week > 0)) return;
+            const leagueID = (await import('$lib/utils/leagueInfo')).leagueID;
+            const res = await fetch(`https://api.sleeper.app/v1/league/${leagueID}/matchups/${st.week}`);
+            if (!res.ok) return;
+            const matchups = await res.json();
+            const pairs = {};
+            for (const m of matchups || []) {
+                if (m.matchup_id == null) continue;
+                (pairs[m.matchup_id] ||= []).push({ rosterID: m.roster_id, pts: m.points || 0 });
+            }
+            const games = Object.values(pairs).filter((g) => g.length === 2);
+            if (games.length) scoreboard = { week: st.week, games };
+        } catch { /* scoreboard simply doesn't render */ }
+    })();
+
+    const nameFor = (rosterID) => pr?.teams?.find((t) => t.rosterID === rosterID)?.name || `Team ${rosterID}`;
     const oddsTop = $derived(odds?.teams?.slice(0, 3) || []);
     const recordToBeat = $derived(recordWatch?.highs?.[0] || null);
 
@@ -84,6 +109,21 @@
     </section>
 
     <!-- ── LEAGUE PULSE: the numbers that matter right now ─────── -->
+    {#if scoreboard}
+        <section class="scoreboardWrap">
+            <div class="scoreboard">
+                <span class="sbLabel">Week {scoreboard.week}</span>
+                {#each scoreboard.games as g}
+                    <span class="sbGame" class:live={g[0].pts + g[1].pts > 0}>
+                        <span class="sbTeam" class:leading={g[0].pts > g[1].pts}>{nameFor(g[0].rosterID)} {g[0].pts.toFixed(1)}</span>
+                        <span class="sbDash">–</span>
+                        <span class="sbTeam" class:leading={g[1].pts > g[0].pts}>{g[1].pts.toFixed(1)} {nameFor(g[1].rosterID)}</span>
+                    </span>
+                {/each}
+            </div>
+        </section>
+    {/if}
+
     {#if prTop.length || oddsTop.length || recordToBeat}
         <section class="pulse">
             <div class="pulseGrid">
@@ -116,6 +156,16 @@
                             <div class="oddsTrack"><div class="oddsBar" style="width: {t.playoffPct}%; background: {oddsColor(t.playoffPct)}"></div></div>
                         {/each}
                         <div class="cardMore">All 12 teams &rarr;</div>
+                    </a>
+                {/if}
+
+                {#if weekHistory}
+                    <a class="pulseCard" href="/records">
+                        <div class="cardKicker">This Week in League History</div>
+                        <div class="histPts">{weekHistory.pts.toFixed(1)}</div>
+                        <div class="histWho">{weekHistory.name}</div>
+                        <div class="histWhen">best Week {weekHistory.week} ever &middot; {weekHistory.year}</div>
+                        <div class="cardMore">Record book &rarr;</div>
                     </a>
                 {/if}
 
@@ -393,6 +443,46 @@
         font-weight: 600;
         color: var(--accent);
     }
+
+    .histPts {
+        font-weight: 800;
+        font-size: 2em;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+        text-align: center;
+        margin: 4px 0 2px;
+    }
+    .histWho { text-align: center; font-weight: 700; }
+    .histWhen { text-align: center; font-size: 0.72em; color: var(--muted); margin-top: 3px; }
+
+    /* ── gameday scoreboard ── */
+    .scoreboardWrap { padding: 14px 20px 0; }
+    .scoreboard {
+        max-width: 980px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        background: var(--fff);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 16px;
+        font-size: 0.82em;
+        white-space: nowrap;
+    }
+    .sbLabel {
+        font-weight: 700;
+        font-size: 0.85em;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--accent);
+        flex-shrink: 0;
+    }
+    .sbGame { color: var(--muted); flex-shrink: 0; }
+    .sbGame.live .sbTeam.leading { color: var(--ink); font-weight: 700; }
+    .sbDash { padding: 0 4px; }
 
     /* ── about ── */
     .about { padding: 30px 20px 0; }

@@ -180,6 +180,7 @@ if (existsSync(OUT_PATH)) {
   }
 }
 existing.trades ||= {};
+existing.tradeMeta ||= {}; // value gaps frozen at bake time, for a future GM Report Card
 existing.waivers ||= {};
 existing.recaps ||= {};
 existing.predictions ||= {};
@@ -337,6 +338,19 @@ for (const { t, classified } of gradeableTrades) {
   );
   if (line) {
     existing.trades[t.id] = line;
+    // freeze the trade's value picture NOW - grading old trades with
+    // today's values is nonsense, so a future GM Report Card needs the
+    // numbers as they stood when the trade happened
+    if (classified?.totals && t.rosters?.length === 2) {
+      existing.tradeMeta[t.id] = {
+        at: t.status_updated || Date.now(),
+        rosters: t.rosters, // [rosterA, rosterB]
+        totals: classified.totals, // dynasty value each side received, at trade time
+        gapPct: classified.gapPct,
+        tier: classified.tier,
+        winnerRoster: t.rosters[classified.winnerIx] ?? null,
+      };
+    }
     recentTradeLines.push(line);
   }
 }

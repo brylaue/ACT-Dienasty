@@ -74,6 +74,24 @@
                 </div>
             {/each}
         </div>
+        {#if data.teams.some((t) => t.topPickPct > 0)}
+            <h3 class="raceTitle">🏁 Race for the #1 Pick</h3>
+            <p class="raceSub">Draft order is reverse standings for the teams that miss — same {data.simulations.toLocaleString()} simulations, other end of the table.</p>
+            <div class="list">
+                {#each [...data.teams].filter((t) => t.topPickPct > 0).sort((a, b) => b.topPickPct - a.topPickPct).slice(0, 6) as team (team.rosterID)}
+                    <div class="row">
+                        <div class="nameRow">
+                            <span class="name">{team.name}</span>
+                            <span class="pctWrap">
+                                <span class="pickPct">#1: {team.topPickPct}%</span>
+                                <span class="pick3">top-3: {team.top3PickPct}%</span>
+                            </span>
+                        </div>
+                        <div class="barTrack"><div class="bar" style="width: {team.topPickPct}%; background: var(--accent)"></div></div>
+                    </div>
+                {/each}
+            </div>
+        {/if}
         <p class="generated">Last updated {new Date(data.generated).toLocaleString()}</p>
     {/if}
 </div>
@@ -164,6 +182,22 @@
         border-radius: 4px;
         transition: width 0.6s ease;
     }
+    .raceTitle {
+        text-align: center;
+        color: var(--ink);
+        margin: 40px 0 4px;
+        font-size: 1.2em;
+    }
+    .raceSub {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.8em;
+        max-width: 440px;
+        margin: 0 auto 18px;
+    }
+    .pickPct { font-weight: 700; color: var(--accent); font-size: 0.95em; white-space: nowrap; }
+    .pick3 { color: var(--muted); font-size: 0.75em; white-space: nowrap; }
+
     .generated {
         text-align: center;
         color: var(--g999);
