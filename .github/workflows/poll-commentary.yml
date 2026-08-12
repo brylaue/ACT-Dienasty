@@ -41,11 +41,11 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
         run: node scripts/build-commentary.mjs
+        continue-on-error: true # missing/expired key just falls back to the template pool
 
       - name: Sync the Trade Block from Sleeper
         run: node scripts/build-tradeblock.mjs
         continue-on-error: true # a Sleeper hiccup keeps the last good block
-        continue-on-error: true # missing/expired key just falls back to the template pool
 
       - name: Commit and push if changed
         run: |
