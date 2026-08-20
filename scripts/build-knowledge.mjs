@@ -109,14 +109,24 @@ for (const [lid, s] of Object.entries(rivalry.seasons)) {
     }
   }
 
-  const standings = Object.entries(rec)
-    .map(([rid, r]) => ({
-      rosterID: parseInt(rid, 10),
-      name: nameByRoster[rid],
-      owner: ownerByRoster[rid],
-      w: r.w, l: r.l, t: r.t,
-      pf: Math.round(r.pf * 100) / 100,
-    }))
+  // official records come from Sleeper roster settings, which include the
+  // weekly top-6 bonus win/loss (constitution 3.0 double-win format) - the
+  // recomputed rec{} is head-to-head only and would understate wins
+  const standings = rosters
+    .map((r) => {
+      const st = r.settings || {};
+      const h2h = rec[r.roster_id] || { w: 0, l: 0, t: 0, pf: 0 };
+      const officialPf = st.fpts != null ? st.fpts + (st.fpts_decimal || 0) / 100 : h2h.pf;
+      return {
+        rosterID: r.roster_id,
+        name: nameByRoster[r.roster_id],
+        owner: ownerByRoster[r.roster_id],
+        w: st.wins ?? h2h.w, l: st.losses ?? h2h.l, t: st.ties ?? h2h.t,
+        h2h: `${h2h.w}-${h2h.l}${h2h.t ? "-" + h2h.t : ""}`,
+        pf: Math.round(officialPf * 100) / 100,
+      };
+    })
+    .filter((row) => row.w + row.l + row.t > 0 || (rec[row.rosterID]?.pf || 0) > 0)
     .sort((a, b) => b.w - a.w || b.pf - a.pf);
 
   const playedWeeks = (s.weeks || []).filter((w) => w && Object.values(w).some(
@@ -346,7 +356,9 @@ const redact = (text) =>
     .replace(/\+?\d{0,2}[\s.(-]*\d{3}[\s.)-]*\d{3}[\s.-]*\d{4}/g, "[contact redacted]")
     .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[contact redacted]");
 
-constitution = redact(constitution);
+constitution = redact(constitution)
+  .replace(/call\(\[[0-9,\s]+\]\)\}?>?\s*📞?\s*Call/g, "[call button]")
+  .replace(/call\(\[[0-9,\s]+\]\)/g, "[call button]");
 slack = slack.map((m) => ({ ...m, text: redact(m.text) }));
 
 // players-lite: id -> "Name|POS" for fantasy-relevant players, so the
@@ -403,7 +415,8 @@ const leagueSettings = {
   irSlots: st.reserve_slots,
   playoffTeams: st.playoff_teams,
   playoffsStartWeek: st.playoff_week_start,
-  tradeDeadlineWeek: st.trade_deadline,
+  tradeDeadlineWeek: "Week 14 per constitution 4.5 (no trades Week 15 through the Championship Game; trading reopens after it). Sleeper's platform setting shows no deadline - the constitution governs.",
+  winsFormat: "DOUBLE-WIN format per constitution 3.0: each week every team gets a head-to-head win/loss AND the six highest-scoring teams earn an extra WIN while the six lowest earn an extra LOSS. Official records include both.",
   waivers: st.waiver_type === 2 ? `FAAB budget $${st.waiver_budget}` : "rolling priority",
 };
 
@@ -436,13 +449,34 @@ const taxiClaimProcess = {
   compensation: "A pick in the NEXT year's annual draft, one round higher than the player was originally drafted (minimum a 3rd). 1st-round picks cost a 1st AND a 2nd. Undrafted players cost a 3rd.",
   ifYouLackTheExactPick: "You must own a pick in the required round for the next annual draft - OR you may designate a HIGHER round pick instead. Not owning the exact round does not block a claim if you have a better pick to offer.",
   multiplePicksInRound: "If the claimer owns multiple picks in the required round, the owner LOSING the player chooses which one they receive.",
-  afterClaim: "A claimed player must go on the claimer's ACTIVE roster (must fit roster limits). Claims are irrevocable once accepted or once the 72-hour window passes.",
+  afterClaim: "A claimed player must go on the claimer's ACTIVE roster (must fit roster limits). Claims are irrevocable once accepted or once the 72-hour window passes - but BEFORE acceptance or expiry, the claimer may withdraw the claim.",
   timing: "Claims are a during-the-season mechanism per the constitution; the commissioner has discretion on timing disputes (e.g. vacations).",
+};
+
+// The by-laws, distilled to structure so rule questions are lookups.
+// Source: the constitution (also included verbatim below). Update these
+// if the constitution changes.
+const bylaws = {
+  rosters: "Active roster: 25 players in-season (temporarily 27 in the offseason, announced post-Super-Bowl; must cut to 25 no later than 1 day before Week 1). No position limits. Taxi squad: 5 spots. IR: 4 spots, only players on the NFL's official IR/PUP list; suspended players may NOT go on IR. IR must be cleared before offseason Blind Bidding begins or the commissioner auto-drops the players.",
+  taxiEligibility: "Taxi squad holds ONLY rookies, 2nd-year, or 3rd-year players. Promote to active anytime, but once on the active roster a player cannot return to taxi until the following offseason. Offseason acquisitions must be placed on taxi no later than 1 day before Week 1. Mid-season FA adds CAN go to taxi: add to active then demote immediately, before any game that week starts. Taxi players can NEVER be traded (promote first). No taxi moves during drafts. Suspended players can't be ADDED to taxi (one already there may stay until next offseason). Sleeper updates 'years in league' right after the season - 3rd-year taxi players must be moved to active immediately when the offseason flips. IR wrinkles: a player IR'd before Week 1 may go to taxi mid-season when he clears NFL IR (if otherwise eligible); players promoted IR-to-active lose taxi eligibility - they must move IR-to-taxi directly.",
+  trades: "Highly encouraged, between any owners. Tradable: players, picks up to 3 annual drafts out, and FAAB dollars. NO trades after Week 14 until after the Championship Game. Trade activity closed during live game play. Trades allowed during the annual draft (a traded on-the-clock pick keeps its remaining timer). IR players CAN be traded directly from IR (must land on an open ACTIVE spot; new owner may then IR them). Taxi players cannot be traded. Devy assets already owned are tradable; no new devy drafting. Trades process instantly; the exec committee may retroactively reverse only for collusion/foul play - value judgments are each owner's own. RENTAL TRADES BANNED outright (any loan-for-compensation arrangement; secret rentals risk expulsion under collusion by-laws).",
+  freeAgency: "FAAB: $1500 blind-bid dollars per team after each annual draft, NO rollover. In-season blind bids process WEDNESDAYS. Players dropped by a team are locked from FCFS until the following week so everyone can bid. First-Come-First-Served runs after the waiver run until Sundays 1:00pm and costs $0.",
+  lineups: "10 starters: 1 QB, 2 RB, 2 WR, 1 TE, 2 Flex (RB/WR/TE - the former Reception Flex became a full Flex for 2026), 1 Super Flex (QB/RB/WR/TE). Players lock individually at THEIR game's kickoff (swap freely before that). Each team gets one Sleeper 'Player Swap' per the platform's rules. Position designations follow Sleeper; disputes go to the exec committee.",
+  scoring: "0.5 PPR, 2-decimal scoring. 4 pts passing TD, 6 all other TDs, 0.04/pass yd, 0.1/rush yd, 0.1/rec yd, 0.5/reception, 2 per 2-pt conversion, -2 fumble lost, -2 INT. Only starters score.",
+  winsFormat: "DOUBLE WIN each week: head-to-head result PLUS the top-6 scoring teams get an extra WIN and the bottom-6 an extra LOSS. Up to 28 games per 14-week season. 3 divisions of 4; play division rivals twice, everyone else once; divisions realign every 3 years via snake selection by the best 3-year records.",
+  playoffs: "Weeks 15-17. FIVE teams: 3 division winners (seeded 1-3 by overall rank) + 2 wildcards (best non-winner records; points scored breaks ties). Week 15: #4 vs #5 wildcard game (loser gets rookie pick 8). Week 16: #1 vs wildcard winner, #2 vs #3. Week 17: championship (winner = champ + pick 12; runner-up pick 11) and 3rd-place game (winner pick 10, loser pick 9).",
+  losersBracket: "7 non-playoff teams, weeks 15-17, seeded by record with the top seed on a Week 15 bye. The winner earns compensatory pick 1.13 (between rounds 1 and 2) - fully tradable. Since 2025-26 the winner gets ONLY the pick, no prize money.",
+  draftOrder: "Annual rookie draft: 4 rounds, straight-line (not snake). Picks 1-7 = worst records first (fewer points scored breaks ties toward the BETTER pick). Pick 8 = wildcard game loser. Picks 9-12 from playoff results (9 = 3rd-place-game loser, 10 = 3rd place, 11 = runner-up, 12 = champion). Rounds 1-2 untimed; rounds 3-4 have a 3-minute clock. Draft picks cannot exceed roster space - forfeit with no compensation if you can't roster them.",
+  penalties: "LAST PLACE takes the ACT exam before the next rookie draft (league pays the entry fee). Consecutive-year losers may petition for an alternative exam (not career-related ones). Refusal → league vote on expulsion, or forfeiture of the 1st-round rookie pick. INACTIVITY: missing complete lineups 2 consecutive weeks or 4+ total = exec committee may seize the team for the season (seized teams can't trade). ANTI-TANKING: intentionally weak legal lineups may be adjusted by the exec committee; incomplete rosters can cost a 1st-round pick position drop per offense. Strategic rebuilds are fine - giving away unearned wins is not.",
+  duesAndPrizes: "Dues rise $10/year ($150 for 2026). 15% of each year's dues rolls into the SUPER POT paid every 5 seasons - 2026 IS a Super Pot year (2022-2025 set-asides + all 2026 dues). Champion: trophy + remainder after other payouts; 2nd: 12.5%; 3rd: 8.3%; division winners get bottles of booze (max $50). Rookie of the Year (best rookie-draft skill-position pick, QBs excluded, credited to the DRAFTING team even if traded) and the Gump Hayes Award (best waiver add, QBs eligible) each pay 3.3%.",
+  parlay: "Chef's Table (since 2025-26): each week the LOWEST-scoring team places a $5 league parlay; every team may submit one leg in the Slack parlay channel by Saturday night; winnings split 12 ways (after taxes on big hits).",
+  governance: "Living constitution - changes voted between seasons; exec committee (commissioner + 3 elected owners) resolves anything not covered and rules on disputes; involved members recuse. Departing owners can't sell or hand off teams - the exec committee finds replacements.",
 };
 
 const knowledge = {
   generated: new Date().toISOString(),
   leagueID: rivalry.leagueID,
+  bylaws,
   taxiClaimProcess,
   leagueSettings,
   nflState: { season: nflState.season, phase: nflState.season_type, currentWeek: nflState.week },
