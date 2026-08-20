@@ -11,6 +11,21 @@
     let askError = $state(null);
     let needPasscode = $state(false);
     let passcode = $state('');
+    let myTeam = $state('');
+    let pickingTeam = $state(false);
+
+    // remembered on this device only (localStorage), never required
+    if (typeof localStorage !== 'undefined') {
+        myTeam = localStorage.getItem('oracleTeam') || '';
+    }
+    const rememberTeam = (name) => {
+        myTeam = name;
+        pickingTeam = false;
+        try {
+            if (name) localStorage.setItem('oracleTeam', name);
+            else localStorage.removeItem('oracleTeam');
+        } catch { /* private browsing - works for this visit only */ }
+    };
 
     (async () => {
         try {
@@ -45,6 +60,14 @@
                 if (chunk.trim().length > 30) out.push({ tag: 'constitution', text: chunk.trim(), href: '/constitution' });
             }
         }
+        for (const r of k.rosters || []) {
+            for (const line of r.players || []) {
+                out.push({ tag: r.name.length > 14 ? r.name.slice(0, 13) + '…' : r.name, text: line, href: '/rosters' });
+            }
+            if (r.picks?.length) {
+                out.push({ tag: 'picks', text: `${r.name} owns: ${r.picks.join(', ')}`, href: '/rosters' });
+            }
+        }
         for (const m of k.slack || []) {
             out.push({ tag: `#${m.ch}`, text: `${m.name}: ${m.text}`, href: '/archive' });
         }
@@ -74,7 +97,7 @@
             const res = await fetch('/api/ask', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json', ...(passcode ? { 'x-ask-passcode': passcode } : {}) },
-                body: JSON.stringify({ question }),
+                body: JSON.stringify({ question, team: myTeam || undefined }),
             });
             const data = await res.json();
             if (res.status === 401) { needPasscode = true; askError = data.message; }
@@ -94,6 +117,23 @@
 <div class="holder">
     <h2>🔮 The Oracle</h2>
     <p class="subtitle">Ask the league's memory anything — champions, records, the constitution, the Slack vault. Search is instant; the AI answer thinks for a second.</p>
+
+    <div class="teamRow">
+        {#if myTeam}
+            <span class="teamChip">You: <strong>{myTeam}</strong></span>
+            <button class="teamLink" onclick={() => pickingTeam = !pickingTeam}>change</button>
+            <button class="teamLink" onclick={() => rememberTeam('')}>forget</button>
+        {:else}
+            <button class="teamLink" onclick={() => pickingTeam = !pickingTeam}>Which team are you? (optional — personalizes answers)</button>
+        {/if}
+    </div>
+    {#if pickingTeam && k?.rosters?.length}
+        <div class="teamPick">
+            {#each k.rosters as r (r.rosterID)}
+                <button class="teamOption" onclick={() => rememberTeam(r.name)}>{r.name}</button>
+            {/each}
+        </div>
+    {/if}
 
     <div class="askRow">
         <input class="q" type="search" placeholder="Who won in 2022? Highest score ever? Waiver rules?"
@@ -142,6 +182,39 @@
     .holder { max-width: 680px; margin: 0 auto; padding: 24px 16px 80px; }
     h2 { text-align: center; color: var(--ink); margin-bottom: 4px; font-size: 1.6em; }
     .subtitle { text-align: center; color: var(--muted); font-size: 0.85em; margin: 0 auto 22px; max-width: 460px; }
+
+    .teamRow { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .teamChip {
+        font-size: 0.8em;
+        color: var(--muted);
+        background: var(--fff);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 12px;
+    }
+    .teamLink {
+        border: none;
+        background: none;
+        color: var(--accent);
+        font-size: 0.78em;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: var(--bodyFont);
+        padding: 0;
+    }
+    .teamPick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .teamOption {
+        border: 1px solid var(--line);
+        background: var(--fff);
+        color: var(--ink);
+        border-radius: 999px;
+        padding: 5px 12px;
+        font-size: 0.78em;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: var(--bodyFont);
+    }
+    .teamOption:hover { border-color: var(--accent); color: var(--accent); }
 
     .askRow, .passRow { display: flex; gap: 8px; margin-bottom: 8px; }
     .q {

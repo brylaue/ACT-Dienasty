@@ -39,9 +39,12 @@ export async function POST(event) {
     }
 
     let question = '';
+    let team = '';
     try {
         const body = await event.request.json();
         question = String(body?.question || '').trim().slice(0, 300);
+        // optional self-identified team: context only, sanitized hard
+        team = String(body?.team || '').replace(/[\n\r{}<>]/g, '').trim().slice(0, 60);
     } catch { /* falls through to the empty-question check */ }
     if (!question) {
         return json({ error: 'empty', message: 'Ask an actual question.' }, { status: 400 });
@@ -70,7 +73,7 @@ export async function POST(event) {
                 'plainly rather than guessing. Never invent stats.',
             messages: [{
                 role: 'user',
-                content: `League data:\n${knowledge}\n\nQuestion: ${question}`,
+                content: `League data:\n${knowledge}\n\n${team ? `The person asking says they manage the team "${team}". When relevant, personalize the answer with their roster, their picks, and what things cost THEM - but never reveal anything that isn't in the league data.\n\n` : ''}Question: ${question}`,
             }],
         }),
     });

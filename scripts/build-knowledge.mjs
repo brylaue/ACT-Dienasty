@@ -31,6 +31,11 @@ const get = async (url, retries = 4) => {
 
 const rivalry = JSON.parse(readFileSync(join(root, "static/data/rivalry-matchups.json"), "utf8"));
 
+// player_id -> { year, round } from every draft in league history; the
+// EARLIEST appearance is a player's original draft capital (2018 startup
+// or their rookie-year draft). Undrafted players simply won't appear.
+const draftedBy = {};
+
 // ── per-season franchise mapping + regular-season standings ──────────
 const seasons = [];
 for (const [lid, s] of Object.entries(rivalry.seasons)) {
@@ -70,6 +75,22 @@ for (const [lid, s] of Object.entries(rivalry.seasons)) {
       }
     }
   }
+
+  // every draft this season: record each pick's original round
+  try {
+    const drafts = await get(`https://api.sleeper.app/v1/league/${lid}/drafts`);
+    for (const d of drafts || []) {
+      if (d.status !== "complete") continue;
+      const picks = await get(`https://api.sleeper.app/v1/draft/${d.draft_id}/picks`);
+      for (const pk of picks || []) {
+        if (!pk.player_id) continue;
+        const yr = parseInt(d.season, 10);
+        if (!draftedBy[pk.player_id] || draftedBy[pk.player_id].year > yr) {
+          draftedBy[pk.player_id] = { year: yr, round: pk.round };
+        }
+      }
+    }
+  } catch { /* a missing draft just means fewer annotations */ }
 
   // champion + runner-up from Sleeper's winners bracket (completed seasons)
   let champion = null;
@@ -136,6 +157,64 @@ const franchiseTable = Object.values(franchises)
   .map((f) => ({ ...f, pf: Math.round(f.pf * 100) / 100 }))
   .sort((a, b) => b.titles - a.titles || b.w - a.w);
 
+// ── current rosters: players w/ position, original draft round, taxi/IR ──
+const currentLid = rivalry.leagueID;
+const [curRosters, curUsers, tradedPicks, curDrafts] = await Promise.all([
+  get(`https://api.sleeper.app/v1/league/${currentLid}/rosters`),
+  get(`https://api.sleeper.app/v1/league/${currentLid}/users`),
+  get(`https://api.sleeper.app/v1/league/${currentLid}/traded_picks`),
+  get(`https://api.sleeper.app/v1/league/${currentLid}/drafts`),
+]);
+const curUserById = Object.fromEntries(curUsers.map((u) => [u.user_id, u]));
+const curNameByRoster = {};
+for (const r of curRosters) {
+  const u = curUserById[r.owner_id];
+  curNameByRoster[r.roster_id] = (u?.metadata?.team_name || u?.display_name || `Team ${r.roster_id}`).trim();
+}
+
+const allRosteredIds = [...new Set(curRosters.flatMap((r) => r.players || []))];
+const allPlayers = await get("https://api.sleeper.app/v1/players/nfl");
+
+const rosterSection = curRosters.map((r) => {
+  const taxi = new Set(r.taxi || []);
+  const ir = new Set(r.reserve || []);
+  const players = (r.players || []).map((id) => {
+    const pl = allPlayers[id];
+    const name = pl ? `${pl.first_name} ${pl.last_name}` : `Player ${id}`;
+    const pos = pl?.position || "?";
+    const d = draftedBy[id];
+    const drafted = d ? `drafted ${d.year} R${d.round}` : "undrafted (free-agent pickup)";
+    const flags = [taxi.has(id) ? "ON TAXI SQUAD" : null, ir.has(id) ? "IR" : null].filter(Boolean);
+    return `${name} (${pos}, ${drafted}${flags.length ? ", " + flags.join(", ") : ""})`;
+  });
+  return { rosterID: r.roster_id, name: curNameByRoster[r.roster_id], players };
+});
+
+// owned future picks: default ownership adjusted by traded_picks
+const draftRounds = curDrafts?.[0]?.settings?.rounds || 4;
+const upcomingSeason = parseInt(curDrafts?.[0]?.season || new Date().getFullYear(), 10);
+const preDraft = curDrafts?.[0]?.status !== "complete";
+const pickSeasons = [];
+if (preDraft) pickSeasons.push(upcomingSeason);
+pickSeasons.push(upcomingSeason + 1, upcomingSeason + 2);
+const picksByRoster = Object.fromEntries(curRosters.map((r) => [r.roster_id, []]));
+for (const season of pickSeasons) {
+  for (let round = 1; round <= draftRounds; round++) {
+    for (const r of curRosters) {
+      const traded = (tradedPicks || []).find(
+        (t) => parseInt(t.season, 10) === season && t.round === round && t.roster_id === r.roster_id,
+      );
+      const ownerRoster = traded ? traded.owner_id : r.roster_id;
+      if (picksByRoster[ownerRoster]) {
+        picksByRoster[ownerRoster].push(
+          `${season} R${round}${ownerRoster !== r.roster_id ? ` (via ${curNameByRoster[r.roster_id]})` : ""}`,
+        );
+      }
+    }
+  }
+}
+for (const rs of rosterSection) rs.picks = picksByRoster[rs.rosterID] || [];
+
 // ── record book (reuse the record-watch bake) ────────────────────────
 let records = {};
 const RW = join(root, "static/data/record-watch.json");
@@ -182,8 +261,9 @@ slack = slack.map((m) => ({ ...m, text: redact(m.text) }));
 
 const knowledge = {
   generated: new Date().toISOString(),
-  league: "ACT, or DIE. - 12-team superflex dynasty fantasy football league, hosted on Sleeper. Founded MID-SEASON 2018, so 2018 is a partial season with a shortened schedule. Franchises persist by roster across seasons even as team names change year to year - each franchise entry lists its former names (e.g. the franchise now called 'TDs in Your Face' won the 2018 title under the name 'mcmath15').",
+  league: "ACT, or DIE. - 12-team superflex dynasty fantasy football league, hosted on Sleeper. Founded MID-SEASON 2018, so 2018 is a partial season with a shortened schedule. The rosters section lists every team's current players with position, ORIGINAL annual-draft round (used for taxi-squad claim costs per the constitution), TAXI SQUAD and IR flags, and the future draft picks each team owns. Franchises persist by roster across seasons even as team names change year to year - each franchise entry lists its former names (e.g. the franchise now called 'TDs in Your Face' won the 2018 title under the name 'mcmath15').",
   seasons: seasons.map(({ _owners, _names, ...rest }) => rest),
+  rosters: rosterSection,
   franchises: franchiseTable,
   records,
   constitution,
