@@ -34,6 +34,10 @@ jobs:
         run: node scripts/build-tradeblock.mjs
         continue-on-error: true # a Sleeper hiccup keeps the last good block
 
+      - name: Bake the league knowledge pack for The Oracle
+        run: node scripts/build-knowledge.mjs
+        continue-on-error: true # a Sleeper hiccup keeps the last good pack
+
       - name: Generate fresh AI commentary for new trades/waivers
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
