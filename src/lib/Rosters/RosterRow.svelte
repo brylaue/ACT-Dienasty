@@ -234,11 +234,11 @@
 	<Cell class="playerCell nameCell" colspan={player.name != "Empty" ? 1 : 3}>
         <div class="info">
             <!-- name -->
-            {@html player.name}
+            {player.name}
             <!-- name -->
             {#if player.poss !== "DEF"}
                 <div class="additionalInfo">
-                    <span class="text-{player.poss}" >{@html player.poss}</span>
+                    <span class="text-{player.poss}" >{player.poss}</span>
                     {#if player.team}
                         &nbsp;-&nbsp;
                         {player.team}

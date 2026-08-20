@@ -1,4 +1,5 @@
 <script>
+    import { sanitizeHtml } from '$lib/utils/sanitize';
     import Paper, { Title, Content } from '@smui/paper';
 
     let { article } = $props();
@@ -124,7 +125,7 @@
     </Title>
     <Content>
         <div class="body">
-            <div class="body-text">{@html article.article}</div>
+            <div class="body-text">{@html sanitizeHtml(article.article)}</div>
         </div>
         <hr />
         {#if article.author}

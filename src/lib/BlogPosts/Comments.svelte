@@ -1,4 +1,5 @@
 <script>
+    import { sanitizeHtml } from '$lib/utils/sanitize';
     import { getAuthor, getAvatar, parseDate } from "$lib/utils/helper";
     import Icon from "@smui/textfield/icon";
     import CreateComment from "./CreateComment.svelte";
@@ -130,8 +131,8 @@
     {#each comments as comment}
         <div class="comment">
             <img alt="author avatar" class="teamAvatar" src="{getAvatar(leagueTeamManagers, comment.fields.author)}" />
-            <span class="author">{@html getAuthor(leagueTeamManagers, comment.fields.author)} - </span>
-            <span class="commentText">{@html comment.fields.comment}</span>
+            <span class="author">{@html sanitizeHtml(getAuthor(leagueTeamManagers, comment.fields.author))} - </span>
+            <span class="commentText">{@html sanitizeHtml(comment.fields.comment)}</span>
             <div class="date"><i>{parseDate(comment.sys.createdAt)}</i></div>
         </div>
     {/each}

@@ -1,4 +1,5 @@
 <script>
+    import { esc } from '$lib/utils/sanitize';
   	import DataTable, { Head, Body, Row, Cell } from '@smui/data-table';
 	import LinearProgress from '@smui/linear-progress';
     import { onMount } from 'svelte';

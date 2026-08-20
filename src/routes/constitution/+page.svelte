@@ -1,4 +1,42 @@
+<script>
+    const call = (codes) => {
+        const num = codes.map((c) => String.fromCharCode(c ^ 73)).join('');
+        window.location.href = 'tel:' + num;
+    };
+</script>
 <style>
+    .contactCards {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 14px 0;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    .contactCard {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        background: var(--fff);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 14px;
+    }
+    .contactName { font-weight: 700; }
+    .contactTitle { color: var(--muted); font-size: 0.82em; flex: 1; }
+    .callBtn {
+        border: none;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 8px;
+        padding: 7px 14px;
+        font-weight: 700;
+        font-size: 0.8em;
+        font-family: var(--bodyFont);
+        cursor: pointer;
+    }
+
     .constitution {
         position: relative;
         z-index: 1;
@@ -51,12 +89,30 @@
   <h3>[1.1 Executive Committee]</h3>
   <p>The executive committee will be responsible for resolving all disputes that are not expressly covered by this constitution. If a committee member is involved in the dispute, that member will excuse themselves from the decision process. While all owners are encouraged to submit suggestions to the committee, the committee's decision on all matters is final. The executive committee will consist of the commissioner, Aaron Murnan, and three other team owners that will be elected before the draft each year. The committee is bound to adhere from ruling in favor of their own interests, but rather to rule inline with rules as written in this document and with overall fair play.</p>
   <p>The executive committee for the ACT or Die-Nasty League for 2021 consists of:</p>
-  <ul>
-    <li>Commissioner: Aaron Murnan <a href="tel:440.371.7129">440.371.7129</a></li>
-    <li>Co-Commissioner/Treasurer: Lee Trask ​​​​<a href="tel:920.221.6040">920.221.6040</a></li>
-    <li>Co-Commissioner/Director of Rule Proposals: Cyres Cooper​ ​<a href="tel:937.631.4074">937.631.4074</a></li>
-    <li>Co-Commissioner/Director of Draft Preparation: Lyndsey McMath <a href="tel:330.407.4349">330.407.4349</a></li>
-  </ul>
+  
+<div class="contactCards" role="list">
+    <div class="contactCard" role="listitem">
+        <span class="contactName">Aaron Murnan</span>
+        <span class="contactTitle">Commissioner</span>
+        <button class="callBtn" onclick={() => call([125,125,121,122,126,120,126,120,123,112])}>📞 Call</button>
+    </div>
+    <div class="contactCard" role="listitem">
+        <span class="contactName">Lee Trask</span>
+        <span class="contactTitle">Co-Commissioner / Treasurer</span>
+        <button class="callBtn" onclick={() => call([112,123,121,123,123,120,127,121,125,121])}>📞 Call</button>
+    </div>
+    <div class="contactCard" role="listitem">
+        <span class="contactName">Cyres Cooper</span>
+        <span class="contactTitle">Co-Commissioner / Director of Rule Proposals</span>
+        <button class="callBtn" onclick={() => call([112,122,126,127,122,120,125,121,126,125])}>📞 Call</button>
+    </div>
+    <div class="contactCard" role="listitem">
+        <span class="contactName">Lyndsey McMath</span>
+        <span class="contactTitle">Co-Commissioner / Director of Draft Preparation</span>
+        <button class="callBtn" onclick={() => call([122,122,121,125,121,126,125,122,125,112])}>📞 Call</button>
+    </div>
+</div>
+
 
   <h3>[1.2 Living Constitution]</h3>
   <p>It is important to note that this is a living constitution that will change and evolve over the lifetime of this league. Changes will happen between seasons and will be effective from that point moving forward. A thread will be maintained in the league slack chat to allow rule proposals to be published all year. During the offseason, the executive committee will compile these proposals and all owners will vote on proposed changes to the constitution / league rules. The executive committee will attempt to keep a living document throughout each season so that if items are suggested during the year, these propositions can be kept track of. Further, revisions necessary to provide additional clarity may also be implemented between seasons for instances in which there is confusion.</p>

@@ -1,3 +1,4 @@
+import { esc } from "../sanitize";
 import { managers as managersObj } from "$lib/utils/leagueInfo";
 import { goto } from "$app/navigation";
 import { stringDate } from "./news";
@@ -99,7 +100,7 @@ export const getAuthor = (leagueTeamManagers, author) => {
       author.toLowerCase()
     ) {
       return [
-        `<a href="/manager?manager=${managersObj.findIndex((m) => m.managerID == String(userID))}">${leagueTeamManagers.users[userID].display_name}</a>`,
+        `<a href="/manager?manager=${managersObj.findIndex((m) => m.managerID == String(userID))}">${esc(leagueTeamManagers.users[userID].display_name)}</a>`,
       ];
     }
   }
@@ -298,9 +299,9 @@ export const getNestedTeamNamesFromTeamManagers = (
       "name"
     ];
   if (cleanName(originalName) != cleanName(currentName)) {
-    return `${originalName}<div class="curOwner">(${currentName})</div>`;
+    return `${esc(originalName)}<div class="curOwner">(${esc(currentName)})</div>`;
   }
-  return originalName;
+  return esc(originalName);
 };
 
 export const getDatesActive = (teamManagers, managerID) => {

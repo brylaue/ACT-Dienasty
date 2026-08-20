@@ -170,6 +170,16 @@ if (existsSync(SLACK)) {
   }
 }
 
+// contact info never ships in the knowledge pack - it's a public,
+// fetchable JSON and also becomes AI context. Phones + emails out.
+const redact = (text) =>
+  String(text || "")
+    .replace(/\+?\d{0,2}[\s.(-]*\d{3}[\s.)-]*\d{3}[\s.-]*\d{4}/g, "[contact redacted]")
+    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[contact redacted]");
+
+constitution = redact(constitution);
+slack = slack.map((m) => ({ ...m, text: redact(m.text) }));
+
 const knowledge = {
   generated: new Date().toISOString(),
   league: "ACT, or DIE. - 12-team superflex dynasty fantasy football league, hosted on Sleeper. Founded MID-SEASON 2018, so 2018 is a partial season with a shortened schedule. Franchises persist by roster across seasons even as team names change year to year - each franchise entry lists its former names (e.g. the franchise now called 'TDs in Your Face' won the 2018 title under the name 'mcmath15').",
