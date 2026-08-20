@@ -135,8 +135,10 @@ const callClaude = (key, messages, leagueID, finalRound) =>
                 'verbatim instead of re-deriving it from the constitution, and note whether the asking team owns a ' +
                 'pick of the required round in its picks list. Only players in a taxiSquad list can be claimed at ' +
                 'all - active-roster and IR players cannot.\n' +
-                'REALTIME TOOLS: you can call sleeper_get for live current-season state and franchise_game_log for ' +
-                "any franchise's complete historical scores (best/worst games, streaks, head-to-head detail). " +
+                'REALTIME TOOLS: sleeper_get (live current-season state), franchise_game_log (a franchise\'s complete ' +
+                'historical scores), trade_history (every trade ever, filterable by team/player/season), ' +
+                "player_league_history (a player's draft origin + every start + scoring in this league), and " +
+                "site_file (current power rankings, playoff odds, record book, trade block). " +
                 'Prefer the provided league data when it already answers the question; reach for tools when it ' +
                 'does not. Never claim data is unavailable without trying the relevant tool first.',
             messages,

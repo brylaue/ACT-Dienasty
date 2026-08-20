@@ -353,10 +353,32 @@ slack = slack.map((m) => ({ ...m, text: redact(m.text) }));
 // live endpoint can name anyone who joins a roster between bakes
 const playersLite = {};
 const FANTASY_POS = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);
-for (const [id, pl] of Object.entries(allPlayers)) {
-  if (pl && FANTASY_POS.has(pl.position) && (pl.active || allRosteredIds.includes(id))) {
-    playersLite[id] = `${pl.first_name} ${pl.last_name}|${pl.position}`;
+// historical closure: every player id that appears in any trade, any
+// lineup ever started, or any draft - retired players included, so the
+// trade-history and player-history tools can always resolve names
+const historicalIds = new Set(Object.keys(draftedBy));
+try {
+  const archive = JSON.parse(readFileSync(join(root, "static/data/transactions-archive.json"), "utf8"));
+  for (const txs of Object.values(archive.seasons || {})) {
+    for (const tx of txs || []) {
+      for (const id of Object.keys(tx.adds || {})) historicalIds.add(id);
+      for (const id of Object.keys(tx.drops || {})) historicalIds.add(id);
+    }
   }
+} catch { /* archive missing - closure still covers drafts/starters */ }
+for (const s of Object.values(rivalry.seasons || {})) {
+  for (const week of s.weeks || []) {
+    if (!week) continue;
+    for (const game of Object.values(week)) {
+      if (!Array.isArray(game)) continue;
+      for (const t of game) for (const id of t.starters || []) historicalIds.add(id);
+    }
+  }
+}
+for (const [id, pl] of Object.entries(allPlayers)) {
+  if (!pl) continue;
+  const relevant = (FANTASY_POS.has(pl.position) && pl.active) || allRosteredIds.includes(id) || historicalIds.has(id);
+  if (relevant) playersLite[id] = `${pl.first_name} ${pl.last_name}|${pl.position || "?"}`;
 }
 writeFileSync(join(root, "static/data/players-lite.json"), JSON.stringify(playersLite));
 console.log(`wrote static/data/players-lite.json (${Object.keys(playersLite).length} players)`);
@@ -365,9 +387,51 @@ const draftedByCompact = Object.fromEntries(
   Object.entries(draftedBy).map(([id, d]) => [id, `${d.year} R${d.round}`]),
 );
 
+// league configuration: the granular rules people actually ask about
+const leagueMeta = await get(`https://api.sleeper.app/v1/league/${currentLid}`);
+const nflState = await get("https://api.sleeper.app/v1/state/nfl");
+const st = leagueMeta.settings || {};
+const startCounts = {};
+for (const pos of leagueMeta.roster_positions || []) startCounts[pos] = (startCounts[pos] || 0) + 1;
+const leagueSettings = {
+  name: leagueMeta.name,
+  teams: leagueMeta.total_rosters,
+  scoring: `${leagueMeta.scoring_settings?.rec ?? 0} PPR`,
+  startingLineup: Object.entries(startCounts).filter(([p]) => p !== "BN").map(([p, n]) => `${n}x ${p}`).join(", "),
+  benchSlots: startCounts.BN || 0,
+  taxiSlots: st.taxi_slots,
+  irSlots: st.reserve_slots,
+  playoffTeams: st.playoff_teams,
+  playoffsStartWeek: st.playoff_week_start,
+  tradeDeadlineWeek: st.trade_deadline,
+  waivers: st.waiver_type === 2 ? `FAAB budget $${st.waiver_budget}` : "rolling priority",
+};
+
+// regular-season schedule: empty until Sleeper sets it after the draft,
+// then the next weekly bake picks it up automatically
+const schedule = {};
+const lastRegWeek = (st.playoff_week_start || 15) - 1;
+for (let wk = 1; wk <= lastRegWeek; wk++) {
+  try {
+    const ms = await get(`https://api.sleeper.app/v1/league/${currentLid}/matchups/${wk}`);
+    if (!Array.isArray(ms) || !ms.length) continue;
+    const byMatch = {};
+    for (const m of ms) {
+      if (m.matchup_id == null) continue;
+      (byMatch[m.matchup_id] ||= []).push(m.roster_id);
+    }
+    const pairs = Object.values(byMatch).filter((p) => p.length === 2)
+      .map(([a, b]) => `${curNameByRoster[a]} vs ${curNameByRoster[b]}`);
+    if (pairs.length) schedule[`week ${wk}`] = pairs;
+  } catch { /* week unavailable - skip */ }
+}
+
 const knowledge = {
   generated: new Date().toISOString(),
   leagueID: rivalry.leagueID,
+  leagueSettings,
+  nflState: { season: nflState.season, phase: nflState.season_type, currentWeek: nflState.week },
+  schedule: Object.keys(schedule).length ? schedule : "Not yet set - Sleeper generates the season schedule after the rookie draft. It will appear here automatically once set.",
   league:
     "ACT, or DIE. - 12-team superflex dynasty fantasy football league, hosted on Sleeper. Founded MID-SEASON 2018, so 2018 is a partial season with a shortened schedule. " +
     "ROSTERS: each team in the rosters section has FOUR separate lists - activeRoster, taxiSquad, injuredReserve, and picks (future draft picks owned). " +

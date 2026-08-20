@@ -34,6 +34,45 @@ export const toolDefinitions = (leagueID) => [
     },
   },
   {
+    name: 'trade_history',
+    description:
+      'Every trade in league history (and this season live): who traded with whom, exactly which ' +
+      'players and picks moved each way, season and week. Filter by team rosterID, player name, or season. ' +
+      'Use for any question about past trades.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        rosterID: { type: 'integer', description: 'Optional: only trades involving this franchise' },
+        playerName: { type: 'string', description: 'Optional: only trades involving this player' },
+        season: { type: 'integer', description: 'Optional: only this season (e.g. 2023)' },
+      },
+    },
+  },
+  {
+    name: 'player_league_history',
+    description:
+      "A player's complete history IN THIS LEAGUE: when he was drafted and by whom, every game he was " +
+      'started (year, week, points scored, which team started him, opponent), career totals and best game. ' +
+      'Use for any question about how a player has performed in this league.',
+    input_schema: {
+      type: 'object',
+      properties: { playerName: { type: 'string', description: "Player's name, e.g. 'Travis Etienne'" } },
+      required: ['playerName'],
+    },
+  },
+  {
+    name: 'site_file',
+    description:
+      "The site's current analysis files: 'power_rankings' (this week's ranks, records, roster values, AI blurbs), " +
+      "'playoff_odds' (simulated playoff/title/top-pick odds per team), 'record_watch' (all-time top-5 lists: " +
+      "highs, blowouts, closest games), 'tradeblock' (players/picks currently on the block with interest counts).",
+    input_schema: {
+      type: 'object',
+      properties: { name: { type: 'string', enum: ['power_rankings', 'playoff_odds', 'record_watch', 'tradeblock'] } },
+      required: ['name'],
+    },
+  },
+  {
     name: 'franchise_game_log',
     description:
       'Complete historical game log for one franchise: every weekly score ever posted (all seasons, ' +
@@ -126,6 +165,131 @@ export async function runTool({ name, input, leagueID, knowledge, fetchFn }) {
     }
     log.sort((a, b) => a.year - b.year || a.week - b.week);
     return { franchise: names[rosterID] || `Team ${rosterID}`, games: log };
+  }
+
+  if (name === 'trade_history') {
+    const [archiveRes, liteRes] = await Promise.all([
+      timed(fetchFn('/data/transactions-archive.json')),
+      timed(fetchFn('/data/players-lite.json')),
+    ]);
+    if (!archiveRes.ok || !liteRes.ok) return { error: 'archive unavailable' };
+    const [archive, lite] = await Promise.all([archiveRes.json(), liteRes.json()]);
+    const names = knowledge.rosterNames || {};
+    const pName = (id) => (lite[id] || `Player ${id}|`).split('|')[0];
+    const yearByLid = {};
+    // completed seasons from the archive, current season live
+    const txSets = [];
+    for (const [lid, txs] of Object.entries(archive.seasons || {})) txSets.push({ lid, txs });
+    try {
+      const liveWeeks = await Promise.all([1, 2, 3].map((w) =>
+        timed(fetch(`https://api.sleeper.app/v1/league/${leagueID}/transactions/${w}`)).then((r) => (r.ok ? r.json() : []))));
+      txSets.push({ lid: leagueID, txs: liveWeeks.flat(), live: true });
+    } catch { /* live unavailable - archive still answers */ }
+
+    const seasonYear = (tx, set) => {
+      if (set.live) return knowledge.nflState?.season ? parseInt(knowledge.nflState.season, 10) : new Date().getFullYear();
+      return new Date(tx.status_updated || tx.created || 0).getFullYear();
+    };
+
+    const wanted = [];
+    const filterName = (input?.playerName || '').toLowerCase().trim();
+    for (const set of txSets) {
+      for (const tx of set.txs || []) {
+        if (tx.type !== 'trade' || tx.status !== 'complete') continue;
+        const year = seasonYear(tx, set);
+        if (input?.season && year !== parseInt(input.season, 10)) continue;
+        if (input?.rosterID && !(tx.roster_ids || []).includes(parseInt(input.rosterID, 10))) continue;
+        const sides = {};
+        for (const rid of tx.roster_ids || []) sides[rid] = [];
+        for (const [pid, toRoster] of Object.entries(tx.adds || {})) {
+          const giver = Object.entries(tx.drops || {}).find(([p]) => p === pid)?.[1];
+          if (giver != null && sides[giver]) sides[giver].push(pName(pid));
+        }
+        for (const pk of tx.draft_picks || []) {
+          if (sides[pk.previous_owner_id]) {
+            sides[pk.previous_owner_id].push(`${pk.season} R${pk.round} pick${pk.roster_id !== pk.previous_owner_id ? ` (orig ${names[pk.roster_id] || 'Team ' + pk.roster_id})` : ''}`);
+          }
+        }
+        const allAssets = Object.values(sides).flat().join(' ').toLowerCase();
+        if (filterName && !allAssets.includes(filterName)) continue;
+        wanted.push({
+          season: year, week: tx.leg,
+          trade: Object.entries(sides).map(([rid, gave]) => `${names[rid] || 'Team ' + rid} gave: ${gave.join(', ') || 'nothing?'}`).join(' | '),
+        });
+      }
+    }
+    wanted.sort((a, b) => b.season - a.season || (b.week || 0) - (a.week || 0));
+    const capped = wanted.slice(0, 30);
+    return { totalMatches: wanted.length, showing: capped.length, trades: capped };
+  }
+
+  if (name === 'player_league_history') {
+    const [rivalryRes, liteRes] = await Promise.all([
+      timed(fetchFn('/data/rivalry-matchups.json')),
+      timed(fetchFn('/data/players-lite.json')),
+    ]);
+    if (!rivalryRes.ok || !liteRes.ok) return { error: 'history unavailable' };
+    const [rivalry, lite] = await Promise.all([rivalryRes.json(), liteRes.json()]);
+    const q = String(input?.playerName || '').toLowerCase().trim();
+    if (q.length < 3) return { error: 'give at least part of a player name' };
+    const matches = Object.entries(lite).filter(([, v]) => v.split('|')[0].toLowerCase().includes(q));
+    if (!matches.length) return { error: `no player matching "${input.playerName}" has appeared in this league` };
+    if (matches.length > 4) return { ambiguous: matches.slice(0, 8).map(([, v]) => v.split('|')[0]), note: 'be more specific' };
+    const names = knowledge.rosterNames || {};
+    const out = [];
+    for (const [pid, v] of matches) {
+      const [nm, pos] = v.split('|');
+      const starts = [];
+      for (const s of Object.values(rivalry.seasons || {})) {
+        const year = parseInt(s.year, 10);
+        (s.weeks || []).forEach((week, ix) => {
+          if (!week) return;
+          for (const game of Object.values(week)) {
+            if (!Array.isArray(game) || game.length !== 2) continue;
+            for (const t of game) {
+              const si = (t.starters || []).indexOf(pid);
+              if (si === -1) continue;
+              const pts = t.points?.[si];
+              const opp = game.find((x) => x !== t);
+              starts.push({ year, week: ix + 1, pts, startedBy: names[t.roster_id] || 'Team ' + t.roster_id, opp: names[opp?.roster_id] || '?' });
+            }
+          }
+        });
+      }
+      const drafted = knowledge.draftedBy?.[pid];
+      const scored = starts.filter((x) => typeof x.pts === 'number');
+      const best = scored.length ? scored.reduce((a, b) => (b.pts > a.pts ? b : a)) : null;
+      out.push({
+        player: `${nm} (${pos})`,
+        drafted: drafted ? `drafted ${drafted}` : 'never drafted here (free-agent pickup if rostered)',
+        timesStarted: starts.length,
+        avgWhenStarted: scored.length ? Math.round((scored.reduce((a, b) => a + b.pts, 0) / scored.length) * 100) / 100 : null,
+        bestGame: best ? `${best.pts} pts (${best.year} Wk ${best.week}, started by ${best.startedBy})` : null,
+        recentStarts: starts.slice(-10),
+      });
+    }
+    return out.length === 1 ? out[0] : out;
+  }
+
+  if (name === 'site_file') {
+    const files = {
+      power_rankings: '/data/power-rankings.json',
+      playoff_odds: '/data/playoff-odds.json',
+      record_watch: '/data/record-watch.json',
+      tradeblock: '/data/tradeblock.json',
+    };
+    const path = files[input?.name];
+    if (!path) return { error: 'unknown file' };
+    const res = await timed(fetchFn(path));
+    if (!res.ok) return { error: 'file unavailable' };
+    let data = await res.json();
+    // slim the heavy bits that don't help answers
+    if (input.name === 'power_rankings' && data.teams) {
+      data = { ...data, teams: data.teams.map(({ valueHistory, ...t }) => t) };
+    }
+    const text = JSON.stringify(data);
+    if (text.length > 14000) return { note: 'truncated', preview: text.slice(0, 14000) };
+    return data;
   }
 
   return { error: `unknown tool ${name}` };
