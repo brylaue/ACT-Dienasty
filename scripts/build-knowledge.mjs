@@ -154,6 +154,36 @@ for (const s of seasons) {
     if (s.runnerUp === row.name) f.runnerUps++;
   }
 }
+// per-franchise single-game records from the full history (0-0 phantoms excluded)
+const gameExtremes = {}; // rosterID -> {best, worst}
+for (const [lid, s] of Object.entries(rivalry.seasons)) {
+  const yr = parseInt(s.year, 10);
+  const scan = (week, game, playoff) => {
+    if (!Array.isArray(game) || game.length !== 2) return;
+    const [a, b] = game;
+    const pa = a.points.reduce((x, y) => x + y, 0);
+    const pb = b.points.reduce((x, y) => x + y, 0);
+    if (pa === 0 && pb === 0) return;
+    for (const [t, pts] of [[a, pa], [b, pb]]) {
+      const e = (gameExtremes[t.roster_id] ||= {});
+      if (!e.best || pts > e.best.pts) e.best = { pts: Math.round(pts * 100) / 100, year: yr, week, playoff };
+      if (!e.worst || pts < e.worst.pts) e.worst = { pts: Math.round(pts * 100) / 100, year: yr, week, playoff };
+    }
+  };
+  (s.weeks || []).forEach((week, ix) => { if (week) Object.values(week).forEach((g) => scan(ix + 1, g)); });
+  // playoff games count toward a franchise's best/worst too
+  Object.entries(s.playoffWeeks || {}).forEach(([wk, games]) => {
+    Object.values(games || {}).forEach((g) => scan(parseInt(wk, 10), g, true));
+  });
+}
+
+for (const [rid, f] of Object.entries(franchises)) {
+  f.rosterID = parseInt(rid, 10);
+  const e = gameExtremes[rid];
+  if (e?.best) f.bestGame = `${e.best.pts} pts (${e.best.year} Week ${e.best.week}${e.best.playoff ? ', Playoffs' : ''})`;
+  if (e?.worst) f.worstGame = `${e.worst.pts} pts (${e.worst.year} Week ${e.worst.week}${e.worst.playoff ? ', Playoffs' : ''})`;
+}
+
 const franchiseTable = Object.values(franchises)
   .map((f) => ({ ...f, pf: Math.round(f.pf * 100) / 100 }))
   .sort((a, b) => b.titles - a.titles || b.w - a.w);

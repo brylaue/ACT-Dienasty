@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { buildLiveRosters } from '$lib/server/liveRosters';
+import { toolDefinitions, runTool } from '$lib/server/oracleTools';
 
 /*
   The Oracle's AI half: answers questions using only the baked league
@@ -71,7 +72,44 @@ export async function POST(event) {
     delete knowledgeObj.claimCosts;
     const knowledge = `(Roster, taxi-squad, and draft-pick data below is ${rosterFreshness}.)\n` + JSON.stringify(knowledgeObj);
 
-    const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+    const leagueIDForTools = knowledgeObj.leagueID || '1312159501335416832';
+    const messages = [{
+        role: 'user',
+        content: `League data:\n${knowledge}\n\n${team ? `The person asking says they manage the team "${team}". When relevant, personalize the answer with their roster, their picks, and what things cost THEM - but never reveal anything that isn't in the league data.\n\n` : ''}Question: ${question}`,
+    }];
+
+    // tool loop: the model may consult live Sleeper data or the full
+    // historical game log before answering; hard-capped at 3 rounds
+    let answer = '';
+    for (let round = 0; round < 4; round++) {
+        const apiRes = await callClaude(key, messages, leagueIDForTools, round === 3);
+        if (!apiRes.ok) {
+            return json({ error: 'upstream', message: 'The Oracle is having a moment. Try again shortly.' }, { status: 502 });
+        }
+        const data = await apiRes.json();
+        const toolUses = (data.content || []).filter((c) => c.type === 'tool_use');
+        answer = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
+
+        if (data.stop_reason !== 'tool_use' || !toolUses.length) break;
+
+        messages.push({ role: 'assistant', content: data.content });
+        const results = [];
+        for (const tu of toolUses) {
+            let result;
+            try {
+                result = await runTool({ name: tu.name, input: tu.input, leagueID: leagueIDForTools, knowledge: knowledgeObj, fetchFn: event.fetch });
+            } catch (err) {
+                result = { error: 'tool failed: ' + (err?.message || 'unknown') };
+            }
+            results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(result) });
+        }
+        messages.push({ role: 'user', content: results });
+    }
+    return json({ answer: answer || 'The Oracle came back empty-handed. Try rephrasing?' });
+}
+
+const callClaude = (key, messages, leagueID, finalRound) =>
+    fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
             'content-type': 'application/json',
@@ -80,7 +118,8 @@ export async function POST(event) {
         },
         body: JSON.stringify({
             model: env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
-            max_tokens: 400,
+            max_tokens: 500,
+            ...(finalRound ? {} : { tools: toolDefinitions(leagueID) }),
             system:
                 'You are The Oracle, the librarian of the "ACT, or DIE." dynasty fantasy football league. ' +
                 'Answer questions using ONLY the league data provided. Be concise (a few sentences), specific ' +
@@ -95,18 +134,11 @@ export async function POST(event) {
                 'TAXI CLAIM COSTS: each taxiSquad entry already carries its TAXI CLAIM COST. Quote that number ' +
                 'verbatim instead of re-deriving it from the constitution, and note whether the asking team owns a ' +
                 'pick of the required round in its picks list. Only players in a taxiSquad list can be claimed at ' +
-                'all - active-roster and IR players cannot.',
-            messages: [{
-                role: 'user',
-                content: `League data:\n${knowledge}\n\n${team ? `The person asking says they manage the team "${team}". When relevant, personalize the answer with their roster, their picks, and what things cost THEM - but never reveal anything that isn't in the league data.\n\n` : ''}Question: ${question}`,
-            }],
+                'all - active-roster and IR players cannot.\n' +
+                'REALTIME TOOLS: you can call sleeper_get for live current-season state and franchise_game_log for ' +
+                "any franchise's complete historical scores (best/worst games, streaks, head-to-head detail). " +
+                'Prefer the provided league data when it already answers the question; reach for tools when it ' +
+                'does not. Never claim data is unavailable without trying the relevant tool first.',
+            messages,
         }),
     });
-
-    if (!apiRes.ok) {
-        return json({ error: 'upstream', message: 'The Oracle is having a moment. Try again shortly.' }, { status: 502 });
-    }
-    const data = await apiRes.json();
-    const answer = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
-    return json({ answer });
-}

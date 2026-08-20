@@ -46,7 +46,7 @@
         }
         for (const f of k.franchises || []) {
             const former = f.formerNames?.length ? ` (formerly ${f.formerNames.join(', ')})` : '';
-            out.push({ tag: 'franchise', text: `${f.name}${former}: ${f.titles} title${f.titles === 1 ? '' : 's'}, ${f.w}-${f.l} over ${f.seasons} seasons, ${Math.round(f.pf).toLocaleString()} career PF`, href: '/managers' });
+            out.push({ tag: 'franchise', text: `${f.name}${former}: ${f.titles} title${f.titles === 1 ? '' : 's'}, ${f.w}-${f.l} over ${f.seasons} seasons, ${Math.round(f.pf).toLocaleString()} career PF${f.bestGame ? `, best game ${f.bestGame}` : ''}${f.worstGame ? `, worst game ${f.worstGame}` : ''}`, href: '/managers' });
         }
         for (const r of k.records?.highs || []) {
             out.push({ tag: 'record', text: `High score: ${r.name} — ${r.pts} (Week ${r.week}, ${r.year})`, href: '/records' });
