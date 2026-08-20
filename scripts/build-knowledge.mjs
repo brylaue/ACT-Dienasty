@@ -43,7 +43,7 @@ for (const [lid, s] of Object.entries(rivalry.seasons)) {
   const ownerByRoster = {};
   for (const r of rosters) {
     const u = userById[r.owner_id];
-    nameByRoster[r.roster_id] = u?.metadata?.team_name || u?.display_name || `Team ${r.roster_id}`;
+    nameByRoster[r.roster_id] = (u?.metadata?.team_name || u?.display_name || `Team ${r.roster_id}`).trim();
     ownerByRoster[r.roster_id] = r.owner_id;
   }
 
@@ -56,6 +56,10 @@ for (const [lid, s] of Object.entries(rivalry.seasons)) {
       const [a, b] = game;
       const pa = a.points.reduce((x, y) => x + y, 0);
       const pb = b.points.reduce((x, y) => x + y, 0);
+      // 0-0 games were never actually played (the league joined Sleeper
+      // mid-season in 2018, which left phantom matchups) - skip them so
+      // they don't pollute records with fake ties
+      if (pa === 0 && pb === 0) continue;
       for (const [t, mine, theirs] of [[a, pa, pb], [b, pb, pa]]) {
         rec[t.roster_id] ||= { w: 0, l: 0, t: 0, pf: 0, pa: 0 };
         rec[t.roster_id].pf += mine;
@@ -85,6 +89,7 @@ for (const [lid, s] of Object.entries(rivalry.seasons)) {
 
   const standings = Object.entries(rec)
     .map(([rid, r]) => ({
+      rosterID: parseInt(rid, 10),
       name: nameByRoster[rid],
       owner: ownerByRoster[rid],
       w: r.w, l: r.l, t: r.t,
@@ -92,9 +97,14 @@ for (const [lid, s] of Object.entries(rivalry.seasons)) {
     }))
     .sort((a, b) => b.w - a.w || b.pf - a.pf);
 
+  const playedWeeks = (s.weeks || []).filter((w) => w && Object.values(w).some(
+    (g) => Array.isArray(g) && g.some((t) => t.points.reduce((x, y) => x + y, 0) > 0))).length;
+
+  const seasonYear = parseInt(s.year, 10);
   seasons.push({
-    year: s.year,
+    year: seasonYear,
     status: s.status,
+    note: seasonYear === 2018 ? "Partial season - the league began mid-season 2018, so records are from a shortened schedule." : (playedWeeks > 0 && playedWeeks < 10 && s.status === "complete" ? `Shortened season (${playedWeeks} weeks).` : undefined),
     champion: champion ? nameByRoster[champion] : null,
     runnerUp: runnerUp ? nameByRoster[runnerUp] : null,
     standings,
@@ -104,12 +114,18 @@ for (const [lid, s] of Object.entries(rivalry.seasons)) {
 }
 seasons.sort((a, b) => a.year - b.year);
 
-// ── franchise career table (continuity by owner user_id) ─────────────
-const franchises = {}; // user_id -> career
+// ── franchise career table (continuity by ROSTER lineage) ────────────
+// Rosters persist across the league chain even when the team name or
+// owner changes, so roster_id is the franchise identity. Name history
+// is kept so old names stay searchable (2018's "mcmath15" is today's
+// "TDs in Your Face").
+const franchises = {}; // roster_id -> career
 for (const s of seasons) {
   for (const row of s.standings) {
-    const f = (franchises[row.owner] ||= { name: row.name, seasons: 0, w: 0, l: 0, t: 0, pf: 0, titles: 0, runnerUps: 0 });
+    const f = (franchises[row.rosterID] ||= { name: row.name, formerNames: [], seasons: 0, w: 0, l: 0, t: 0, pf: 0, titles: 0, runnerUps: 0 });
+    if (f.name !== row.name && !f.formerNames.includes(f.name)) f.formerNames.push(f.name);
     f.name = row.name; // latest name wins
+    f.formerNames = f.formerNames.filter((n) => n !== row.name);
     f.seasons++;
     f.w += row.w; f.l += row.l; f.t += row.t; f.pf += row.pf;
     if (s.champion === row.name) f.titles++;
@@ -156,7 +172,7 @@ if (existsSync(SLACK)) {
 
 const knowledge = {
   generated: new Date().toISOString(),
-  league: "ACT, or DIE. - 12-team superflex dynasty fantasy football league, founded 2018, hosted on Sleeper.",
+  league: "ACT, or DIE. - 12-team superflex dynasty fantasy football league, hosted on Sleeper. Founded MID-SEASON 2018, so 2018 is a partial season with a shortened schedule. Franchises persist by roster across seasons even as team names change year to year - each franchise entry lists its former names (e.g. the franchise now called 'TDs in Your Face' won the 2018 title under the name 'mcmath15').",
   seasons: seasons.map(({ _owners, _names, ...rest }) => rest),
   franchises: franchiseTable,
   records,

@@ -24,13 +24,14 @@
         if (!k) return [];
         const out = [];
         for (const s of k.seasons || []) {
-            if (s.champion) out.push({ tag: `${s.year}`, text: `${s.year} champion: ${s.champion}${s.runnerUp ? ` (def. ${s.runnerUp})` : ''}`, href: '/rivalry' });
+            if (s.champion) out.push({ tag: `${s.year}`, text: `${s.year} champion: ${s.champion}${s.runnerUp ? ` (def. ${s.runnerUp})` : ''}${s.note ? ` — ${s.note}` : ''}`, href: '/rivalry' });
             for (const row of s.standings || []) {
                 out.push({ tag: `${s.year}`, text: `${row.name}: ${row.w}-${row.l}${row.t ? `-${row.t}` : ''}, ${row.pf} PF`, href: '/standings' });
             }
         }
         for (const f of k.franchises || []) {
-            out.push({ tag: 'franchise', text: `${f.name}: ${f.titles} title${f.titles === 1 ? '' : 's'}, ${f.w}-${f.l} over ${f.seasons} seasons, ${Math.round(f.pf).toLocaleString()} career PF`, href: '/managers' });
+            const former = f.formerNames?.length ? ` (formerly ${f.formerNames.join(', ')})` : '';
+            out.push({ tag: 'franchise', text: `${f.name}${former}: ${f.titles} title${f.titles === 1 ? '' : 's'}, ${f.w}-${f.l} over ${f.seasons} seasons, ${Math.round(f.pf).toLocaleString()} career PF`, href: '/managers' });
         }
         for (const r of k.records?.highs || []) {
             out.push({ tag: 'record', text: `High score: ${r.name} — ${r.pts} (Week ${r.week}, ${r.year})`, href: '/records' });
