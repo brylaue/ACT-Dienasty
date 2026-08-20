@@ -259,11 +259,30 @@ const redact = (text) =>
 constitution = redact(constitution);
 slack = slack.map((m) => ({ ...m, text: redact(m.text) }));
 
+// players-lite: id -> "Name|POS" for fantasy-relevant players, so the
+// live endpoint can name anyone who joins a roster between bakes
+const playersLite = {};
+const FANTASY_POS = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);
+for (const [id, pl] of Object.entries(allPlayers)) {
+  if (pl && FANTASY_POS.has(pl.position) && (pl.active || allRosteredIds.includes(id))) {
+    playersLite[id] = `${pl.first_name} ${pl.last_name}|${pl.position}`;
+  }
+}
+writeFileSync(join(root, "static/data/players-lite.json"), JSON.stringify(playersLite));
+console.log(`wrote static/data/players-lite.json (${Object.keys(playersLite).length} players)`);
+
+const draftedByCompact = Object.fromEntries(
+  Object.entries(draftedBy).map(([id, d]) => [id, `${d.year} R${d.round}`]),
+);
+
 const knowledge = {
   generated: new Date().toISOString(),
+  leagueID: rivalry.leagueID,
   league: "ACT, or DIE. - 12-team superflex dynasty fantasy football league, hosted on Sleeper. Founded MID-SEASON 2018, so 2018 is a partial season with a shortened schedule. The rosters section lists every team's current players with position, ORIGINAL annual-draft round (used for taxi-squad claim costs per the constitution), TAXI SQUAD and IR flags, and the future draft picks each team owns. Franchises persist by roster across seasons even as team names change year to year - each franchise entry lists its former names (e.g. the franchise now called 'TDs in Your Face' won the 2018 title under the name 'mcmath15').",
   seasons: seasons.map(({ _owners, _names, ...rest }) => rest),
   rosters: rosterSection,
+  draftedBy: draftedByCompact,
+  rosterNames: curNameByRoster,
   franchises: franchiseTable,
   records,
   constitution,

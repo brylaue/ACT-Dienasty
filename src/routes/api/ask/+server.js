@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { buildLiveRosters } from '$lib/server/liveRosters';
 
 /*
   The Oracle's AI half: answers questions using only the baked league
@@ -54,7 +55,18 @@ export async function POST(event) {
     if (!kRes.ok) {
         return json({ error: 'nodata', message: 'Knowledge pack missing.' }, { status: 500 });
     }
-    const knowledge = await kRes.text();
+    const knowledgeObj = await kRes.json();
+
+    // roster/taxi/pick questions deserve LIVE data, not last Tuesday's -
+    // rebuild that section from Sleeper right now; fall back to the bake
+    let rosterFreshness = `as of the weekly refresh (${knowledgeObj.generated})`;
+    try {
+        const leagueID = knowledgeObj.leagueID || '1312159501335416832';
+        knowledgeObj.rosters = await buildLiveRosters({ leagueID, knowledge: knowledgeObj, fetchFn: event.fetch });
+        rosterFreshness = 'LIVE from Sleeper as of this very question';
+    } catch { /* baked rosters remain in place */ }
+    delete knowledgeObj.draftedBy; // endpoint-only helpers, not prompt material
+    const knowledge = `(Roster, taxi-squad, and draft-pick data below is ${rosterFreshness}.)\n` + JSON.stringify(knowledgeObj);
 
     const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
