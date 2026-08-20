@@ -1,0 +1,84 @@
+import { json } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
+
+/*
+  The Oracle's AI half: answers questions using only the baked league
+  knowledge pack. Requires ANTHROPIC_API_KEY in Vercel env vars; without
+  it the endpoint declines politely and the page's local search still
+  works. Optional ASK_PASSCODE env var gates the endpoint for
+  league-members-only use.
+*/
+
+// best-effort per-instance rate limit (serverless instances are
+// ephemeral, so this is a speed bump, not a wall)
+const hits = new Map();
+const allow = (ip) => {
+    const now = Date.now();
+    const arr = (hits.get(ip) || []).filter((t) => now - t < 60_000);
+    if (arr.length >= 8) return false;
+    arr.push(now);
+    hits.set(ip, arr);
+    return true;
+};
+
+export async function POST(event) {
+    const key = env.ANTHROPIC_API_KEY;
+    if (!key) {
+        return json({ error: 'unconfigured', message: 'The Oracle is asleep (no API key configured).' }, { status: 503 });
+    }
+
+    if (env.ASK_PASSCODE) {
+        const provided = event.request.headers.get('x-ask-passcode') || '';
+        if (provided !== env.ASK_PASSCODE) {
+            return json({ error: 'passcode', message: 'League passcode required.' }, { status: 401 });
+        }
+    }
+
+    if (!allow(event.getClientAddress())) {
+        return json({ error: 'rate', message: 'Easy — a few questions a minute, tops.' }, { status: 429 });
+    }
+
+    let question = '';
+    try {
+        const body = await event.request.json();
+        question = String(body?.question || '').trim().slice(0, 300);
+    } catch { /* falls through to the empty-question check */ }
+    if (!question) {
+        return json({ error: 'empty', message: 'Ask an actual question.' }, { status: 400 });
+    }
+
+    const kRes = await event.fetch('/data/knowledge.json');
+    if (!kRes.ok) {
+        return json({ error: 'nodata', message: 'Knowledge pack missing.' }, { status: 500 });
+    }
+    const knowledge = await kRes.text();
+
+    const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json',
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+            model: env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
+            max_tokens: 400,
+            system:
+                'You are The Oracle, the librarian of the "ACT, or DIE." dynasty fantasy football league. ' +
+                'Answer questions using ONLY the league data provided. Be concise (a few sentences), specific ' +
+                '(years, records, point totals), and a little wry. If the data does not contain the answer, say so ' +
+                'plainly rather than guessing. Never invent stats.',
+            messages: [{
+                role: 'user',
+                content: `League data:\n${knowledge}\n\nQuestion: ${question}`,
+            }],
+        }),
+    });
+
+    if (!apiRes.ok) {
+        return json({ error: 'upstream', message: 'The Oracle is having a moment. Try again shortly.' }, { status: 502 });
+    }
+    const data = await apiRes.json();
+    const answer = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
+    return json({ answer });
+}

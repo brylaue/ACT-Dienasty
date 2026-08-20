@@ -88,6 +88,16 @@ export const tabs = [
       },
       {
         icon: "newspaper",
+        label: "The Oracle",
+        dest: "/ask",
+        icon: "psychology_alt",
+    },
+    {
+        label: "The Vault",
+        dest: "/archive",
+        icon: "inventory_2",
+    },
+    {
         label: "Sunday Shame",
         dest: "/recap",
       },
