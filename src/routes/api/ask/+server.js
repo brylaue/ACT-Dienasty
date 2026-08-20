@@ -149,6 +149,10 @@ const callClaude = (key, messages, leagueID, finalRound) =>
                 'someone asks how a claim works or what it costs, walk them through taxiClaimProcess: post in the ' +
                 'league Slack, the owner gets 72 hours to promote or forfeit, compensation per the cost line, and ' +
                 'if they lack the exact pick they may designate a HIGHER round pick instead.\n' +
+                'OWNERS: every roster and franchise carries an `owners` / `ownedBy` field with real names and @handles ' +
+                '(e.g. "Bryan Laue (@laue); co-owner: @dmckeon7"). When asked who owns or runs a team, answer with ' +
+                "the person's FIRST NAME (plus @handle if useful) - NEVER a numeric Sleeper user ID, and never the " +
+                'bare handle when a real name is available.\n' +
                 'REALTIME TOOLS: sleeper_get (live current-season state), franchise_game_log (a franchise\'s complete ' +
                 'historical scores), trade_history (every trade ever, filterable by team/player/season), ' +
                 "player_league_history (a player's draft origin + every start + scoring in this league), and " +

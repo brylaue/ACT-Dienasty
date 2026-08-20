@@ -175,7 +175,7 @@ export const managers = [
   {
     "roster": 4,
     "managerID": "361001391055187968",
-    "name": "tarmstrong20",
+    "name": "Tim Armstrong",
     "tookOver": null,
     "location": null,
     "bio": null,
@@ -399,7 +399,7 @@ export const managers = [
   {
     "roster": 11,
     "managerID": "1028127554101735424",
-    "name": "BStephens89",
+    "name": "Ben Stephens",
     "tookOver": null,
     "location": null,
     "bio": null,

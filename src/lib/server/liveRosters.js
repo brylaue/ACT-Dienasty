@@ -68,7 +68,7 @@ export async function buildLiveRosters({ leagueID, knowledge, fetchFn }) {
 			else activeRoster.push(describe(id));
 		}
 
-		return { rosterID: r.roster_id, name: nameFor(r.roster_id), activeRoster, taxiSquad, injuredReserve };
+		return { rosterID: r.roster_id, name: nameFor(r.roster_id), owners: knowledge.ownersByRoster?.[r.roster_id], activeRoster, taxiSquad, injuredReserve };
 	});
 
 	// owned picks from live traded_picks (roster_id = original owner,

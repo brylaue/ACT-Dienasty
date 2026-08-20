@@ -473,6 +473,31 @@ const bylaws = {
   governance: "Living constitution - changes voted between seasons; exec committee (commissioner + 3 elected owners) resolves anything not covered and rules on disputes; involved members recuse. Departing owners can't sell or hand off teams - the exec committee finds replacements.",
 };
 
+// owner identity: Sleeper is the source of truth for WHO owns each
+// roster (owner_id + co_owners); the site's managers config supplies
+// their real names. Falls back to the @handle when unmatched.
+const managerNames = {};
+try {
+  const li = readFileSync(join(root, "src/lib/utils/leagueInfo.js"), "utf8");
+  const re = /"managerID":\s*"(\d+)",\s*"name":\s*"([^"]+)"/g;
+  let m;
+  while ((m = re.exec(li))) managerNames[m[1]] = m[2];
+} catch { /* config unreadable - handles still work */ }
+
+const ownerLabel = (userId) => {
+  const handle = curUserById[userId]?.display_name || "unknown";
+  const real = managerNames[userId];
+  return real ? `${real} (@${handle})` : `@${handle}`;
+};
+const ownersByRoster = {};
+for (const r of curRosters) {
+  const parts = [ownerLabel(r.owner_id)];
+  for (const co of r.co_owners || []) parts.push(`co-owner: ${ownerLabel(co)}`);
+  ownersByRoster[r.roster_id] = parts.join("; ");
+}
+for (const rs of rosterSection) rs.owners = ownersByRoster[rs.rosterID];
+for (const f of franchiseTable) if (ownersByRoster[f.rosterID]) f.ownedBy = ownersByRoster[f.rosterID];
+
 const knowledge = {
   generated: new Date().toISOString(),
   leagueID: rivalry.leagueID,
@@ -495,6 +520,7 @@ const knowledge = {
   draftedBy: draftedByCompact,
   droppedPlayers,
   rosterNames: curNameByRoster,
+  ownersByRoster,
   franchises: franchiseTable,
   records,
   constitution,
