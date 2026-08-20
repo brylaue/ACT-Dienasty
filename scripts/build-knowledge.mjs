@@ -13,6 +13,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { taxiClaimCost } from "../src/lib/server/taxiCost.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -175,25 +176,84 @@ for (const r of curRosters) {
 const allRosteredIds = [...new Set(curRosters.flatMap((r) => r.players || []))];
 const allPlayers = await get("https://api.sleeper.app/v1/players/nfl");
 
-const rosterSection = curRosters.map((r) => {
-  const taxi = new Set(r.taxi || []);
-  const ir = new Set(r.reserve || []);
-  const players = (r.players || []).map((id) => {
-    const pl = allPlayers[id];
-    const name = pl ? `${pl.first_name} ${pl.last_name}` : `Player ${id}`;
-    const pos = pl?.position || "?";
-    const d = draftedBy[id];
-    const drafted = d ? `drafted ${d.year} R${d.round}` : "undrafted (free-agent pickup)";
-    const flags = [taxi.has(id) ? "ON TAXI SQUAD" : null, ir.has(id) ? "IR" : null].filter(Boolean);
-    return `${name} (${pos}, ${drafted}${flags.length ? ", " + flags.join(", ") : ""})`;
-  });
-  return { rosterID: r.roster_id, name: curNameByRoster[r.roster_id], players };
-});
-
-// owned future picks: default ownership adjusted by traded_picks
+// draft context is needed to price taxi claims, so it's resolved before
+// the roster section is shaped
 const draftRounds = curDrafts?.[0]?.settings?.rounds || 4;
 const upcomingSeason = parseInt(curDrafts?.[0]?.season || new Date().getFullYear(), 10);
 const preDraft = curDrafts?.[0]?.status !== "complete";
+// compensation comes out of the NEXT annual draft - the upcoming one if
+// it hasn't happened yet, otherwise the following year's
+const claimSeason = preDraft ? upcomingSeason : upcomingSeason + 1;
+
+// ── Raeger Rule: who has ever been dropped? ──────────────────────────
+// A player dropped to waivers and later picked back up has his claim
+// cost reset to a 3rd. Completed seasons come from the transactions
+// archive; the current season is fetched live (cheap, 18 small calls).
+const droppedEver = new Set();
+const noteDrops = (txns) => {
+  for (const t of txns || []) {
+    for (const id of Object.keys(t?.drops || {})) droppedEver.add(id);
+  }
+};
+const ARCH = join(root, "static/data/transactions-archive.json");
+if (existsSync(ARCH)) {
+  const arch = JSON.parse(readFileSync(ARCH, "utf8"));
+  for (const list of Object.values(arch.seasons || {})) noteDrops(list);
+}
+try {
+  const weeks = await Promise.all(
+    Array.from({ length: 18 }, (_, i) =>
+      get(`https://api.sleeper.app/v1/league/${currentLid}/transactions/${i + 1}`).catch(() => []),
+    ),
+  );
+  for (const w of weeks) noteDrops(w);
+} catch {
+  console.warn("current-season transactions unavailable - Raeger Rule flags may be incomplete");
+}
+console.log(`drop history: ${droppedEver.size} players have been dropped at some point`);
+
+// the live layer prices claims itself; all it needs from the bake is the
+// drop history, and only for DRAFTED players (undrafted already bottoms
+// out at a 3rd, so the flag would change nothing)
+const droppedPlayers = [...droppedEver].filter((id) => draftedBy[id]);
+
+const describe = (id) => {
+  const pl = allPlayers[id];
+  const name = pl ? `${pl.first_name} ${pl.last_name}` : `Player ${id}`;
+  const pos = pl?.position || "?";
+  const d = draftedBy[id];
+  const drafted = d ? `drafted ${d.year} R${d.round}` : "undrafted in this league's annual drafts";
+  return { name, pos, drafted, round: d?.round || null };
+};
+
+const rosterSection = curRosters.map((r) => {
+  const taxi = new Set(r.taxi || []);
+  const ir = new Set(r.reserve || []);
+  const activeRoster = [];
+  const taxiSquad = [];
+  const injuredReserve = [];
+
+  for (const id of r.players || []) {
+    const { name, pos, drafted, round } = describe(id);
+    const line = `${name} (${pos}, ${drafted})`;
+    if (taxi.has(id)) {
+      const cost = taxiClaimCost({ round, dropped: droppedEver.has(id) }, claimSeason);
+      taxiSquad.push(`${line} - TAXI CLAIM COST: ${cost}`);
+    } else if (ir.has(id)) {
+      injuredReserve.push(line);
+    } else {
+      activeRoster.push(line);
+    }
+  }
+
+  return {
+    rosterID: r.roster_id,
+    name: curNameByRoster[r.roster_id],
+    activeRoster,
+    taxiSquad,
+    injuredReserve,
+  };
+});
 const pickSeasons = [];
 if (preDraft) pickSeasons.push(upcomingSeason);
 pickSeasons.push(upcomingSeason + 1, upcomingSeason + 2);
@@ -278,10 +338,19 @@ const draftedByCompact = Object.fromEntries(
 const knowledge = {
   generated: new Date().toISOString(),
   leagueID: rivalry.leagueID,
-  league: "ACT, or DIE. - 12-team superflex dynasty fantasy football league, hosted on Sleeper. Founded MID-SEASON 2018, so 2018 is a partial season with a shortened schedule. The rosters section lists every team's current players with position, ORIGINAL annual-draft round (used for taxi-squad claim costs per the constitution), TAXI SQUAD and IR flags, and the future draft picks each team owns. Franchises persist by roster across seasons even as team names change year to year - each franchise entry lists its former names (e.g. the franchise now called 'TDs in Your Face' won the 2018 title under the name 'mcmath15').",
+  league:
+    "ACT, or DIE. - 12-team superflex dynasty fantasy football league, hosted on Sleeper. Founded MID-SEASON 2018, so 2018 is a partial season with a shortened schedule. " +
+    "ROSTERS: each team in the rosters section has FOUR separate lists - activeRoster, taxiSquad, injuredReserve, and picks (future draft picks owned). " +
+    "A player is on a team's taxi squad IF AND ONLY IF he appears in that team's taxiSquad list; a player in activeRoster is NOT on the taxi squad and cannot be claimed. Never infer a player's status from anything other than which list he is in. " +
+    "Every taxiSquad entry already states that player's TAXI CLAIM COST, computed from constitution section 4.3 including the Raeger Rule - quote that figure rather than working the cost out yourself. " +
+    "To actually make a claim, the claiming team must own a pick of that round in the next annual draft (see each team's picks list). " +
+    "Watch for players with similar names: Trevor Etienne and Travis Etienne are different players on different teams. " +
+    "Franchises persist by roster across seasons even as team names change year to year - each franchise entry lists its former names (e.g. the franchise now called 'TDs in Your Face' won the 2018 title under the name 'mcmath15').",
   seasons: seasons.map(({ _owners, _names, ...rest }) => rest),
   rosters: rosterSection,
+  claimSeason,
   draftedBy: draftedByCompact,
+  droppedPlayers,
   rosterNames: curNameByRoster,
   franchises: franchiseTable,
   records,

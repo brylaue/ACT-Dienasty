@@ -65,7 +65,10 @@ export async function POST(event) {
         knowledgeObj.rosters = await buildLiveRosters({ leagueID, knowledge: knowledgeObj, fetchFn: event.fetch });
         rosterFreshness = 'LIVE from Sleeper as of this very question';
     } catch { /* baked rosters remain in place */ }
-    delete knowledgeObj.draftedBy; // endpoint-only helpers, not prompt material
+    // endpoint-only helpers - the live layer has already folded these
+    // into the roster lines, so they'd just burn tokens in the prompt
+    delete knowledgeObj.draftedBy;
+    delete knowledgeObj.claimCosts;
     const knowledge = `(Roster, taxi-squad, and draft-pick data below is ${rosterFreshness}.)\n` + JSON.stringify(knowledgeObj);
 
     const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -82,7 +85,17 @@ export async function POST(event) {
                 'You are The Oracle, the librarian of the "ACT, or DIE." dynasty fantasy football league. ' +
                 'Answer questions using ONLY the league data provided. Be concise (a few sentences), specific ' +
                 '(years, records, point totals), and a little wry. If the data does not contain the answer, say so ' +
-                'plainly rather than guessing. Never invent stats.',
+                'plainly rather than guessing. Never invent stats.\n' +
+                'ROSTER STATUS IS A LOOKUP, NOT A DEDUCTION. Every team in the rosters section has separate ' +
+                'activeRoster, taxiSquad, injuredReserve and picks lists. Before saying where any player sits, find ' +
+                'the exact list he appears in and answer from that. Never state or imply that a player is on the ' +
+                'active roster because you did not notice him on the taxi squad - search the taxiSquad lists first. ' +
+                'Check the player name character by character: this league has had two Etiennes, two Harrisons, and ' +
+                'assorted juniors.\n' +
+                'TAXI CLAIM COSTS: each taxiSquad entry already carries its TAXI CLAIM COST. Quote that number ' +
+                'verbatim instead of re-deriving it from the constitution, and note whether the asking team owns a ' +
+                'pick of the required round in its picks list. Only players in a taxiSquad list can be claimed at ' +
+                'all - active-roster and IR players cannot.',
             messages: [{
                 role: 'user',
                 content: `League data:\n${knowledge}\n\n${team ? `The person asking says they manage the team "${team}". When relevant, personalize the answer with their roster, their picks, and what things cost THEM - but never reveal anything that isn't in the league data.\n\n` : ''}Question: ${question}`,

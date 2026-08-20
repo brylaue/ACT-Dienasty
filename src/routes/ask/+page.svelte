@@ -61,8 +61,17 @@
             }
         }
         for (const r of k.rosters || []) {
-            for (const line of r.players || []) {
-                out.push({ tag: r.name.length > 14 ? r.name.slice(0, 13) + '…' : r.name, text: line, href: '/rosters' });
+            const team = r.name.length > 14 ? r.name.slice(0, 13) + '…' : r.name;
+            // legacy packs carried one flat players list; new packs split
+            // active / taxi / IR so status is never guessed from a suffix
+            for (const line of r.activeRoster || r.players || []) {
+                out.push({ tag: team, text: `${r.name} active roster — ${line}`, href: '/rosters' });
+            }
+            for (const line of r.taxiSquad || []) {
+                out.push({ tag: 'taxi', text: `${r.name} TAXI SQUAD — ${line}`, href: '/rosters' });
+            }
+            for (const line of r.injuredReserve || []) {
+                out.push({ tag: 'IR', text: `${r.name} injured reserve — ${line}`, href: '/rosters' });
             }
             if (r.picks?.length) {
                 out.push({ tag: 'picks', text: `${r.name} owns: ${r.picks.join(', ')}`, href: '/rosters' });
