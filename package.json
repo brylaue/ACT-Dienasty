@@ -64,7 +64,7 @@
     "contentful": "^10.6.7",
     "contentful-management": "^10.46.4",
     "cookie": "^0.7.0",
-    "fast-xml-parser": "^4.2.5",
+    "fast-xml-parser": "^5.11.0",
     "fuzzyjs": "^5.0.1"
   },
   "devDependencies": {
@@ -79,8 +79,7 @@
     "@smui/tab": "^8.0.0-beta.3",
     "@smui/tab-bar": "^8.0.0-beta.3",
     "@smui/textfield": "^8.0.0-beta.3",
-    "@sveltejs/adapter-node": "^4.0.1",
-    "@sveltejs/adapter-vercel": "^4.0.5",
+    "@sveltejs/adapter-vercel": "^6.3.4",
     "@sveltejs/kit": "^2.47.3",
     "@sveltejs/vite-plugin-svelte": "^5.1.1",
     "@vitest/coverage-v8": "^4.0.2",
