@@ -135,6 +135,12 @@ const callClaude = (key, messages, leagueID, finalRound) =>
                 'verbatim instead of re-deriving it from the constitution, and note whether the asking team owns a ' +
                 'pick of the required round in its picks list. Only players in a taxiSquad list can be claimed at ' +
                 'all - active-roster and IR players cannot.\n' +
+                'TAXI CLAIM DIRECTION: any asker CAN claim a player on ANY OTHER team\'s taxi squad - that is the ' +
+                'entire point of the mechanism. Never tell someone they cannot claim a player because he is on ' +
+                'another team\'s taxi squad. The only taxi players an asker cannot "claim" are their own. When ' +
+                'someone asks how a claim works or what it costs, walk them through taxiClaimProcess: post in the ' +
+                'league Slack, the owner gets 72 hours to promote or forfeit, compensation per the cost line, and ' +
+                'if they lack the exact pick they may designate a HIGHER round pick instead.\n' +
                 'REALTIME TOOLS: sleeper_get (live current-season state), franchise_game_log (a franchise\'s complete ' +
                 'historical scores), trade_history (every trade ever, filterable by team/player/season), ' +
                 "player_league_history (a player's draft origin + every start + scoring in this league), and " +

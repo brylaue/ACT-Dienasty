@@ -426,9 +426,24 @@ for (let wk = 1; wk <= lastRegWeek; wk++) {
   } catch { /* week unavailable - skip */ }
 }
 
+// §4.3 claim mechanics, distilled to structure. The cost formula already
+// lives in taxiCost.js; this is the PROCESS - who can claim, how, and
+// what happens next. Update if the constitution's 4.3 changes.
+const taxiClaimProcess = {
+  whoCanClaim: "ANY owner may claim a player from ANY OTHER owner's taxi squad. (You cannot claim your own taxi players - they're already yours; you'd just promote them.)",
+  howToClaim: "Post a notification in the league's Slack thread. The executive committee then notifies the owner whose player is being claimed.",
+  ownerOptions: "The owner has 72 hours to either PROMOTE the player to their active roster (keeping him, blocking the claim) or FORFEIT him to the claimer.",
+  compensation: "A pick in the NEXT year's annual draft, one round higher than the player was originally drafted (minimum a 3rd). 1st-round picks cost a 1st AND a 2nd. Undrafted players cost a 3rd.",
+  ifYouLackTheExactPick: "You must own a pick in the required round for the next annual draft - OR you may designate a HIGHER round pick instead. Not owning the exact round does not block a claim if you have a better pick to offer.",
+  multiplePicksInRound: "If the claimer owns multiple picks in the required round, the owner LOSING the player chooses which one they receive.",
+  afterClaim: "A claimed player must go on the claimer's ACTIVE roster (must fit roster limits). Claims are irrevocable once accepted or once the 72-hour window passes.",
+  timing: "Claims are a during-the-season mechanism per the constitution; the commissioner has discretion on timing disputes (e.g. vacations).",
+};
+
 const knowledge = {
   generated: new Date().toISOString(),
   leagueID: rivalry.leagueID,
+  taxiClaimProcess,
   leagueSettings,
   nflState: { season: nflState.season, phase: nflState.season_type, currentWeek: nflState.week },
   schedule: Object.keys(schedule).length ? schedule : "Not yet set - Sleeper generates the season schedule after the rookie draft. It will appear here automatically once set.",
