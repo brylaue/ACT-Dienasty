@@ -482,7 +482,11 @@ const bylaws = {
 // owner identity: Sleeper is the source of truth for WHO owns each
 // roster (owner_id + co_owners); the site's managers config supplies
 // their real names. Falls back to the @handle when unmatched.
-const managerNames = {};
+// names confirmed by the league that aren't in the managers config
+const SUPPLEMENTAL_MANAGER_NAMES = {
+  "1128772653847916544": "David McKeon", // Bryan's co-owner, roster 3
+};
+const managerNames = { ...SUPPLEMENTAL_MANAGER_NAMES };
 try {
   const li = readFileSync(join(root, "src/lib/utils/leagueInfo.js"), "utf8");
   const re = /"managerID":\s*"(\d+)",\s*"name":\s*"([^"]+)"/g;
@@ -675,9 +679,17 @@ try {
           ? `originally ${orig.replace(" originally", "")}; CURRENTLY HELD by ${holder} via trade`
           : `held by ${orig.replace(" originally", "")} (own pick, never traded)`;
       }
+      let startLine = "not yet scheduled in Sleeper";
+      try {
+        const detail = await get(`https://api.sleeper.app/v1/draft/${d.draft_id}`);
+        if (detail?.start_time) {
+          startLine = new Date(detail.start_time).toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "full", timeStyle: "short" }) + " ET";
+        }
+      } catch { /* keep default */ }
       upcomingDraft = {
         year: nflState.season,
         status: d.status,
+        startTime: startLine,
         format: `${d.type}, ${d.settings?.rounds || 4} rounds`,
         note: "AUTHORITATIVE pick ownership: round1Slots states each slot's current holder, and every roster's picks list shows exact slots. Never re-derive ownership from traded_picks or trade history. Order source: " + source,
         round1Slots,

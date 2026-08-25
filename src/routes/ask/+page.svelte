@@ -104,6 +104,7 @@
     // remembered on this device only (localStorage), never required
     if (typeof localStorage !== 'undefined') {
         myTeam = localStorage.getItem('oracleTeam') || '';
+        passcode = localStorage.getItem('oraclePass') || '';
         // live taxi refresh: rosters change daily in preseason, the bake is weekly
         (async () => {
             try {
@@ -255,7 +256,7 @@
 
     {#if needPasscode}
         <div class="passRow">
-            <input class="q pass" type="password" placeholder="League passcode" bind:value={passcode} />
+            <input class="q pass" type="password" placeholder="League passcode" bind:value={passcode} onchange={() => localStorage.setItem('oraclePass', passcode)} />
             <button class="askBtn" onclick={ask} disabled={asking}>Retry</button>
         </div>
     {/if}
