@@ -96,6 +96,9 @@ export async function POST(event) {
         const data = await apiRes.json();
         const toolUses = (data.content || []).filter((c) => c.type === 'tool_use');
         answer = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
+        if (data.stop_reason === 'max_tokens' && answer) {
+            answer += '\n\n_(Answer trimmed at the length limit - ask a follow-up for the rest.)_';
+        }
 
         if (data.stop_reason !== 'tool_use' || !toolUses.length) break;
 
@@ -125,7 +128,7 @@ const callClaude = (key, messages, leagueID, finalRound, staticKnowledge, dynami
         },
         body: JSON.stringify({
             model: env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
-            max_tokens: 500,
+            max_tokens: 700,
             ...(finalRound ? {} : { tools: toolDefinitions(leagueID) }),
             system: [
                 { type: 'text', text: SYSTEM_INSTRUCTIONS + '\n\nLeague data:\n' + staticKnowledge, cache_control: { type: 'ephemeral' } },
@@ -145,6 +148,18 @@ const SYSTEM_INSTRUCTIONS =
                 'NEVER ASSUME ELAPSED TIME: if someone says a claim, deadline, or window "just" happened or gives no ' +
                 'timing, treat the window as OPEN and lay out their live options - do not declare deadlines passed ' +
                 'unless the asker says so.\n' +
+                'THE PAST IS SETTLED: nflState tells you the current season. Every prior season is COMPLETE - its ' +
+                'champion is crowned and its results already determined the upcoming draft order. `upcomingDraft` ' +
+                'holds that order and every roster\'s picks list shows EXACT slot numbers (e.g. "= pick 1.11"). ' +
+                'Never say the draft order is undetermined or tell someone to "check back after the season" that ' +
+                'already ended. For "who should I draft" questions: first state which picks the asker ACTUALLY ' +
+                'holds from their picks list, then if they want targets use the player_values tool (live market ' +
+                'values incl rookies) - NEVER cite "consensus" or player rankings from memory.\n' +
+                'LENGTH MATCHES THE QUESTION: lead with the direct answer, always. Simple lookups (who owns X, ' +
+                'what pick do I have, when is the deadline) get 1-3 sentences. Rule and process questions get a ' +
+                'COMPLETE walkthrough of the relevant by-law - never sacrifice a required step or condition for ' +
+                'brevity - but stated tightly. What is never welcome at any length: restating the phase of the ' +
+                'year, speculation, invented context, or "want me to..." closers.\n' +
                 'Answer questions using ONLY the league data provided. Be concise (a few sentences), specific ' +
                 '(years, records, point totals), and a little wry. If the data does not contain the answer, say so ' +
                 'plainly rather than guessing. Never invent stats.\n' +

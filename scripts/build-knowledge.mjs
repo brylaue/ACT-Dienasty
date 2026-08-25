@@ -598,8 +598,80 @@ for (const seasonEntry of seasons) {
   }
 }
 
+// ---- upcoming draft order: Sleeper's if entered, else DERIVED from the
+// last complete season per constitution 3.2 (picks 1-7 worst-first with
+// fewer-points-better tiebreak; 8 = wildcard loser; 9/10 = 3rd-place game
+// loser/winner; 11 = runner-up; 12 = champion) ----
+let upcomingDraft = null;
+try {
+  const drafts = await get(`https://api.sleeper.app/v1/league/${currentLid}/drafts`);
+  const d = drafts?.[0];
+  if (d) {
+    let slotByRoster = null;
+    let source = "";
+    try {
+      const detail = await get(`https://api.sleeper.app/v1/draft/${d.draft_id}`);
+      if (detail?.slot_to_roster_id && Object.keys(detail.slot_to_roster_id).length) {
+        slotByRoster = {};
+        for (const [slot, rid] of Object.entries(detail.slot_to_roster_id)) slotByRoster[rid] = parseInt(slot, 10);
+        source = "Sleeper's entered draft order";
+      }
+    } catch { /* fall through to derivation */ }
+    const lastComplete = seasons.filter((x) => x.standings?.length >= 12).sort((a, b) => b.year - a.year)[0];
+    if (!slotByRoster && lastComplete) {
+      const yr = lastComplete.year;
+      const lid = Object.entries(matchupsArchive?.seasons || {}).find(([y]) => parseInt(y, 10) === yr)?.[1]?.leagueID;
+      const bracket = lid ? await get(`https://api.sleeper.app/v1/league/${lid}/winners_bracket`) : [];
+      const maxR = Math.max(...bracket.map((g) => g.r));
+      const final = bracket.find((g) => g.r === maxR && g.p === 1) || bracket.find((g) => g.r === maxR && g.p == null);
+      const third = bracket.find((g) => g.r === maxR && g.p === 3);
+      const wildcard = bracket.find((g) => g.r === 1);
+      const slots = {};
+      if (final) { slots[final.w] = 12; slots[final.l] = 11; }
+      if (third) { slots[third.w] = 10; slots[third.l] = 9; }
+      if (wildcard) slots[wildcard.l] = 8;
+      const playoffRosters = new Set(Object.keys(slots).map(Number));
+      const nonPlayoff = lastComplete.standings
+        .filter((row) => !playoffRosters.has(row.rosterID))
+        .sort((a, b) => a.w - b.w || a.pf - b.pf); // worst first, fewer points = better pick
+      nonPlayoff.forEach((row, i) => { slots[row.rosterID] = i + 1; });
+      slotByRoster = slots;
+      source = `derived from ${yr} results per constitution 3.2 (Sleeper order not yet entered - the commissioner enters it before the draft)`;
+    }
+    if (slotByRoster) {
+      const order = {};
+      for (const [rid, slot] of Object.entries(slotByRoster)) {
+        order[`1.${String(slot).padStart(2, "0")}`] = `${(curNameByRoster[rid] || "Team " + rid).trim()} originally (${ownersByRoster[rid] || ""})`;
+      }
+      upcomingDraft = {
+        year: nflState.season,
+        status: d.status,
+        format: `${d.type}, ${d.settings?.rounds || 4} rounds`,
+        note: "Traded picks move with their trades - each roster's picks list shows exact slot numbers. Order source: " + source,
+        round1Slots: Object.fromEntries(Object.entries(order).sort()),
+      };
+      // annotate every pick line with its exact slot number
+      for (const rs of rosterSection) {
+        rs.picks = (rs.picks || []).map((line) => {
+          const m = line.match(/^(\d{4}) R(\d)(?: \(via (.+?)\))?$/);
+          if (!m || m[1] !== String(nflState.season)) return line;
+          const viaName = m[3];
+          let origRoster = rs.rosterID;
+          if (viaName) {
+            const hit = Object.entries(curNameByRoster).find(([, n]) => (n || "").trim() === viaName.trim());
+            if (hit) origRoster = parseInt(hit[0], 10);
+          }
+          const slot = slotByRoster[origRoster];
+          return slot ? `${line} = pick ${m[2]}.${String(slot).padStart(2, "0")}` : line;
+        });
+      }
+    }
+  }
+} catch { /* draft data unavailable - picks stay unannotated */ }
+
 const knowledge = {
   generated: new Date().toISOString(),
+  upcomingDraft,
   benchBlunders,
   bestWaiverAdds: waiverBests,
   leagueID: rivalry.leagueID,
