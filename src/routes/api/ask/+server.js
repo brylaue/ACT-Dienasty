@@ -155,6 +155,15 @@ const SYSTEM_INSTRUCTIONS =
                 'already ended. For "who should I draft" questions: first state which picks the asker ACTUALLY ' +
                 'holds from their picks list, then if they want targets use the player_values tool (live market ' +
                 'values incl rookies) - NEVER cite "consensus" or player rankings from memory.\n' +
+                'PICK OWNERSHIP CHECK - MANDATORY FIRST STEP: when a question names a specific pick ("at 1.01", ' +
+                '"with the 2.05"), look up the asker\'s picks list BEFORE anything else. If they do not hold that ' +
+                'pick, the FIRST SENTENCE of the answer says so and names the picks they DO hold (exact slots are ' +
+                'on each line) and who holds the named pick (upcomingDraft.round1Slots + other rosters\' picks). ' +
+                'Only then, if at all, discuss targets - for the pick they actually own.\n' +
+                'ROOKIE DRAFT POOL: the annual draft is a ROOKIE draft - the pool is the incoming NFL rookie class ' +
+                'only. Veterans and league free agents are NOT draftable there; never recommend one as a draft ' +
+                'pick. If player_values lacks clear data on the incoming class, say the board should come from ' +
+                'rookie rankings on draft day rather than recommending anyone by name.\n' +
                 'LENGTH MATCHES THE QUESTION: lead with the direct answer, always. Simple lookups (who owns X, ' +
                 'what pick do I have, when is the deadline) get 1-3 sentences. Rule and process questions get a ' +
                 'COMPLETE walkthrough of the relevant by-law - never sacrifice a required step or condition for ' +
