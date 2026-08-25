@@ -6,15 +6,47 @@
     */
     let k = $state(null);
     let taxiPick = $state('');
+    let liveTaxi = $state(null); // { rosterID: [playerIDs] } fresh from Sleeper
+    let liveLite = $state(null);
+    let taxiFresh = $state(false);
 
     // every taxi player in the league, for the claim calculator
+    // claim cost per constitution 4.3, for players taxi'd since the last bake
+    function deriveCost(pid) {
+        const year = (k?.rosters?.flatMap((r) => r.taxiSquad || []).join(' ').match(/20\d\d/) || [String(new Date().getFullYear())])[0];
+        const drafted = k?.draftedBy?.[pid] || '';
+        const rd = drafted.match(/R(\d)/)?.[1];
+        if (!rd) return `a ${year} 3rd-round pick (undrafted in this league's annual drafts)`;
+        if (rd === '1') return `a ${year} 1st AND a ${year} 2nd (he was a 1st-round pick)`;
+        const higher = { '2': '1st', '3': '2nd', '4': '3rd' }[rd] || '3rd';
+        return `a ${year} ${higher}-round pick (drafted R${rd}, cost is one round higher, min 3rd)`;
+    }
+
     let taxiOptions = $derived.by(() => {
         if (!k?.rosters) return [];
-        const out = [];
+        const bakedByRoster = {};
         for (const r of k.rosters) {
-            for (const line of r.taxiSquad || []) {
-                const name = line.split(' (')[0];
-                out.push({ id: `${r.rosterID}|${name}`, name, team: (r.name || '').trim(), line, rosterID: r.rosterID });
+            bakedByRoster[r.rosterID] = {};
+            for (const line of r.taxiSquad || []) bakedByRoster[r.rosterID][line.split(' (')[0]] = line;
+        }
+        const teamName = (rid) => (k.rosters.find((r) => r.rosterID === rid)?.name || `Team ${rid}`).trim();
+        const out = [];
+        if (liveTaxi && liveLite) {
+            // Sleeper truth, fresh this page load
+            for (const [rid, ids] of Object.entries(liveTaxi)) {
+                for (const pid of ids) {
+                    const name = (liveLite[pid] || `Player ${pid}|`).split('|')[0];
+                    const baked = bakedByRoster[rid]?.[name];
+                    const line = baked || `${name} - TAXI CLAIM COST: ${deriveCost(pid)}`;
+                    out.push({ id: `${rid}|${name}`, name, team: teamName(parseInt(rid, 10)), line, rosterID: parseInt(rid, 10) });
+                }
+            }
+        } else {
+            for (const r of k.rosters) {
+                for (const line of r.taxiSquad || []) {
+                    const name = line.split(' (')[0];
+                    out.push({ id: `${r.rosterID}|${name}`, name, team: (r.name || '').trim(), line, rosterID: r.rosterID });
+                }
             }
         }
         return out.sort((a, b) => a.name.localeCompare(b.name));
@@ -49,6 +81,20 @@
     // remembered on this device only (localStorage), never required
     if (typeof localStorage !== 'undefined') {
         myTeam = localStorage.getItem('oracleTeam') || '';
+        // live taxi refresh: rosters change daily in preseason, the bake is weekly
+        (async () => {
+            try {
+                const [rosters, lite] = await Promise.all([
+                    fetch('https://api.sleeper.app/v1/league/' + (k?.leagueID || '1312159501335416832') + '/rosters').then((r) => r.json()),
+                    fetch('/data/players-lite.json').then((r) => r.json()),
+                ]);
+                const t = {};
+                for (const r of rosters) if (r.taxi?.length) t[r.roster_id] = r.taxi;
+                liveTaxi = t;
+                liveLite = lite;
+                taxiFresh = true;
+            } catch { /* baked list remains */ }
+        })();
     }
     const rememberTeam = (name) => {
         myTeam = name;
@@ -216,7 +262,7 @@
 
     {#if taxiOptions.length}
         <div class="taxiCalc">
-            <h3>🚕 Taxi Claim Calculator</h3>
+            <h3>🚕 Taxi Claim Calculator <span class="taxiFreshness">{taxiFresh ? 'live from Sleeper' : 'weekly snapshot'}</span></h3>
             <select bind:value={taxiPick} class="taxiSelect">
                 <option value="">Pick any taxi-squad player…</option>
                 {#each taxiOptions as o}
@@ -239,7 +285,8 @@
 <style>
     .holder { max-width: 680px; margin: 0 auto; padding: 24px 16px 80px; }
     .taxiCalc { margin-top: 26px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--fff); }
-    .taxiCalc h3 { margin: 0 0 10px; font-size: 1em; color: var(--ink); }
+    .taxiCalc h3 { margin: 0 0 10px; font-size: 1em; color: var(--ink); display: flex; align-items: baseline; gap: 8px; }
+    .taxiFreshness { font-size: 0.68em; font-weight: 500; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
     .taxiSelect { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--fff); color: var(--ink); font-family: var(--bodyFont); font-size: 0.9em; }
     .taxiCost { margin: 10px 0 0; font-size: 0.88em; color: var(--ink); }
     .taxiVerdict { margin: 6px 0 0; font-size: 0.84em; color: var(--accent); font-weight: 600; }
