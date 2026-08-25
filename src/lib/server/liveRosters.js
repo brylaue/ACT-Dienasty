@@ -82,9 +82,12 @@ export async function buildLiveRosters({ leagueID, knowledge, fetchFn }) {
 	for (const season of pickSeasons) {
 		for (let round = 1; round <= 4; round++) {
 			for (const r of rosters) {
-				const traded = (tradedPicks || []).find(
+				// a pick traded more than once has one row per hop - the LAST
+				// row is the current owner (Sleeper appends chronologically)
+				const hops = (tradedPicks || []).filter(
 					(t) => parseInt(t.season, 10) === season && t.round === round && t.roster_id === r.roster_id,
 				);
+				const traded = hops.length ? hops[hops.length - 1] : null;
 				const owner = traded ? traded.owner_id : r.roster_id;
 				if (picksByRoster[owner]) {
 					picksByRoster[owner].push(`${season} R${round}${owner !== r.roster_id ? ` (via ${nameFor(r.roster_id)})` : ''}`);
