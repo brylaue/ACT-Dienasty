@@ -159,7 +159,9 @@ const SYSTEM_INSTRUCTIONS =
                 '"with the 2.05"), look up the asker\'s picks list BEFORE anything else. If they do not hold that ' +
                 'pick, the FIRST SENTENCE of the answer says so and names the picks they DO hold (exact slots are ' +
                 'on each line) and who holds the named pick (upcomingDraft.round1Slots + other rosters\' picks). ' +
-                'Only then, if at all, discuss targets - for the pick they actually own.\n' +
+                'Only then, if at all, discuss targets - for the pick they actually own. upcomingDraft.round1Slots ' +
+                'and the picks lists are AUTHORITATIVE for who holds what - never re-derive pick ownership from ' +
+                'traded_picks, trade_history, or reasoning about past trades.\n' +
                 'ROOKIE DRAFT POOL: the annual draft is a ROOKIE draft - the pool is the incoming NFL rookie class ' +
                 'only. Veterans and league free agents are NOT draftable there; never recommend one as a draft ' +
                 'pick. If player_values lacks clear data on the incoming class, say the board should come from ' +

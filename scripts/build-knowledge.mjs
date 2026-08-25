@@ -643,14 +643,8 @@ try {
       for (const [rid, slot] of Object.entries(slotByRoster)) {
         order[`1.${String(slot).padStart(2, "0")}`] = `${(curNameByRoster[rid] || "Team " + rid).trim()} originally (${ownersByRoster[rid] || ""})`;
       }
-      upcomingDraft = {
-        year: nflState.season,
-        status: d.status,
-        format: `${d.type}, ${d.settings?.rounds || 4} rounds`,
-        note: "Traded picks move with their trades - each roster's picks list shows exact slot numbers. Order source: " + source,
-        round1Slots: Object.fromEntries(Object.entries(order).sort()),
-      };
-      // annotate every pick line with its exact slot number
+      // annotate every pick line with its exact slot number (done first so
+      // round1Slots below can state each slot's CURRENT holder)
       for (const rs of rosterSection) {
         rs.picks = (rs.picks || []).map((line) => {
           const m = line.match(/^(\d{4}) R(\d)(?: \(via (.+?)\))?$/);
@@ -665,6 +659,29 @@ try {
           return slot ? `${line} = pick ${m[2]}.${String(slot).padStart(2, "0")}` : line;
         });
       }
+      // each round-1 slot: original team AND who holds it today
+      const holderOfSlot = {};
+      for (const rs of rosterSection) {
+        for (const line of rs.picks || []) {
+          const hm = line.match(/= pick 1\.(\d{2})$/);
+          if (hm) holderOfSlot[`1.${hm[1]}`] = `${(rs.name || "").trim()} (${ownersByRoster[rs.rosterID] || ""})`;
+        }
+      }
+      const round1Slots = {};
+      for (const [slot, orig] of Object.entries(order).sort()) {
+        const holder = holderOfSlot[slot];
+        const origTeam = orig.split(" originally")[0];
+        round1Slots[slot] = holder && !holder.startsWith(origTeam)
+          ? `originally ${orig.replace(" originally", "")}; CURRENTLY HELD by ${holder} via trade`
+          : `held by ${orig.replace(" originally", "")} (own pick, never traded)`;
+      }
+      upcomingDraft = {
+        year: nflState.season,
+        status: d.status,
+        format: `${d.type}, ${d.settings?.rounds || 4} rounds`,
+        note: "AUTHORITATIVE pick ownership: round1Slots states each slot's current holder, and every roster's picks list shows exact slots. Never re-derive ownership from traded_picks or trade history. Order source: " + source,
+        round1Slots,
+      };
     }
   }
 } catch { /* draft data unavailable - picks stay unannotated */ }
