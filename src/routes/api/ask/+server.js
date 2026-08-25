@@ -29,7 +29,9 @@ export async function POST(event) {
         return json({ error: 'unconfigured', message: 'The Oracle is asleep (no API key configured).' }, { status: 503 });
     }
 
-    if (env.ASK_PASSCODE) {
+    const internal = env.SLACK_SIGNING_SECRET &&
+        event.request.headers.get('x-oracle-internal') === env.SLACK_SIGNING_SECRET;
+    if (env.ASK_PASSCODE && !internal) {
         const provided = event.request.headers.get('x-ask-passcode') || '';
         if (provided !== env.ASK_PASSCODE) {
             return json({ error: 'passcode', message: 'League passcode required.' }, { status: 401 });
@@ -70,19 +72,24 @@ export async function POST(event) {
     // into the roster lines, so they'd just burn tokens in the prompt
     delete knowledgeObj.draftedBy;
     delete knowledgeObj.claimCosts;
-    const knowledge = `(Roster, taxi-squad, and draft-pick data below is ${rosterFreshness}.)\n` + JSON.stringify(knowledgeObj);
+    // prompt caching split: everything identical between questions (the
+    // baked pack) is one cacheable block; rosters (live, timestamped) and
+    // team context are the small dynamic block. ~90% off repeat reads.
+    const liveRosterSection = knowledgeObj.rosters;
+    delete knowledgeObj.rosters;
+    const staticKnowledge = JSON.stringify(knowledgeObj);
+    const dynamicContext =
+        `Current rosters (${rosterFreshness}):\n` + JSON.stringify(liveRosterSection) +
+        (team ? `\n\nThe person asking says they manage the team "${team}". When relevant, personalize the answer with their roster, their picks, and what things cost THEM - but never reveal anything that isn't in the league data.` : '');
 
     const leagueIDForTools = knowledgeObj.leagueID || '1312159501335416832';
-    const messages = [{
-        role: 'user',
-        content: `League data:\n${knowledge}\n\n${team ? `The person asking says they manage the team "${team}". When relevant, personalize the answer with their roster, their picks, and what things cost THEM - but never reveal anything that isn't in the league data.\n\n` : ''}Question: ${question}`,
-    }];
+    const messages = [{ role: 'user', content: `Question: ${question}` }];
 
     // tool loop: the model may consult live Sleeper data or the full
     // historical game log before answering; hard-capped at 3 rounds
     let answer = '';
     for (let round = 0; round < 4; round++) {
-        const apiRes = await callClaude(key, messages, leagueIDForTools, round === 3);
+        const apiRes = await callClaude(key, messages, leagueIDForTools, round === 3, staticKnowledge, dynamicContext);
         if (!apiRes.ok) {
             return json({ error: 'upstream', message: 'The Oracle is having a moment. Try again shortly.' }, { status: 502 });
         }
@@ -108,7 +115,7 @@ export async function POST(event) {
     return json({ answer: answer || 'The Oracle came back empty-handed. Try rephrasing?' });
 }
 
-const callClaude = (key, messages, leagueID, finalRound) =>
+const callClaude = (key, messages, leagueID, finalRound, staticKnowledge, dynamicContext) =>
     fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -120,7 +127,15 @@ const callClaude = (key, messages, leagueID, finalRound) =>
             model: env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
             max_tokens: 500,
             ...(finalRound ? {} : { tools: toolDefinitions(leagueID) }),
-            system:
+            system: [
+                { type: 'text', text: SYSTEM_INSTRUCTIONS + '\n\nLeague data:\n' + staticKnowledge, cache_control: { type: 'ephemeral' } },
+                { type: 'text', text: dynamicContext },
+            ],
+            messages,
+        }),
+    });
+
+const SYSTEM_INSTRUCTIONS =
                 'You are The Oracle, the librarian of the "ACT, or DIE." dynasty fantasy football league. ' +
                 'BY-LAWS FIRST: for ANY question touching rules, eligibility, processes, costs, deadlines, or what is ' +
                 'allowed, consult the structured `bylaws` and `taxiClaimProcess` sections (and the constitution text) ' +
@@ -158,7 +173,9 @@ const callClaude = (key, messages, leagueID, finalRound) =>
                 "player_league_history (a player's draft origin + every start + scoring in this league), and " +
                 "site_file (current power rankings, playoff odds, record book, trade block). " +
                 'Prefer the provided league data when it already answers the question; reach for tools when it ' +
-                'does not. Never claim data is unavailable without trying the relevant tool first.',
-            messages,
-        }),
-    });
+                'does not. Never claim data is unavailable without trying the relevant tool first.\n' +
+                'NEW ANALYTICS: the pack carries benchBlunders (all-time worst start/sit weeks), bestWaiverAdds ' +
+                'per season, and per-team lineupEfficiency on every season standings row. Tools matchup_detail ' +
+                '(any box score ever, bench included) and player_values (live market values for players AND picks, ' +
+                'this league\'s exact format) cover deeper dives - use player_values for any trade-fairness or ' +
+                '"what is X worth" question and present values as market consensus, not verdicts.';

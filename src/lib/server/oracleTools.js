@@ -34,6 +34,36 @@ export const toolDefinitions = (leagueID) => [
     },
   },
   {
+    name: 'player_values',
+    description:
+      'CURRENT dynasty market values (FantasyCalc, superflex 12-team 0.5PPR - this league\'s format) for ' +
+      'players AND rookie picks (e.g. "2026 1st"), with 30-day trend. Use to evaluate trade fairness, ' +
+      'roster strength, or "what is X worth". Pass names to look up, or a rosterID for a whole-team valuation.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        names: { type: 'array', items: { type: 'string' }, description: 'Player or pick names to value' },
+        rosterID: { type: 'integer', description: 'Value an entire franchise roster' },
+      },
+    },
+  },
+  {
+    name: 'matchup_detail',
+    description:
+      'The complete box score of any game in league history: every rostered player\'s points that week, ' +
+      'starters marked, optimal lineup and points left on the bench. Use for questions about specific ' +
+      'weeks, bench points, or start/sit decisions.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        season: { type: 'integer', description: 'e.g. 2023' },
+        week: { type: 'integer' },
+        rosterID: { type: 'integer' },
+      },
+      required: ['season', 'week', 'rosterID'],
+    },
+  },
+  {
     name: 'trade_history',
     description:
       'Every trade in league history (and this season live): who traded with whom, exactly which ' +
@@ -165,6 +195,71 @@ export async function runTool({ name, input, leagueID, knowledge, fetchFn }) {
     }
     log.sort((a, b) => a.year - b.year || a.week - b.week);
     return { franchise: names[rosterID] || `Team ${rosterID}`, games: log };
+  }
+
+  if (name === 'player_values') {
+    if (!globalThis.__fcCache || Date.now() - globalThis.__fcCache.at > 3600e3) {
+      const res = await timed(fetch('https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=0.5'), 4000);
+      if (!res.ok) return { error: 'values feed unavailable right now' };
+      globalThis.__fcCache = { at: Date.now(), data: await res.json() };
+    }
+    const feed = globalThis.__fcCache.data;
+    const fmt = (e) => ({ name: e.player.name, value: e.value, trend30Day: e.trend30Day, overallRank: e.overallRank });
+    if (input?.rosterID) {
+      const liteRes = await timed(fetchFn('/data/players-lite.json'));
+      const lite = liteRes.ok ? await liteRes.json() : {};
+      const rosterRes = await timed(fetch(`https://api.sleeper.app/v1/league/${leagueID}/rosters`));
+      if (!rosterRes.ok) return { error: 'rosters unavailable' };
+      const roster = (await rosterRes.json()).find((r) => r.roster_id === parseInt(input.rosterID, 10));
+      if (!roster) return { error: 'no such roster' };
+      const bySleeper = Object.fromEntries(feed.filter((e) => e.player.sleeperId).map((e) => [e.player.sleeperId, e]));
+      const valued = (roster.players || []).map((id) => {
+        const e = bySleeper[id];
+        return { name: (lite[id] || `Player ${id}|`).split('|')[0], value: e?.value ?? 0 };
+      }).sort((a, b) => b.value - a.value);
+      return {
+        rosterID: roster.roster_id,
+        totalValue: valued.reduce((a, b) => a + b.value, 0),
+        top10: valued.slice(0, 10),
+        note: 'values are market consensus, not gospel',
+      };
+    }
+    const names = (input?.names || []).map((n) => String(n).toLowerCase().trim()).filter(Boolean);
+    if (!names.length) return { error: 'give names or a rosterID' };
+    const out = {};
+    for (const q of names.slice(0, 12)) {
+      const hits = feed.filter((e) => e.player.name.toLowerCase().includes(q)).slice(0, 3).map(fmt);
+      out[q] = hits.length ? hits : 'not in the values feed (worth ~0 on the market, or check spelling)';
+    }
+    return out;
+  }
+
+  if (name === 'matchup_detail') {
+    const [maRes, liteRes] = await Promise.all([
+      timed(fetchFn('/data/matchups-archive.json')),
+      timed(fetchFn('/data/players-lite.json')),
+    ]);
+    if (!maRes.ok || !liteRes.ok) return { error: 'matchups archive unavailable' };
+    const [ma, lite] = await Promise.all([maRes.json(), liteRes.json()]);
+    const season = ma.seasons?.[String(input.season)];
+    if (!season) return { error: `no archived season ${input.season}` };
+    const wk = season.weeks?.[parseInt(input.week, 10) - 1];
+    if (!wk || !wk.length) return { error: `no games archived for ${input.season} week ${input.week}` };
+    const t = wk.find((x) => x.r === parseInt(input.rosterID, 10));
+    if (!t) return { error: 'that roster has no game that week' };
+    const opp = wk.find((x) => x.m != null && x.m === t.m && x.r !== t.r);
+    const nm = (id) => (lite[id] || `Player ${id}|?`).split('|')[0];
+    const started = new Set(t.starters || []);
+    const box = Object.entries(t.pp || {})
+      .map(([id, pts]) => ({ player: nm(id), pts, started: started.has(id) }))
+      .sort((a, b) => b.pts - a.pts);
+    return {
+      season: input.season, week: input.week,
+      team: (knowledge.rosterNames || {})[t.r] || `Team ${t.r}`,
+      scored: t.pts,
+      opponent: opp ? { team: (knowledge.rosterNames || {})[opp.r] || `Team ${opp.r}`, scored: opp.pts } : 'no head-to-head pairing archived',
+      boxScore: box,
+    };
   }
 
   if (name === 'trade_history') {

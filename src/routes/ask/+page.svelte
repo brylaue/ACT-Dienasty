@@ -5,6 +5,38 @@
       nothing and works offline; the AI half calls /api/ask.
     */
     let k = $state(null);
+    let taxiPick = $state('');
+
+    // every taxi player in the league, for the claim calculator
+    let taxiOptions = $derived.by(() => {
+        if (!k?.rosters) return [];
+        const out = [];
+        for (const r of k.rosters) {
+            for (const line of r.taxiSquad || []) {
+                const name = line.split(' (')[0];
+                out.push({ id: `${r.rosterID}|${name}`, name, team: (r.name || '').trim(), line, rosterID: r.rosterID });
+            }
+        }
+        return out.sort((a, b) => a.name.localeCompare(b.name));
+    });
+    let taxiChoice = $derived(taxiOptions.find((o) => o.id === taxiPick) || null);
+    let taxiVerdict = $derived.by(() => {
+        if (!taxiChoice || !k?.rosters) return '';
+        const cost = taxiChoice.line.split('TAXI CLAIM COST:')[1]?.trim() || 'see the by-laws';
+        if (!myTeam) return '';
+        const me = k.rosters.find((r) => (r.name || '').trim() === myTeam);
+        if (!me) return '';
+        if ((me.name || '').trim() === taxiChoice.team) return `He's already yours — you'd just promote him, no claim needed.`;
+        // which rounds does the cost demand, and do I own them?
+        const season = cost.match(/20\d\d/)?.[0] || '';
+        const rounds = [...cost.matchAll(/(1st|2nd|3rd|4th)/g)].map((m) => m[1][0]);
+        const owned = rounds.map((rd) => {
+            const has = (me.picks || []).some((pk) => pk.includes(`${season} R${rd}`));
+            return `${season} R${rd}: ${has ? 'you own one ✓' : 'you do NOT own one'}`;
+        });
+        const missing = owned.some((o) => o.includes('NOT'));
+        return owned.join(' · ') + (missing ? ' — by §4.3 you may designate a HIGHER round pick you do own instead.' : '');
+    });
     let q = $state('');
     let asking = $state(false);
     let answer = $state(null);
@@ -182,6 +214,23 @@
         <p class="noHits">Nothing in the local archives — try the AI for a synthesized answer.</p>
     {/if}
 
+    {#if taxiOptions.length}
+        <div class="taxiCalc">
+            <h3>🚕 Taxi Claim Calculator</h3>
+            <select bind:value={taxiPick} class="taxiSelect">
+                <option value="">Pick any taxi-squad player…</option>
+                {#each taxiOptions as o}
+                    <option value={o.id}>{o.name} — {o.team}</option>
+                {/each}
+            </select>
+            {#if taxiChoice}
+                <p class="taxiCost">On <strong>{taxiChoice.team}</strong>'s taxi squad. Claim cost: <strong>{taxiChoice.line.split('TAXI CLAIM COST:')[1]?.trim() || 'see by-laws'}</strong></p>
+                {#if taxiVerdict}<p class="taxiVerdict">{taxiVerdict}</p>{/if}
+                <p class="taxiHow">To claim: post in the league Slack — the owner then has 72 hours to promote or forfeit him (§4.3).</p>
+            {/if}
+        </div>
+    {/if}
+
     {#if k}
         <p class="footnote">Knowledge pack updated {new Date(k.generated).toLocaleDateString()} · {k.seasons?.length || 0} seasons · searches run entirely in your browser.</p>
     {/if}
@@ -189,6 +238,12 @@
 
 <style>
     .holder { max-width: 680px; margin: 0 auto; padding: 24px 16px 80px; }
+    .taxiCalc { margin-top: 26px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--fff); }
+    .taxiCalc h3 { margin: 0 0 10px; font-size: 1em; color: var(--ink); }
+    .taxiSelect { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--fff); color: var(--ink); font-family: var(--bodyFont); font-size: 0.9em; }
+    .taxiCost { margin: 10px 0 0; font-size: 0.88em; color: var(--ink); }
+    .taxiVerdict { margin: 6px 0 0; font-size: 0.84em; color: var(--accent); font-weight: 600; }
+    .taxiHow { margin: 6px 0 0; font-size: 0.78em; color: var(--muted); }
     h2 { text-align: center; color: var(--ink); margin-bottom: 4px; font-size: 1.6em; }
     .subtitle { text-align: center; color: var(--muted); font-size: 0.85em; margin: 0 auto 22px; max-width: 460px; }
 

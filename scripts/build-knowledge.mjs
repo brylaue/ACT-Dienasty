@@ -378,6 +378,12 @@ try {
     }
   }
 } catch { /* archive missing - closure still covers drafts/starters */ }
+try {
+  const ma = JSON.parse(readFileSync(join(root, "static/data/matchups-archive.json"), "utf8"));
+  for (const season of Object.values(ma.seasons || {})) {
+    for (const wk of season.weeks || []) for (const t of wk) for (const id of Object.keys(t.pp || {})) historicalIds.add(id);
+  }
+} catch { /* archive not baked yet */ }
 for (const s of Object.values(rivalry.seasons || {})) {
   for (const week of s.weeks || []) {
     if (!week) continue;
@@ -498,8 +504,104 @@ for (const r of curRosters) {
 for (const rs of rosterSection) rs.owners = ownersByRoster[rs.rosterID];
 for (const f of franchiseTable) if (ownersByRoster[f.rosterID]) f.ownedBy = ownersByRoster[f.rosterID];
 
+// ---- lineup efficiency, blunders, and waiver analytics ----
+const posOf = (id) => (playersLite[id] || "|?").split("|")[1];
+const ELIG = {
+  QB: ["QB"], RB: ["RB"], WR: ["WR"], TE: ["TE"],
+  FLEX: ["RB", "WR", "TE"], REC_FLEX: ["WR", "TE"], WRRB_FLEX: ["WR", "RB"],
+  SUPER_FLEX: ["QB", "RB", "WR", "TE"], K: ["K"], DEF: ["DEF"],
+};
+const SLOT_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF", "REC_FLEX", "WRRB_FLEX", "FLEX", "SUPER_FLEX"];
+function optimalPoints(pp, lineup) {
+  const slots = [...lineup].sort((a, b) => SLOT_ORDER.indexOf(a) - SLOT_ORDER.indexOf(b));
+  const pool = Object.entries(pp).map(([id, pts]) => ({ id, pts, pos: posOf(id) }))
+    .sort((a, b) => b.pts - a.pts);
+  const used = new Set();
+  let total = 0;
+  for (const slot of slots) {
+    const elig = ELIG[slot] || [];
+    const pick = pool.find((pl) => !used.has(pl.id) && elig.includes(pl.pos) && pl.pts > 0);
+    if (pick) { used.add(pick.id); total += pick.pts; }
+  }
+  return Math.round(total * 100) / 100;
+}
+
+const effBySeasonRoster = {}; // year -> rosterID -> {actual, optimal, perfect, worstWeek}
+const blunders = [];
+let matchupsArchive = null;
+try {
+  matchupsArchive = JSON.parse(readFileSync(join(root, "static/data/matchups-archive.json"), "utf8"));
+  for (const [year, season] of Object.entries(matchupsArchive.seasons)) {
+    const perRoster = {};
+    season.weeks.forEach((wk, wIx) => {
+      for (const t of wk) {
+        if (!t.pts && !Object.keys(t.pp || {}).length) continue; // unplayed
+        const opt = optimalPoints(t.pp || {}, season.lineup || []);
+        if (opt <= 0) continue;
+        const e = (perRoster[t.r] ||= { actual: 0, optimal: 0, perfect: 0, worst: null });
+        e.actual += t.pts; e.optimal += opt;
+        const left = Math.round((opt - t.pts) * 100) / 100;
+        if (left < 0.01) e.perfect += 1;
+        if (!e.worst || left > e.worst.left) e.worst = { week: wIx + 1, left };
+        if (left > 0) blunders.push({ year: parseInt(year, 10), week: wIx + 1, rosterID: t.r, left, actual: t.pts, optimal: opt });
+      }
+    });
+    effBySeasonRoster[year] = perRoster;
+  }
+} catch { /* archive missing - efficiency skipped */ }
+
+blunders.sort((a, b) => b.left - a.left);
+const franchiseName = (rid) => curNameByRoster[rid] || `Team ${rid}`;
+const benchBlunders = blunders.slice(0, 5).map((b) =>
+  `${franchiseName(b.rosterID)} left ${b.left} pts on the bench (${b.year} Wk ${b.week}: scored ${b.actual}, optimal ${b.optimal})`);
+
+// best waiver/FA adds per season (Gump Hayes style): points accrued for the
+// adding roster from the add week onward while the player was rostered
+const waiverBests = [];
+try {
+  const txa = JSON.parse(readFileSync(join(root, "static/data/transactions-archive.json"), "utf8"));
+  const lidToYear = Object.fromEntries(Object.entries(matchupsArchive?.seasons || {}).map(([y, s]) => [s.leagueID, y]));
+  for (const [lid, txs] of Object.entries(txa.seasons || {})) {
+    const year = lidToYear[lid];
+    const season = matchupsArchive?.seasons?.[year];
+    if (!season) continue;
+    const adds = [];
+    for (const tx of txs) {
+      if (!["waiver", "free_agent"].includes(tx.type) || tx.status !== "complete") continue;
+      for (const [pid, rid] of Object.entries(tx.adds || {})) adds.push({ pid, rid, week: tx.leg || 1 });
+    }
+    const scored = adds.map((a) => {
+      let pts = 0;
+      season.weeks.forEach((wk, wIx) => {
+        if (wIx + 1 < a.week) return;
+        const t = wk.find((x) => x.r === a.rid);
+        if (t && a.pid in (t.pp || {})) pts += t.pp[a.pid];
+      });
+      return { ...a, pts: Math.round(pts * 100) / 100 };
+    }).sort((x, y) => y.pts - x.pts);
+    for (const top of scored.slice(0, 3)) {
+      const nm = (playersLite[top.pid] || `Player ${top.pid}|`).split("|")[0];
+      waiverBests.push(`${year}: ${nm} added by ${franchiseName(top.rid)} Wk ${top.week} - ${top.pts} pts the rest of the season`);
+    }
+  }
+} catch { /* transactions archive missing */ }
+
+// attach per-season efficiency to standings rows
+for (const seasonEntry of seasons) {
+  const eff = effBySeasonRoster[seasonEntry.year];
+  if (!eff) continue;
+  for (const row of seasonEntry.standings) {
+    const e = eff[row.rosterID];
+    if (!e || !e.optimal) continue;
+    const pct = Math.round((e.actual / e.optimal) * 1000) / 10;
+    row.lineupEfficiency = `started ${Math.round(e.actual * 10) / 10} of an optimal ${Math.round(e.optimal * 10) / 10} (${pct}%), ${e.perfect} perfect week${e.perfect === 1 ? "" : "s"}, worst week: ${e.worst.left} pts left (Wk ${e.worst.week})`;
+  }
+}
+
 const knowledge = {
   generated: new Date().toISOString(),
+  benchBlunders,
+  bestWaiverAdds: waiverBests,
   leagueID: rivalry.leagueID,
   bylaws,
   taxiClaimProcess,
