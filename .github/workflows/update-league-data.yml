@@ -34,6 +34,10 @@ jobs:
         run: node scripts/build-tradeblock.mjs
         continue-on-error: true # a Sleeper hiccup keeps the last good block
 
+      - name: Bake matchups archive (full box scores)
+        run: node scripts/build-matchups-archive.mjs
+        continue-on-error: true
+
       - name: Bake the league knowledge pack for The Oracle
         run: node scripts/build-knowledge.mjs
         continue-on-error: true # a Sleeper hiccup keeps the last good pack
@@ -44,6 +48,12 @@ jobs:
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
         run: node scripts/build-commentary.mjs
         continue-on-error: true # missing/expired key just falls back to the template pool
+
+      - name: Post weekly digest to Slack
+        run: node scripts/build-digest.mjs
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Commit and push if changed
         run: |
