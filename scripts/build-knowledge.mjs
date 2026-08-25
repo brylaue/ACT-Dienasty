@@ -681,6 +681,7 @@ try {
         format: `${d.type}, ${d.settings?.rounds || 4} rounds`,
         note: "AUTHORITATIVE pick ownership: round1Slots states each slot's current holder, and every roster's picks list shows exact slots. Never re-derive ownership from traded_picks or trade history. Order source: " + source,
         round1Slots,
+        slotByOriginalRoster: slotByRoster,
       };
     }
   }

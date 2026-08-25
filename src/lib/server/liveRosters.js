@@ -90,7 +90,11 @@ export async function buildLiveRosters({ leagueID, knowledge, fetchFn }) {
 				const traded = hops.length ? hops[hops.length - 1] : null;
 				const owner = traded ? traded.owner_id : r.roster_id;
 				if (picksByRoster[owner]) {
-					picksByRoster[owner].push(`${season} R${round}${owner !== r.roster_id ? ` (via ${nameFor(r.roster_id)})` : ''}`);
+					// exact slot numbers for the upcoming draft, from the baked order
+					const slotMap = knowledge.upcomingDraft?.slotByOriginalRoster;
+					const slot = String(season) === String(knowledge.upcomingDraft?.year) ? slotMap?.[r.roster_id] : null;
+					const slotTag = slot ? ` = pick ${round}.${String(slot).padStart(2, '0')}` : '';
+					picksByRoster[owner].push(`${season} R${round}${owner !== r.roster_id ? ` (via ${nameFor(r.roster_id)})` : ''}${slotTag}`);
 				}
 			}
 		}
