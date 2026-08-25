@@ -53,21 +53,44 @@
     });
     let taxiChoice = $derived(taxiOptions.find((o) => o.id === taxiPick) || null);
     let taxiVerdict = $derived.by(() => {
-        if (!taxiChoice || !k?.rosters) return '';
-        const cost = taxiChoice.line.split('TAXI CLAIM COST:')[1]?.trim() || 'see the by-laws';
-        if (!myTeam) return '';
+        if (!taxiChoice || !k?.rosters || !myTeam) return '';
         const me = k.rosters.find((r) => (r.name || '').trim() === myTeam);
         if (!me) return '';
         if ((me.name || '').trim() === taxiChoice.team) return `He's already yours — you'd just promote him, no claim needed.`;
-        // which rounds does the cost demand, and do I own them?
-        const season = cost.match(/20\d\d/)?.[0] || '';
-        const rounds = [...cost.matchAll(/(1st|2nd|3rd|4th)/g)].map((m) => m[1][0]);
-        const owned = rounds.map((rd) => {
-            const has = (me.picks || []).some((pk) => pk.includes(`${season} R${rd}`));
-            return `${season} R${rd}: ${has ? 'you own one ✓' : 'you do NOT own one'}`;
-        });
-        const missing = owned.some((o) => o.includes('NOT'));
-        return owned.join(' · ') + (missing ? ' — by §4.3 you may designate a HIGHER round pick you do own instead.' : '');
+
+        const cost = taxiChoice.line.split('TAXI CLAIM COST:')[1]?.trim() || '';
+        // parse REQUIREMENTS from the cost clause only - the parenthetical
+        // explainer repeats round words and must not be counted
+        const costMain = cost.split('(')[0];
+        const season = costMain.match(/20\d\d/)?.[0] || '';
+        const required = [...costMain.matchAll(/(1st|2nd|3rd|4th)/g)].map((m) => parseInt(m[1][0], 10));
+        if (!season || !required.length) return '';
+
+        // my picks that year, as a consumable pool of round numbers
+        const yearPicks = (me.picks || []).filter((pk) => pk.startsWith(season));
+        const pool = yearPicks.map((pk) => parseInt(pk.match(/R(\d)/)?.[1] || '9', 10)).filter((r) => r <= 4).sort((a, b) => b - a);
+        // cover each requirement (hardest first): exact round if owned, else
+        // designate a HIGHER round (lower number) per §4.3 - each pick once
+        const parts = [];
+        let coverable = true;
+        for (const req of [...required].sort((a, b) => a - b)) {
+            const exact = pool.findIndex((r) => r === req);
+            const higher = exact === -1 ? pool.reduce((best, r, i) => (r < req && (best === -1 || r > pool[best]) ? i : best), -1) : -1;
+            const use = exact !== -1 ? exact : higher;
+            if (use === -1) {
+                parts.push(`the R${req} — nothing left to cover it`);
+                coverable = false;
+            } else {
+                const r = pool[use];
+                parts.push(r === req ? `the R${req} — covered by your ${season} R${r} ✓` : `the R${req} — covered by designating your ${season} R${r} (higher round, §4.3) ✓`);
+                pool.splice(use, 1);
+            }
+        }
+        if (coverable) return `You can cover this claim: ${parts.join('; ')}.`;
+        const nextYear = String(parseInt(season, 10) + 1);
+        const nextPicks = (me.picks || []).filter((pk) => pk.startsWith(nextYear)).map((pk) => pk.replace(' = pick', ' =').split(' =')[0]);
+        return `You CANNOT currently cover this claim with your ${season} picks: ${parts.join('; ')}. ` +
+            (nextPicks.length ? `Note: once the ${season} rookie draft is complete, claim compensation comes from the ${nextYear} draft — you hold ${nextPicks.join(', ')}. Ask The Oracle or the exec committee to confirm timing.` : '');
     });
     let q = $state('');
     let asking = $state(false);
