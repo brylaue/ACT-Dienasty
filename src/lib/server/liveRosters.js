@@ -100,5 +100,11 @@ export async function buildLiveRosters({ leagueID, knowledge, fetchFn }) {
 		}
 	}
 	for (const s of section) s.picks = picksByRoster[s.rosterID] || [];
+	// the 1.13 compensatory pick exists only in the constitution, not Sleeper
+	const cp = knowledge.upcomingDraft?.compPick;
+	if (cp) {
+		const holder = section.find((s) => s.rosterID === cp.holderRosterID);
+		if (holder) holder.picks = [...holder.picks, `${cp.season} 1.13 (compensatory - ${cp.wonYear} Toilet Bowl winner; not in Sleeper)`];
+	}
 	return section;
 }

@@ -1,6 +1,7 @@
 <script>
 	import LinearProgress from '@smui/linear-progress';
 	import PickTracker from '$lib/Picks/index.svelte';
+	import CompPickBanner from '$lib/CompPickBanner.svelte';
 
 	export let data;
 	const { leagueTeamManagerData } = data;
@@ -21,6 +22,7 @@
 </style>
 
 <div class="holder">
+	<CompPickBanner />
 	{#await leagueTeamManagerData}
 		<div class="loading">
 			<p>Gathering information...</p>

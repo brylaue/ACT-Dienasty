@@ -471,7 +471,7 @@ const bylaws = {
   scoring: "0.5 PPR, 2-decimal scoring. 4 pts passing TD, 6 all other TDs, 0.04/pass yd, 0.1/rush yd, 0.1/rec yd, 0.5/reception, 2 per 2-pt conversion, -2 fumble lost, -2 INT. Only starters score.",
   winsFormat: "DOUBLE WIN each week: head-to-head result PLUS the top-6 scoring teams get an extra WIN and the bottom-6 an extra LOSS. Up to 28 games per 14-week season. 3 divisions of 4; play division rivals twice, everyone else once; divisions realign every 3 years via snake selection by the best 3-year records.",
   playoffs: "Weeks 15-17. FIVE teams: 3 division winners (seeded 1-3 by overall rank) + 2 wildcards (best non-winner records; points scored breaks ties). Week 15: #4 vs #5 wildcard game (loser gets rookie pick 8). Week 16: #1 vs wildcard winner, #2 vs #3. Week 17: championship (winner = champ + pick 12; runner-up pick 11) and 3rd-place game (winner pick 10, loser pick 9).",
-  losersBracket: "7 non-playoff teams, weeks 15-17, seeded by record with the top seed on a Week 15 bye. The winner earns compensatory pick 1.13 (between rounds 1 and 2) - fully tradable. Since 2025-26 the winner gets ONLY the pick, no prize money.",
+  losersBracket: "Known in-league as the TOILET BOWL. 7 non-playoff teams, weeks 15-17, seeded by record with the top seed on a Week 15 bye. The winner earns compensatory pick 1.13 (between rounds 1 and 2) - fully tradable. Since 2025-26 the winner gets ONLY the pick, no prize money.",
   draftOrder: "Annual rookie draft: 4 rounds, straight-line (not snake). Picks 1-7 = worst records first (fewer points scored breaks ties toward the BETTER pick). Pick 8 = wildcard game loser. Picks 9-12 from playoff results (9 = 3rd-place-game loser, 10 = 3rd place, 11 = runner-up, 12 = champion). Rounds 1-2 untimed; rounds 3-4 have a 3-minute clock. Draft picks cannot exceed roster space - forfeit with no compensation if you can't roster them.",
   penalties: "LAST PLACE takes the ACT exam before the next rookie draft (league pays the entry fee). Consecutive-year losers may petition for an alternative exam (not career-related ones). Refusal → league vote on expulsion, or forfeiture of the 1st-round rookie pick. INACTIVITY: missing complete lineups 2 consecutive weeks or 4+ total = exec committee may seize the team for the season (seized teams can't trade). ANTI-TANKING: intentionally weak legal lineups may be adjusted by the exec committee; incomplete rosters can cost a 1st-round pick position drop per offense. Strategic rebuilds are fine - giving away unearned wins is not.",
   duesAndPrizes: "Dues rise $10/year ($150 for 2026). 15% of each year's dues rolls into the SUPER POT paid every 5 seasons - 2026 IS a Super Pot year (2022-2025 set-asides + all 2026 dues). Champion: trophy + remainder after other payouts; 2nd: 12.5%; 3rd: 8.3%; division winners get bottles of booze (max $50). Rookie of the Year (best rookie-draft skill-position pick, QBs excluded, credited to the DRAFTING team even if traded) and the Gump Hayes Award (best waiver add, QBs eligible) each pay 3.3%.",
@@ -686,10 +686,42 @@ try {
           startLine = new Date(detail.start_time).toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "full", timeStyle: "short" }) + " ET";
         }
       } catch { /* keep default */ }
+      // the 1.13 compensatory pick (losers bracket prize) sits between
+      // rounds 1 and 2 and is settled by the LAST season's losers bracket
+      let compPick = "1.13 (compensatory, between rounds 1 and 2): awarded to the Toilet Bowl (losers bracket) winner - holder unknown";
+      let compPickMachine = null;
+      try {
+        if (lastComplete) {
+          const lbLid = Object.entries(matchupsArchive?.seasons || {}).find(([y]) => parseInt(y, 10) === lastComplete.year)?.[1]?.leagueID;
+          const lb = lbLid ? await get(`https://api.sleeper.app/v1/league/${lbLid}/losers_bracket`) : [];
+          const lbMaxR = Math.max(...lb.map((g) => g.r));
+          const lbFinal = lb.find((g) => g.r === lbMaxR && (g.p === 1 || g.p == null));
+          if (lbFinal?.w != null) {
+            const holderName = (curNameByRoster[lbFinal.w] || "Team " + lbFinal.w).trim();
+            compPick = `1.13 (compensatory, between rounds 1 and 2): held by ${holderName} (${ownersByRoster[lbFinal.w] || ""}) - won the ${lastComplete.year} Toilet Bowl (losers bracket). Fully tradable; the only Toilet Bowl prize since 2025-26. NOT tracked in Sleeper - the commissioner inserts it manually on draft day.`;
+            compPickMachine = {
+              pick: "1.13",
+              season: nflState.season,
+              holderRosterID: lbFinal.w,
+              holderName,
+              holderOwner: ownersByRoster[lbFinal.w] || "",
+              wonYear: lastComplete.year,
+            };
+          }
+        }
+      } catch { /* bracket unavailable */ }
+      if (compPickMachine) {
+        round1Slots["1.13"] = `COMPENSATORY - held by ${compPickMachine.holderName} (${compPickMachine.holderOwner}), won the ${compPickMachine.wonYear} Toilet Bowl. Not tracked in Sleeper.`;
+        const holderSection = rosterSection.find((rs) => rs.rosterID === compPickMachine.holderRosterID);
+        if (holderSection) holderSection.picks = [...(holderSection.picks || []), `${nflState.season} 1.13 (compensatory - ${compPickMachine.wonYear} Toilet Bowl winner; not in Sleeper)`];
+      }
       upcomingDraft = {
         year: nflState.season,
         status: d.status,
         startTime: startLine,
+        compPick113: compPick,
+        compPick: compPickMachine,
+        appendixNote: "In Appendix A's 2025 results, round-1 entries are numbered 1-13; entry 13 IS pick 1.13 (that year's compensatory pick).",
         format: `${d.type}, ${d.settings?.rounds || 4} rounds`,
         note: "AUTHORITATIVE pick ownership: round1Slots states each slot's current holder, and every roster's picks list shows exact slots. Never re-derive ownership from traded_picks or trade history. Order source: " + source,
         round1Slots,
