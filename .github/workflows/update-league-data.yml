@@ -49,6 +49,12 @@ jobs:
         run: node scripts/build-commentary.mjs
         continue-on-error: true # missing/expired key just falls back to the template pool
 
+      - name: Build the draft recap roast (skips if season already written)
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node scripts/build-draft-recap.mjs
+
       - name: Post weekly digest to Slack
         run: node scripts/build-digest.mjs
         continue-on-error: true
