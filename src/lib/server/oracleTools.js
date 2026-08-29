@@ -121,6 +121,10 @@ const pathAllowed = (path, leagueID) => {
   const patterns = [
     /^\/v1\/state\/nfl$/,
     new RegExp(`^/v1/league/${leagueID}/(rosters|users|traded_picks|winners_bracket|losers_bracket|drafts)$`),
+    // any league in this league's own history may serve its drafts listing
+    /^\/v1\/league\/\d+\/drafts$/,
+    // the league's own draft board (detail + picks); ownership verified after fetch
+    /^\/v1\/draft\/\d+(\/picks)?$/,
     new RegExp(`^/v1/league/${leagueID}/(matchups|transactions)/(1[0-8]|[1-9])$`),
   ];
   return patterns.some((re) => re.test(path));
@@ -150,6 +154,20 @@ export async function runTool({ name, input, leagueID, knowledge, fetchFn }) {
     const path = String(input?.path || '');
     if (!pathAllowed(path, leagueID)) {
       return { error: `path not allowed: ${path}. Stick to the documented allowed paths for league ${leagueID}.` };
+    }
+    // draft endpoints must belong to THIS league (picks payloads carry no league id)
+    if (/^\/v1\/league\/\d+\/drafts$/.test(path)) {
+      const lidInPath = path.match(/league\/(\d+)/)[1];
+      const chain = knowledge?.leagueChain || [leagueID];
+      if (!chain.includes(lidInPath)) return { error: 'that league is not part of this league\'s history' };
+    }
+    if (path.startsWith('/v1/draft/')) {
+      const did = path.match(/^\/v1\/draft\/(\d+)/)[1];
+      const dRes = await timed(fetch('https://api.sleeper.app/v1/draft/' + did));
+      if (!dRes.ok) return { error: 'draft unavailable' };
+      const dMeta = await dRes.json();
+      const chain = knowledge?.leagueChain || [leagueID];
+      if (!chain.includes(dMeta?.league_id)) return { error: 'that draft is not part of this league' };
     }
     const res = await timed(fetch('https://api.sleeper.app' + path));
     if (!res.ok) return { error: `Sleeper returned ${res.status}` };

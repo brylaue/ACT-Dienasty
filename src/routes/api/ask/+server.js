@@ -83,7 +83,20 @@ export async function POST(event) {
         (team ? `\n\nThe person asking says they manage the team "${team}". When relevant, personalize the answer with their roster, their picks, and what things cost THEM - but never reveal anything that isn't in the league data.` : '');
 
     const leagueIDForTools = knowledgeObj.leagueID || '1312159501335416832';
-    const messages = [{ role: 'user', content: `Question: ${question}` }];
+    // conversation context: prior turns from this visitor's thread, so
+    // follow-ups like "which pick was that?" resolve against the last
+    // answer. Capped and sanitized - context is a courtesy, not a ledger.
+    const rawHistory = Array.isArray(body.history) ? body.history.slice(-5) : [];
+    const messages = [];
+    for (const turn of rawHistory) {
+        const hq = typeof turn?.q === 'string' ? turn.q.trim().slice(0, 300) : '';
+        const ha = typeof turn?.a === 'string' ? turn.a.trim().slice(0, 2400) : '';
+        if (hq && ha) {
+            messages.push({ role: 'user', content: `Question: ${hq}` });
+            messages.push({ role: 'assistant', content: ha });
+        }
+    }
+    messages.push({ role: 'user', content: `Question: ${question}` });
 
     // tool loop: the model may consult live Sleeper data or the full
     // historical game log before answering; hard-capped at 3 rounds
@@ -140,6 +153,10 @@ const callClaude = (key, messages, leagueID, finalRound, staticKnowledge, dynami
 
 const SYSTEM_INSTRUCTIONS =
                 'You are The Oracle, the librarian of the "ACT, or DIE." dynasty fantasy football league. ' +
+                'FOLLOW-UPS: the conversation may contain earlier turns. Read pronouns and references ("that pick", ' +
+                '"him", "which one") against YOUR prior answers, and use tools to resolve specifics you previously ' +
+                'summarized - e.g. if you said a trade involved a 2024 R1, `sleeper_get` the league drafts for that ' +
+                'season and name the exact pick and player it became.\n' +
                 'BY-LAWS FIRST: for ANY question touching rules, eligibility, processes, costs, deadlines, or what is ' +
                 'allowed, consult the structured `bylaws` and `taxiClaimProcess` sections (and the constitution text) ' +
                 'BEFORE reasoning, and ground your answer in the specific rule. If the by-laws are silent, say so and ' +

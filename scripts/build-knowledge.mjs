@@ -369,6 +369,15 @@ const FANTASY_POS = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);
 // lineup ever started, or any draft - retired players included, so the
 // trade-history and player-history tools can always resolve names
 const historicalIds = new Set(Object.keys(draftedBy));
+// every pick in the current-year draft resolves by name, even when
+// Sleeper's active flag lags for incoming rookies
+try {
+  const drafts = await get(`https://api.sleeper.app/v1/league/${currentLid}/drafts`);
+  if (drafts?.[0]?.draft_id) {
+    const dpicks = await get(`https://api.sleeper.app/v1/draft/${drafts[0].draft_id}/picks`);
+    for (const pk of dpicks || []) if (pk.player_id) historicalIds.add(String(pk.player_id));
+  }
+} catch { /* draft picks unavailable */ }
 try {
   const archive = JSON.parse(readFileSync(join(root, "static/data/transactions-archive.json"), "utf8"));
   for (const txs of Object.values(archive.seasons || {})) {
@@ -767,6 +776,7 @@ const knowledge = {
   claimSeason,
   draftedBy: draftedByCompact,
   droppedPlayers,
+  leagueChain: Object.values(matchupsArchive?.seasons || {}).map((x) => x.leagueID).concat([currentLid]),
   rosterNames: curNameByRoster,
   ownersByRoster,
   franchises: franchiseTable,

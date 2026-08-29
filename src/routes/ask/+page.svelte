@@ -95,6 +95,7 @@
     let q = $state('');
     let asking = $state(false);
     let answer = $state(null);
+    let thread = $state([]); // [{ q, a }] - this visit's conversation
     let askError = $state(null);
     let needPasscode = $state(false);
     let passcode = $state('');
@@ -208,12 +209,12 @@
             const res = await fetch('/api/ask', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json', ...(passcode ? { 'x-ask-passcode': passcode } : {}) },
-                body: JSON.stringify({ question, team: myTeam || undefined }),
+                body: JSON.stringify({ question, team: myTeam || undefined, history: thread.slice(-5) }),
             });
             const data = await res.json();
             if (res.status === 401) { needPasscode = true; askError = data.message; }
             else if (!res.ok) { askError = data.message || 'Something went wrong.'; }
-            else { answer = data.answer; needPasscode = false; }
+            else { answer = data.answer; needPasscode = false; thread = [...thread, { q: question, a: data.answer }]; q = ''; }
         } catch {
             askError = 'Could not reach The Oracle.';
         }
@@ -265,10 +266,14 @@
         <p class="err">{askError}</p>
     {/if}
 
-    {#if answer}
-        <div class="answer">
-            <div class="answerKicker">The Oracle says</div>
-            <div class="answerText">{answer}</div>
+    {#if thread.length}
+        <div class="thread">
+            <div class="answerKicker">The Oracle says <button class="teamLink threadClear" onclick={() => { thread = []; answer = null; }}>new conversation</button></div>
+            {#each thread as turn, i (i)}
+                <div class="threadQ">{turn.q}</div>
+                <div class="answer"><div class="answerText">{turn.a}</div></div>
+            {/each}
+            <p class="threadHint">Follow-ups welcome — "which pick was that?", "what's he worth now?"</p>
         </div>
     {/if}
 
@@ -378,6 +383,11 @@
 
     .err { color: #b91c1c; font-size: 0.82em; text-align: center; margin: 8px 0; }
 
+    .thread { margin-top: 18px; }
+    .threadQ { font-size: 0.86em; font-weight: 600; color: var(--muted, #555); margin: 14px 0 4px; }
+    .threadQ::before { content: '↳ '; color: var(--accent, #2563eb); }
+    .threadClear { margin-left: 10px; font-size: 0.8em; }
+    .threadHint { font-size: 0.78em; color: var(--muted, #777); margin: 8px 0 0; }
     .answer {
         background: var(--fff);
         border: 1px solid var(--line);
