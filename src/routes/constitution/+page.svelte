@@ -166,7 +166,8 @@
   </ol>
 
   <h3>[3.2 Playoffs]</h3>
-  <p>The playoffs will be weeks 15, 16 &amp; 17. These will consist of both the championship bracket (5 teams), as well as potential tie-breaking playoffs for draft position.</p>
+  <p><em>[Amended by league vote, August 2026: playoffs expanded from five to six teams.]</em></p>
+  <p>The playoffs will be weeks 15, 16 &amp; 17. These will consist of both the championship bracket (6 teams), as well as potential tie-breaking playoffs for draft position.</p>
 
   <h3>[3.2.2 Championship Bracket Playoff Seeding]</h3>
   <ul>
@@ -175,21 +176,24 @@
         <li>Division winners will each receive a playoff bid, as will two additional wild card teams</li>
         <li>Among division winners, overall ranking will determine seeding 1-3 in the tournament</li>
         <li>The two teams with the best records, who do not win their respective division will each receive a playoff bid as a wild card team (overall points will tie-break amongst wild card bids with same record)</li>
+        <li><em>[2026 Amendment]</em> A sixth playoff team will be selected via <strong>Points For</strong>: the team with the most total points scored among all remaining teams (regardless of record) receives the #6 seed</li>
       </ul>
     </li>
-    <li>The #4 and #5 seeds will play a wild card game in week 15 to determine who will advance to play the #1 seed in week 16</li>
+    <li><em>[2026 Amendment]</em> Seeds #1 and #2 receive a <strong>bye</strong> in week 15. Two wild card games are played in week 15: #3 vs #6 and #4 vs #5</li>
   </ul>
 
   <h3>[3.2.3 Championship bracket]</h3>
   <h4>Week 15 Championship Bracket</h4>
   <ul>
-    <li>Wild card Game: Seeds #4 &amp; #5</li>
-    <li>Loser of Wild Card will be awarded Pick 8 in the following Rookie Draft.</li>
+    <li>Wild Card Game A: Seeds #3 &amp; #6</li>
+    <li>Wild Card Game B: Seeds #4 &amp; #5</li>
+    <li>Seeds #1 and #2 are on bye</li>
+    <li><em>[2026 Amendment]</em> The two Wild Card game losers will be awarded Picks 7 and 8 in the following Rookie Draft, ordered by regular season record: the loser with the worse regular season record receives Pick 7, the other receives Pick 8.</li>
   </ul>
   <h4>Week 16 Championship Bracket</h4>
   <ul>
-    <li>Game 1: Seed #1 &amp; the winner of the wild card Game</li>
-    <li>Game 2: Seeds #2 &amp; #3</li>
+    <li>Game 1: Seed #1 &amp; the lowest remaining seed</li>
+    <li>Game 2: Seed #2 &amp; the other Wild Card winner</li>
   </ul>
   <h4>Week 17 Championship Bracket</h4>
   <ul>
@@ -212,7 +216,7 @@
   <p>Therefore, the worst record in the league weeks 1-14 will receive the #1 rookie pick, second worst will receive the #2 rookie pick and so on and so forth. Where there are record ties among multiple owners (excluding playoff teams whose draft order will be sorted out in the playoff bracket) points scored will be utilized to break ties. Less points scored will correspond to better draft picks.</p>
 
   <h3>[3.2.5 - Loser’s Playoff Bracket]</h3>
-  <p>A loser’s bracket will be hosted for the 7 teams that do not make playoffs starting week 15. The loser’s bracket champion determined by the above process will be awarded a compensatory draft pick between the end of round 1 and the beginning of round 2 (Pick 1.13). This pick (like any other asset) can be traded as an asset. Playoff ordering will be best record at the top. 7 teams will be in the loser’s bracket, with the number one seed (first team to not make the championship bracket), receiving a week 15 bye.</p>
+  <p>A loser’s bracket will be hosted for the 6 teams that do not make playoffs <em>[6 as of the 2026 six-team playoff amendment; formerly 7]</em> starting week 15. The loser’s bracket champion determined by the above process will be awarded a compensatory draft pick between the end of round 1 and the beginning of round 2 (Pick 1.13). This pick (like any other asset) can be traded as an asset. Playoff ordering will be best record at the top. 7 teams will be in the loser’s bracket, with the number one seed (first team to not make the championship bracket), receiving a week 15 bye.</p>
   <p>Since sleeper does not currently have a setting or functionality to permit this type of rule; the executive committee will work together to create a process to build this into our draft that is easy to understand and reduces burden on all drafters. We will also connect with sleeper support about whether they can create this functionality for us or advise on best practices to support this rule.</p>
   <p>Starting in the 2025-2026 season, the Loser’s Bracket Winner will only win the compensatory pick and will no longer be awarded the 8.3% prize money.</p>
 

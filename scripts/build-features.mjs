@@ -78,7 +78,7 @@ const askClaudeJSON = async (system, user) => {
 const league = await get(`https://api.sleeper.app/v1/league/${leagueID}`);
 const rosters = await get(`https://api.sleeper.app/v1/league/${leagueID}/rosters`);
 const users = await get(`https://api.sleeper.app/v1/league/${leagueID}/users`);
-const playoffTeams = league.settings?.playoff_teams || 6;
+const playoffTeams = Math.max(league.settings?.playoff_teams || 6, 6); // constitution: 6 as of Aug 2026 vote (Sleeper may lag)
 const playoffWeekStart = league.settings?.playoff_week_start || 15;
 
 const userById = Object.fromEntries(users.map((u) => [u.user_id, u]));
@@ -351,10 +351,20 @@ for (let sim = 0; sim < SIMS; sim++) {
     .map((t) => ({ rosterID: t.rosterID, ...state[t.rosterID] }))
     .sort((x, y) => y.wins - x.wins || y.fpts - x.fpts);
 
-  finalOrder.slice(0, playoffTeams).forEach((t) => madePlayoffs[t.rosterID]++);
+  // 2026 six-team format: five qualify on record, the SIXTH spot goes to
+  // the highest Points For among everyone remaining (league vote, Aug 2026)
+  const byRecord = finalOrder.slice(0, Math.min(5, playoffTeams));
+  const rest = finalOrder.slice(Math.min(5, playoffTeams));
+  const qualified = [...byRecord];
+  if (playoffTeams >= 6 && rest.length) {
+    const pfSeed = [...rest].sort((x, y) => y.fpts - x.fpts)[0];
+    qualified.push(pfSeed);
+  }
+  qualified.forEach((t) => madePlayoffs[t.rosterID]++);
 
   // everyone below the playoff line, worst first, is the draft order
-  const missed = finalOrder.slice(playoffTeams).reverse();
+  const qualifiedIds = new Set(qualified.map((t) => t.rosterID));
+  const missed = finalOrder.filter((t) => !qualifiedIds.has(t.rosterID)).reverse();
   if (missed[0]) topPick[missed[0].rosterID]++;
   missed.slice(0, 3).forEach((t) => top3Pick[t.rosterID]++);
 }

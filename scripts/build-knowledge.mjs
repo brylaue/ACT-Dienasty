@@ -419,7 +419,9 @@ const leagueSettings = {
   benchSlots: startCounts.BN || 0,
   taxiSlots: st.taxi_slots,
   irSlots: st.reserve_slots,
-  playoffTeams: st.playoff_teams,
+  playoffTeams: st.playoff_teams === 6
+    ? "6 (3 division winners, 2 record wildcards, 1 Points-For qualifier; seeds 1-2 get Week 15 byes) - per the Aug 2026 amendment, reflected in Sleeper."
+    : "6 per the Aug 2026 league vote (Sleeper currently shows " + st.playoff_teams + " - the constitution governs).",
   playoffsStartWeek: st.playoff_week_start,
   tradeDeadlineWeek: "Week 14 per constitution 4.5 (no trades Week 15 through the Championship Game; trading reopens after it). Sleeper's platform setting shows no deadline - the constitution governs.",
   winsFormat: "DOUBLE-WIN format per constitution 3.0: each week every team gets a head-to-head win/loss AND the six highest-scoring teams earn an extra WIN while the six lowest earn an extra LOSS. Official records include both.",
@@ -470,9 +472,9 @@ const bylaws = {
   lineups: "10 starters: 1 QB, 2 RB, 2 WR, 1 TE, 2 Flex (RB/WR/TE - the former Reception Flex became a full Flex for 2026), 1 Super Flex (QB/RB/WR/TE). Players lock individually at THEIR game's kickoff (swap freely before that). Each team gets one Sleeper 'Player Swap' per the platform's rules. Position designations follow Sleeper; disputes go to the exec committee.",
   scoring: "0.5 PPR, 2-decimal scoring. 4 pts passing TD, 6 all other TDs, 0.04/pass yd, 0.1/rush yd, 0.1/rec yd, 0.5/reception, 2 per 2-pt conversion, -2 fumble lost, -2 INT. Only starters score.",
   winsFormat: "DOUBLE WIN each week: head-to-head result PLUS the top-6 scoring teams get an extra WIN and the bottom-6 an extra LOSS. Up to 28 games per 14-week season. 3 divisions of 4; play division rivals twice, everyone else once; divisions realign every 3 years via snake selection by the best 3-year records.",
-  playoffs: "Weeks 15-17. FIVE teams: 3 division winners (seeded 1-3 by overall rank) + 2 wildcards (best non-winner records; points scored breaks ties). Week 15: #4 vs #5 wildcard game (loser gets rookie pick 8). Week 16: #1 vs wildcard winner, #2 vs #3. Week 17: championship (winner = champ + pick 12; runner-up pick 11) and 3rd-place game (winner pick 10, loser pick 9).",
-  losersBracket: "Known in-league as the TOILET BOWL. 7 non-playoff teams, weeks 15-17, seeded by record with the top seed on a Week 15 bye. The winner earns compensatory pick 1.13 (between rounds 1 and 2) - fully tradable. Since 2025-26 the winner gets ONLY the pick, no prize money.",
-  draftOrder: "Annual rookie draft: 4 rounds, straight-line (not snake). Picks 1-7 = worst records first (fewer points scored breaks ties toward the BETTER pick). Pick 8 = wildcard game loser. Picks 9-12 from playoff results (9 = 3rd-place-game loser, 10 = 3rd place, 11 = runner-up, 12 = champion). Rounds 1-2 untimed; rounds 3-4 have a 3-minute clock. Draft picks cannot exceed roster space - forfeit with no compensation if you can't roster them.",
+  playoffs: "AMENDED BY LEAGUE VOTE AUG 2026: Weeks 15-17, SIX teams. Seeds 1-3 = division winners by overall rank; seeds 4-5 = best remaining RECORDS (points break ties); seed 6 = highest POINTS FOR among all remaining teams regardless of record. Seeds 1 and 2 get Week 15 BYES. Week 15: #3 vs #6 and #4 vs #5. Week 16: #1 vs lowest remaining seed, #2 vs the other winner. Week 17: championship + 3rd-place game. Week 15 losers get picks 7 and 8, ordered by REGULAR SEASON RECORD - worse record takes Pick 7, the other Pick 8. Picks 9-12 unchanged: 3rd-place-game loser 9, winner 10, runner-up 11, champion 12. Sleeper reflects the 6-team format.",
+  losersBracket: "Known in-league as the TOILET BOWL. 6 non-playoff teams (7 before the Aug 2026 six-team playoff amendment), weeks 15-17, seeded by record with the top seed on a Week 15 bye. The winner earns compensatory pick 1.13 (between rounds 1 and 2) - fully tradable. Since 2025-26 the winner gets ONLY the pick, no prize money.",
+  draftOrder: "SIX-TEAM ERA (Aug 2026): picks 1-6 = the six non-playoff teams, worst records first (fewer points = better pick); picks 7-8 = the two Wild Card losers ordered by regular season record (worse record = Pick 7); picks 9-12 from playoff results as before. 4 rounds, straight-line (not snake). Historic 5-team rule: Picks 1-7 = worst records first (fewer points scored breaks ties toward the BETTER pick). Pick 8 = wildcard game loser. Picks 9-12 from playoff results (9 = 3rd-place-game loser, 10 = 3rd place, 11 = runner-up, 12 = champion). Rounds 1-2 untimed; rounds 3-4 have a 3-minute clock. Draft picks cannot exceed roster space - forfeit with no compensation if you can't roster them.",
   penalties: "LAST PLACE takes the ACT exam before the next rookie draft (league pays the entry fee). Consecutive-year losers may petition for an alternative exam (not career-related ones). Refusal → league vote on expulsion, or forfeiture of the 1st-round rookie pick. INACTIVITY: missing complete lineups 2 consecutive weeks or 4+ total = exec committee may seize the team for the season (seized teams can't trade). ANTI-TANKING: intentionally weak legal lineups may be adjusted by the exec committee; incomplete rosters can cost a 1st-round pick position drop per offense. Strategic rebuilds are fine - giving away unearned wins is not.",
   duesAndPrizes: "Dues rise $10/year ($150 for 2026). 15% of each year's dues rolls into the SUPER POT paid every 5 seasons - 2026 IS a Super Pot year (2022-2025 set-asides + all 2026 dues). Champion: trophy + remainder after other payouts; 2nd: 12.5%; 3rd: 8.3%; division winners get bottles of booze (max $50). Rookie of the Year (best rookie-draft skill-position pick, QBs excluded, credited to the DRAFTING team even if traded) and the Gump Hayes Award (best waiver add, QBs eligible) each pay 3.3%.",
   parlay: "Chef's Table (since 2025-26): each week the LOWEST-scoring team places a $5 league parlay; every team may submit one leg in the Slack parlay channel by Saturday night; winnings split 12 ways (after taxes on big hits).",
@@ -629,11 +631,21 @@ try {
       const maxR = Math.max(...bracket.map((g) => g.r));
       const final = bracket.find((g) => g.r === maxR && g.p === 1) || bracket.find((g) => g.r === maxR && g.p == null);
       const third = bracket.find((g) => g.r === maxR && g.p === 3);
-      const wildcard = bracket.find((g) => g.r === 1);
+      const r1Games = bracket.filter((g) => g.r === 1);
       const slots = {};
       if (final) { slots[final.w] = 12; slots[final.l] = 11; }
       if (third) { slots[third.w] = 10; slots[third.l] = 9; }
-      if (wildcard) slots[wildcard.l] = 8;
+      const recordOf = (rid) => lastComplete.standings.find((row) => row.rosterID === rid) || { w: 99, pf: 99999 };
+      if (r1Games.length >= 2) {
+        // six-team era (2026 amendment): two Wild Card losers take 7-8,
+        // worse regular season record gets the earlier pick
+        const losers = r1Games.map((g) => g.l).filter((x) => x != null)
+          .sort((a, b) => recordOf(a).w - recordOf(b).w || recordOf(a).pf - recordOf(b).pf);
+        if (losers[0] != null) slots[losers[0]] = 7;
+        if (losers[1] != null) slots[losers[1]] = 8;
+      } else if (r1Games[0]) {
+        slots[r1Games[0].l] = 8; // five-team era: single wildcard loser
+      }
       const playoffRosters = new Set(Object.keys(slots).map(Number));
       const nonPlayoff = lastComplete.standings
         .filter((row) => !playoffRosters.has(row.rosterID))
