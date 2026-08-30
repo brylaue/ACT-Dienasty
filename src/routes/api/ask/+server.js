@@ -44,9 +44,11 @@ export async function POST(event) {
 
     let question = '';
     let team = '';
+    let history = [];
     try {
         const body = await event.request.json();
         question = String(body?.question || '').trim().slice(0, 300);
+        history = Array.isArray(body?.history) ? body.history.slice(-5) : [];
         // optional self-identified team: context only, sanitized hard
         team = String(body?.team || '').replace(/[\n\r{}<>]/g, '').trim().slice(0, 60);
     } catch { /* falls through to the empty-question check */ }
@@ -86,7 +88,7 @@ export async function POST(event) {
     // conversation context: prior turns from this visitor's thread, so
     // follow-ups like "which pick was that?" resolve against the last
     // answer. Capped and sanitized - context is a courtesy, not a ledger.
-    const rawHistory = Array.isArray(body.history) ? body.history.slice(-5) : [];
+    const rawHistory = history;
     const messages = [];
     for (const turn of rawHistory) {
         const hq = typeof turn?.q === 'string' ? turn.q.trim().slice(0, 300) : '';
