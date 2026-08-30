@@ -88,6 +88,10 @@ export async function buildLiveRosters({ leagueID, knowledge, fetchFn }) {
 					(t) => parseInt(t.season, 10) === season && t.round === round && t.roster_id === r.roster_id,
 				);
 				const traded = hops.length ? hops[hops.length - 1] : null;
+				// a completed draft's picks were spent - listing them as held
+				// assets misleads every downstream answer
+				const ud = knowledge.upcomingDraft;
+				if (ud?.status === 'complete' && String(season) === String(ud.year)) continue;
 				const owner = traded ? traded.owner_id : r.roster_id;
 				if (picksByRoster[owner]) {
 					// exact slot numbers for the upcoming draft, from the baked order

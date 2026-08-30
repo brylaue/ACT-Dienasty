@@ -736,16 +736,34 @@ try {
         const holderSection = rosterSection.find((rs) => rs.rosterID === compPickMachine.holderRosterID);
         if (holderSection) holderSection.picks = [...(holderSection.picks || []), `${nflState.season} 1.13 (compensatory - ${compPickMachine.wonYear} Toilet Bowl winner; not in Sleeper)`];
       }
+      // a COMPLETE draft reads as results, not holdings - "who holds 1.11"
+      // is a nonsense question once the pick became a player
+      let draftResults = null;
+      if (d.status === "complete") {
+        try {
+          const dpicks = await get(`https://api.sleeper.app/v1/draft/${d.draft_id}/picks`);
+          draftResults = {};
+          for (const pk of dpicks || []) {
+            const slot = `${pk.round}.${String(pk.draft_slot).padStart(2, "0")}`;
+            const who = `${pk.metadata?.first_name || ""} ${pk.metadata?.last_name || ""}`.trim();
+            draftResults[slot] = `${who} (${pk.metadata?.position || "?"}) - drafted by ${(curNameByRoster[pk.roster_id] || "roster " + pk.roster_id).trim()} (${(ownersByRoster[pk.roster_id] || "").split(" (")[0]})`;
+          }
+        } catch { /* board unavailable - keep slot view */ }
+      }
       upcomingDraft = {
         year: nflState.season,
         status: d.status,
+        statusNote: d.status === "complete"
+          ? "THIS DRAFT IS COMPLETE. Every " + nflState.season + " pick was used - nobody 'holds' " + nflState.season + " picks anymore. results below shows exactly who was selected at each slot and by whom. For 'which pick did X trade away' questions: name the slot AND the player it became, from results."
+          : "Draft not yet held - round1Slots shows current pick ownership.",
         startTime: startLine,
         compPick113: compPick,
         compPick: compPickMachine,
+        results: draftResults,
         appendixNote: "In Appendix A's 2025 results, round-1 entries are numbered 1-13; entry 13 IS pick 1.13 (that year's compensatory pick).",
         format: `${d.type}, ${d.settings?.rounds || 4} rounds`,
         note: "AUTHORITATIVE pick ownership: round1Slots states each slot's current holder, and every roster's picks list shows exact slots. Never re-derive ownership from traded_picks or trade history. Order source: " + source,
-        round1Slots,
+        round1Slots: draftResults ? undefined : round1Slots,
         slotByOriginalRoster: slotByRoster,
       };
     }
