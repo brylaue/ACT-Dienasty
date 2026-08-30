@@ -25,8 +25,11 @@ export const toolDefinitions = (leagueID) => [
       `Live read from the Sleeper fantasy API for this league (id ${leagueID}). ` +
       'Allowed paths: /v1/state/nfl, /v1/league/{id}/rosters, /v1/league/{id}/users, ' +
       '/v1/league/{id}/matchups/{week}, /v1/league/{id}/transactions/{week}, ' +
-      '/v1/league/{id}/traded_picks, /v1/league/{id}/winners_bracket, /v1/league/{id}/drafts. ' +
-      'Use for CURRENT-season live state not already in the provided league data.',
+      '/v1/league/{id}/traded_picks, /v1/league/{id}/winners_bracket, /v1/league/{id}/drafts, ' +
+      '/v1/draft/{draft_id} and /v1/draft/{draft_id}/picks (the pick-by-pick draft BOARD - works for ' +
+      'any season in this league\'s history: get draft ids from /v1/league/{league_id}/drafts using the ' +
+      'league ids in leagueChain, then fetch the picks to see exactly who was selected at each slot). ' +
+      'Use for CURRENT-season live state or historical draft boards not already in the provided league data.',
     input_schema: {
       type: 'object',
       properties: { path: { type: 'string', description: 'e.g. /v1/league/' + leagueID + '/matchups/3' } },

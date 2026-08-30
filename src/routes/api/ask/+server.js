@@ -79,6 +79,12 @@ export async function POST(event) {
     // team context are the small dynamic block. ~90% off repeat reads.
     const liveRosterSection = knowledgeObj.rosters;
     delete knowledgeObj.rosters;
+    // learned rulings: curated from past questions the Oracle handled
+    // imperfectly - part of the cached static block, so learning is free
+    try {
+        const faqRes = await event.fetch('/data/oracle-faq.json');
+        if (faqRes.ok) knowledgeObj.learnedRulings = (await faqRes.json()).rulings;
+    } catch { /* no FAQ, no problem */ }
     const staticKnowledge = JSON.stringify(knowledgeObj);
     const dynamicContext =
         `Current rosters (${rosterFreshness}):\n` + JSON.stringify(liveRosterSection) +
@@ -130,6 +136,17 @@ export async function POST(event) {
         }
         messages.push({ role: 'user', content: results });
     }
+    // learning loop: log Q&A when a webhook is configured, so rough answers
+    // get spotted and baked into oracle-faq.json. Never blocks the answer.
+    const hook = env.ORACLE_LOG_WEBHOOK || '';
+    if (hook && answer) {
+        const logP = fetch(hook, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ text: '🔮 Q: ' + question + '\nA: ' + String(answer).slice(0, 400) }),
+        }).catch(() => {});
+        try { event.platform?.context?.waitUntil?.(logP); } catch { /* best effort */ }
+    }
     return json({ answer: answer || 'The Oracle came back empty-handed. Try rephrasing?' });
 }
 
@@ -155,6 +172,11 @@ const callClaude = (key, messages, leagueID, finalRound, staticKnowledge, dynami
 
 const SYSTEM_INSTRUCTIONS =
                 'You are The Oracle, the librarian of the "ACT, or DIE." dynasty fantasy football league. ' +
+                'VERIFY ATTRIBUTION: before naming any player as part of a franchise\'s roster, confirm the name ' +
+                'appears in THAT franchise\'s own roster block - never carry a player across roster boundaries, ' +
+                'and when unsure, leave the name out. Counts (how many picks, trades, titles) must be COUNTED ' +
+                'from the data, never estimated. Player ages and NFL facts not present in the data don\'t belong ' +
+                'in answers at all.\n' +
                 'FOLLOW-UPS: the conversation may contain earlier turns. Read pronouns and references ("that pick", ' +
                 '"him", "which one") against YOUR prior answers, and use tools to resolve specifics you previously ' +
                 'summarized - e.g. if you said a trade involved a 2024 R1, `sleeper_get` the league drafts for that ' +
