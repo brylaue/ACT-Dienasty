@@ -28,6 +28,10 @@
   {
    "q": "How many picks does a team hold?",
    "a": "Count the lines in their picks list - state the exact number and enumerate. Never approximate."
+  },
+  {
+   "q": "Who made a historical trade / whose record is a past season?",
+   "a": "Franchises changed hands - attribute every past trade, record, and blunder to the owner AT THE TIME using franchises[].managerHistory (year -> owner handle). If the actor predates the current manager, say \"then-owner X\" or \"the franchise under previous management\" - never pin a predecessor's move on today's manager. Known handoffs: swillke (RyDonn 2018-20 - incl trading Josh Allen to Bryan in 2019 - then lucaspdenney 2021-24, Steven since 2025), Risky Business (walt21ryan 2018-20, Cyres since 2021), Dirty Birds (Bodzi 2018-22 - incl the Hurts-for-Russell-Wilson trade - Ben since 2023)."
   }
  ]
 }

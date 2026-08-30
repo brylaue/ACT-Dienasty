@@ -565,6 +565,26 @@ try {
   }
 } catch { /* archive missing - efficiency skipped */ }
 
+// manager history: franchises changed hands - past trades and records
+// belong to the owner AT THE TIME, not today's manager
+try {
+  const mhByRoster = {};
+  for (const [yrKey, seasonInfo] of Object.entries(matchupsArchive?.seasons || {})) {
+    const [uRes, rRes] = await Promise.all([
+      get(`https://api.sleeper.app/v1/league/${seasonInfo.leagueID}/users`),
+      get(`https://api.sleeper.app/v1/league/${seasonInfo.leagueID}/rosters`),
+    ]);
+    const uName = Object.fromEntries((uRes || []).map((u) => [u.user_id, u.display_name]));
+    for (const r of rRes || []) {
+      (mhByRoster[r.roster_id] ||= {})[yrKey] = uName[r.owner_id] || String(r.owner_id);
+    }
+  }
+  for (const row of franchiseTable) {
+    if (row.rosterID != null && mhByRoster[row.rosterID]) row.managerHistory = mhByRoster[row.rosterID];
+  }
+} catch { /* timeline best effort */ }
+
+
 blunders.sort((a, b) => b.left - a.left);
 const franchiseName = (rid) => curNameByRoster[rid] || `Team ${rid}`;
 const benchBlunders = blunders.slice(0, 5).map((b) =>
