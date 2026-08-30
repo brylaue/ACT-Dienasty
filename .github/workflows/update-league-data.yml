@@ -61,6 +61,14 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
+      - name: Smoke test The Oracle endpoint (canary)
+        continue-on-error: true
+        run: |
+          sleep 60
+          code=$(curl -s -o /tmp/canary.json -w "%{http_code}" -X POST https://act-dienasty.vercel.app/api/ask -H 'content-type: application/json' -d '{"question": "canary: who is the current champion?"}')
+          echo "canary HTTP $code"; head -c 200 /tmp/canary.json; echo
+          if [ "$code" -ge 500 ]; then echo '::error::Oracle canary got a 5xx - the endpoint is broken in prod'; exit 1; fi
+
       - name: Commit and push if changed
         run: |
           git config user.name "league-data-bot"
