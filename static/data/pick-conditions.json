@@ -1,0 +1,42 @@
+{
+  "about": "Trade conditions and pick protections that Sleeper cannot represent. Curated from #general rulings; loaded into The Oracle's prompt and shown on the picks page.",
+  "conditions": [
+    {
+      "id": "tim-2027-first-protection",
+      "recorded": "2026-08-31",
+      "pick": "Crab Boilers (Tim) 2027 1st round pick",
+      "heldBy": "Risky Business (Cyres/Reed Cooper)",
+      "acquiredFrom": "Title Chase (Aaron) in the three-team trade of Aug 31, 2026",
+      "rule": "Protected against the 1.01. If Tim's 2027 first ends up as the 1.01, it is swapped for Ben's (Dirty Birds) 2027 first, which Title Chase owns.",
+      "requirements": [
+        "Risky Business must keep possession of Tim's 2027 first until the 2027 draft order is set. Trading it away removes the protection.",
+        "If Title Chase trades Ben's 2027 first before the 2027 draft order is set, the protection is void and Tim's pick becomes an ordinary unprotected pick."
+      ],
+      "source": "Aaron in #general, Aug 31, 2026 8:56 AM",
+      "trade": {
+        "date": "2026-08-31",
+        "teams": [
+          "Title Chase (Aaron)",
+          "TDs in Your Face (Lyndsey)",
+          "Risky Business (Cyres/Reed)"
+        ],
+        "riskyBusinessReceived": [
+          "Ashton Jeanty (RB)",
+          "Emeka Egbuka (WR)",
+          "Cyrus Allen (WR)",
+          "Tim's 2027 1st (protected, see rule)",
+          "Lyndsey's 2027 1st",
+          "Lyndsey's 2028 1st",
+          "Lyndsey's 2029 2nd"
+        ],
+        "titleChaseReceived": [
+          "Jahmyr Gibbs (RB)",
+          "Jordan Mason (RB)"
+        ],
+        "tdsInYourFaceReceived": [
+          "Puka Nacua (WR)"
+        ]
+      }
+    }
+  ]
+}

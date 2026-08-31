@@ -739,7 +739,13 @@ try {
           const lbFinal = lb.find((g) => g.r === lbMaxR && (g.p === 1 || g.p == null));
           if (lbFinal?.w != null) {
             const holderName = (curNameByRoster[lbFinal.w] || "Team " + lbFinal.w).trim();
-            compPick = `1.13 (compensatory, between rounds 1 and 2): held by ${holderName} (${ownersByRoster[lbFinal.w] || ""}) - won the ${lastComplete.year} Toilet Bowl (losers bracket). Fully tradable; the only Toilet Bowl prize since 2025-26. NOT tracked in Sleeper - the commissioner inserts it manually on draft day.`;
+            const exercised = d.status === "complete";
+            // the comp selection happens OFF Sleeper's board - recorded here
+            const COMP_SELECTIONS = { "2026": "Jonah Coleman (RB)" };
+            const compSel = exercised ? COMP_SELECTIONS[String(nflState.season)] || null : null;
+            compPick = exercised
+              ? `1.13 (compensatory, between rounds 1 and 2): was held by ${holderName} (${ownersByRoster[lbFinal.w] || ""}) as the ${lastComplete.year} Toilet Bowl prize and was EXERCISED in the ${nflState.season} draft${compSel ? ` on ${compSel}, now on their roster` : ""}. The pick happens outside Sleeper's board - the commissioner processes the selection as a roster add.`
+              : `1.13 (compensatory, between rounds 1 and 2): held by ${holderName} (${ownersByRoster[lbFinal.w] || ""}) - won the ${lastComplete.year} Toilet Bowl (losers bracket). Fully tradable; the only Toilet Bowl prize since 2025-26. NOT tracked in Sleeper - the commissioner inserts it manually on draft day.`;
             compPickMachine = {
               pick: "1.13",
               season: nflState.season,
@@ -747,6 +753,8 @@ try {
               holderName,
               holderOwner: ownersByRoster[lbFinal.w] || "",
               wonYear: lastComplete.year,
+              exercised,
+              selection: compSel,
             };
           }
         }
@@ -769,6 +777,9 @@ try {
             draftResults[slot] = `${who} (${pk.metadata?.position || "?"}) - drafted by ${(curNameByRoster[pk.roster_id] || "roster " + pk.roster_id).trim()} (${(ownersByRoster[pk.roster_id] || "").split(" (")[0]})`;
           }
         } catch { /* board unavailable - keep slot view */ }
+        if (draftResults && compPickMachine?.selection) {
+          draftResults["1.13"] = `${compPickMachine.selection} - drafted by ${compPickMachine.holderName} (${(compPickMachine.holderOwner || "").split(" (")[0]}) [comp pick, entered outside Sleeper's board]`;
+        }
       }
       upcomingDraft = {
         year: nflState.season,

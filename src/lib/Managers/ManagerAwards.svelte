@@ -54,7 +54,7 @@
                             }
                             displayAwards.push({
                                 award: awardTitle,
-                                icon: '/awards/division.png',
+                                icon: '/awards/division.svg',
                                 type: 'award',
                                 originalName: getTeamNameFromTeamManagers(leagueTeamManagers, cRosterID, podium.year),
                                 year: podium.year,
@@ -69,7 +69,7 @@
                     }
                     displayAwards.push({
                         award: capitalizeFirstLetter(award),
-                        icon: '/awards/' + award + '.png',
+                        icon: '/awards/' + award + '.svg',
                         type: 'award',
                         originalName: getTeamNameFromTeamManagers(leagueTeamManagers, cRosterID, podium.year),
                         year: podium.year,
@@ -100,7 +100,7 @@
             if(checkIfDeservesWithManagerID(winRecord?.rosterID, cRosterID) && i < 3) {
                 displayAwards.push({
                     award: i + 1,
-                    icon: '/awards/record-' + (i+1) + '.png',
+                    icon: '/awards/record-' + (i+1) + '.svg',
                     type: 'All-Time Wins Record',
                     extraInfo: winRecord.wins,
                     wins: true
@@ -110,7 +110,7 @@
             if(checkIfDeservesWithManagerID(pointsRecord?.rosterID, cRosterID) && i < 3) {
                 displayAwards.push({
                     award: i + 1,
-                    icon: '/awards/record-' + (i+1) + '.png',
+                    icon: '/awards/record-' + (i+1) + '.svg',
                     type: 'All-Time Fantasy Points Record',
                     extraInfo: round(pointsRecord.fptsFor)
                 })
@@ -119,7 +119,7 @@
             if(checkIfDeservesWithManagerID(iqRecord?.rosterID, cRosterID) && i < 3) {
                 displayAwards.push({
                     award: i + 1,
-                    icon: '/awards/record-' + (i+1) + '.png',
+                    icon: '/awards/record-' + (i+1) + '.svg',
                     type: 'All-Time Lineup IQ Record',
                     extraInfo: round(iqRecord.fptsFor * 100 / iqRecord.potentialPoints),
                     iq: true
@@ -133,7 +133,7 @@
                 }
                 displayAwards.push({
                     award: i + 1,
-                    icon: '/awards/' + (i < 3 ? `record-${i+1}` : 'generic') + '.png',
+                    icon: '/awards/' + (i < 3 ? `record-${i+1}` : 'generic') + '.svg',
                     type: 'All-Time Single Week Record',
                     originalName: getTeamNameFromTeamManagers(leagueTeamManagers, cRosterID, leagueWeekRecord.year),
                     year: leagueWeekRecord.year,
@@ -150,7 +150,7 @@
                 }
                 displayAwards.push({
                     award: i + 1,
-                    icon: '/awards/' + (i < 3 ? `record-${i+1}` : 'generic') + '.png',
+                    icon: '/awards/' + (i < 3 ? `record-${i+1}` : 'generic') + '.svg',
                     type: 'All-Time Season Long Points',
                     originalName: getTeamNameFromTeamManagers(leagueTeamManagers, cRosterID, seasonLongRecord.year),
                     year: seasonLongRecord.year,
@@ -169,7 +169,7 @@
                     }
                     displayAwards.push({
                         award: i + 1,
-                        icon: '/awards/' + (i < 3 ? `record-${i+1}` : 'generic') + '.png',
+                        icon: '/awards/' + (i < 3 ? `record-${i+1}` : 'generic') + '.svg',
                         type: `${yearRecords.year} Single Week Record`,
                         originalName: getTeamNameFromTeamManagers(leagueTeamManagers, cRosterID, seasonPointsRecord.year),
                         year: null,

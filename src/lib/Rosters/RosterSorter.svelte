@@ -52,6 +52,12 @@
 		overflow: hidden;
 	}
 
+	.banner {
+		background: rgba(37,99,235,0.06);
+		border: 1px solid rgba(37,99,235,0.22);
+		border-radius: 10px;
+	}
+
 	.banner-image {
 		height: 110px;
 		width: clamp(110px, 32vw, 190px);
@@ -61,16 +67,11 @@
 		flex-shrink: 0;
 	}
 
-	.banner-D-1 .banner-image {
-		background-image: url("/division-1-banner.png");
-	}
-
-	.banner-D-2 .banner-image {
-		background-image: url("/division-2-banner.png");
-	}
-
+	.banner-D-1 .banner-image,
+	.banner-D-2 .banner-image,
 	.banner-D-3 .banner-image {
-		background-image: url("/division-3-banner.png");
+		background-image: url("/awards/division.svg");
+		height: 74px;
 	}
 
 	.banner-text {

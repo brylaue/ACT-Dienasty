@@ -30,15 +30,27 @@
         border-radius: 12px;
         background: color-mix(in srgb, var(--accent, #2563eb) 6%, var(--fff, #fff));
     }
-    .compIcon { font-size: 1.5em; line-height: 1.2; }
+    .compIcon {
+        width: 46px;
+        height: 46px;
+        flex-shrink: 0; font-size: 1.5em; line-height: 1.2; }
     .compBody { font-size: 0.92em; line-height: 1.5; color: var(--blk, #111); }
     .compBody strong { color: var(--accent, #2563eb); }
     .compNote { display: block; margin-top: 4px; font-size: 0.85em; color: var(--g555, #555); }
 </style>
 
-{#if cp}
+{#if cp && cp.exercised}
     <div class="compBanner" role="note">
-        <span class="compIcon">🚽🏆</span>
+        <img class="compIcon" src="/awards/toilet.svg" alt="Toilet Bowl trophy" />
+        <span class="compBody">
+            <strong>Pick {cp.pick} — exercised.</strong> {cp.holderName} ({cp.holderOwner}) used the {cp.season}
+            Toilet Bowl compensatory pick{cp.selection ? ` on ${cp.selection}` : ''}, now on their roster.
+            <span class="compNote">The 1.13 lives outside Sleeper's draft board — the {cp.wonYear + 1} Toilet Bowl winner earns the next one.</span>
+        </span>
+    </div>
+{:else if cp}
+    <div class="compBanner" role="note">
+        <img class="compIcon" src="/awards/toilet.svg" alt="Toilet Bowl trophy" />
         <span class="compBody">
             <strong>Pick {cp.pick} — {cp.holderName}</strong> ({cp.holderOwner}) holds the {cp.season} compensatory
             pick for winning the {cp.wonYear} Toilet Bowl. It slots between rounds 1 and 2 and is fully tradable.

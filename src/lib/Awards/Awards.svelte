@@ -1,350 +1,244 @@
 <script>
-    import { gotoManager } from '$lib/utils/helper';
+	import { gotoManager } from '$lib/utils/helper';
 	import { getAvatarFromTeamManagers, getNestedTeamNamesFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
 	export let podium, leagueTeamManagers;
 
 	const { year, champion, second, third, divisions, toilet } = podium;
+
+	const go = (rosterID) => gotoManager({year, leagueTeamManagers, rosterID});
+	const avatar = (rosterID) => getAvatarFromTeamManagers(leagueTeamManagers, rosterID, year);
+	const names = (rosterID) => getNestedTeamNamesFromTeamManagers(leagueTeamManagers, year, rosterID);
+
+	// display order 2 - 1 - 3, with the material and proportions of each step
+	const places = [
+		{ rosterID: second,   n: 2, metal: 'silver', height: 150, avatar: 96 },
+		{ rosterID: champion, n: 1, metal: 'gold',   height: 212, avatar: 124 },
+		{ rosterID: third,    n: 3, metal: 'bronze', height: 118, avatar: 96 },
+	];
 </script>
 
 <style>
-	* {
-		color: var(--g555);
-	}
-
-	h3 {
-		margin: 2.5em 0 1.5em;
-	}
-
 	.awards {
-		display: block;
+		--ink: #1f2937;
+		--muted: #6b7280;
+		--line: #e5e7eb;
+		--gold: #c9a227;
+		--gold-light: #f3dc8a;
+		--gold-deep: #9a7a1e;
+		--silver: #b4bdc7;
+		--silver-light: #f1f4f7;
+		--silver-deep: #8a939d;
+		--bronze: #b5773f;
+		--bronze-light: #e8b57e;
+		--bronze-deep: #8a5a2b;
 		position: relative;
 		width: 100%;
+		max-width: 860px;
+		margin: 0 auto;
+		padding: 0 16px 40px;
 		z-index: 1;
-	}
-
-	#podium {
-		width: 600px;
-		height: 500px;
-		position: relative;
-		margin: 10px auto 30px;
-	}
-
-	.podiumImage {
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		width: 100%;
-		height: auto;
-		z-index: 3;
-	}
-
-	.champ {
-		position: absolute;
-		width: 20%;
-		height: auto;
-		transform: translate(-50%, -50%);
-		border-radius: 100%;
-		border: 1px solid var(--bbb);
-		background-color: var(--fff);
-	}
-
-	.laurel {
-		position: absolute;
-		width: 33%;
-		height: auto;
-		transform: translate(-50%, -50%);
-		bottom: 56.6%;
-		left: 50%;
-		pointer-events: none;
-	}
-
-	.first {
-		bottom: 70%;
-		left: 50%;
-	}
-
-	.second {
-		bottom: 43%;
-		left: 20%;
-	}
-
-	.third {
-		bottom: 39%;
-		left: 80%;
+		color: var(--ink);
 	}
 
 	h3 {
+		margin: 2.2em 0 1.2em;
 		text-align: center;
 	}
 
-	.leaderBlock {
-		position: relative;
-		width: 80px;
-		height: 119px;
-		margin: 15px auto;
+	/* ceremonial divider: thin metal rule, mark centered */
+	.rule {
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		align-items: center;
+		gap: 18px;
+		margin: 8px auto 6px;
+		max-width: 520px;
+	}
+	.rule::before, .rule::after {
+		content: '';
+		height: 1px;
+		background: linear-gradient(90deg, transparent, var(--rule-color));
+	}
+	.rule::after { background: linear-gradient(90deg, var(--rule-color), transparent); }
+	.rule img { width: 56px; height: 56px; display: block; }
+	.rule.gold { --rule-color: var(--gold); }
+	.rule.porcelain { --rule-color: var(--silver); }
+
+	.caption {
+		text-align: center;
+		color: var(--muted);
+		font-size: 0.92em;
+		letter-spacing: 0.01em;
+		margin: 0 0 28px;
 	}
 
-	.divisions {
+	/* the podium: three columns, steps grow from a shared floor */
+	.podium {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		align-items: end;
+		gap: 10px;
+		max-width: 700px;
+		margin: 0 auto;
+	}
+	.place {
 		display: flex;
-		justify-content: space-around;
+		flex-direction: column;
+		align-items: center;
 	}
-
-	.divisionLeader {
-		position: absolute;
-		width: 70px;
-		height: 70px;
-		transform: translate(-50%, 0%);
-		top: 0;
-		left: 50%;
-		border-radius: 100%;
-		border: 1px solid var(--bbb);
-		background-color: var(--fff);
-		z-index: 3;
-	}
-
-	.medal {
-		position: absolute;
-		width: 40px;
-		height: auto;
-		transform: translate(-50%, 0%);
-		bottom: 0;
-		left: 50%;
+	.avatarWrap {
+		position: relative;
 		z-index: 2;
+		margin-bottom: -14px; /* sits on the step's top edge */
+		border-radius: 50%;
+		padding: 4px;
+		background: linear-gradient(160deg, var(--m-light), var(--m-deep));
+		box-shadow: 0 6px 16px rgba(17, 24, 39, 0.14);
+		cursor: pointer;
 	}
-
-	.toiletBowl {
+	.avatarWrap img {
+		display: block;
+		border-radius: 50%;
+		background: #fff;
+		width: var(--size);
+		height: var(--size);
+		object-fit: cover;
+	}
+	.step {
+		width: 100%;
+		height: var(--h);
+		border-radius: 10px 10px 4px 4px;
+		background: #fff;
+		border: 1px solid var(--line);
+		border-top: none;
+		box-shadow: 0 10px 24px -12px rgba(17, 24, 39, 0.28);
 		position: relative;
-		width: 215px;
-		height: 190px;
-		margin: 10px auto;
+		overflow: hidden;
 	}
-
-	.toiletWinner {
+	.step::before {
+		content: '';
 		position: absolute;
-		width: 65px;
-		height: 65px;
-		transform: translate(-50%, 0%);
-		top: 20px;
-		left: 55%;
-		border-radius: 100%;
-		border: 1px solid var(--bbb);
-		z-index: 3;
+		inset: 0 0 auto 0;
+		height: 12px;
+		background: linear-gradient(90deg, var(--m-light), var(--m-mid) 45%, var(--m-deep));
 	}
-
-	.toilet {
+	.numeral {
 		position: absolute;
-		width: 100%;
-		height: auto;
-		transform: translate(-50%, 0%);
-		bottom: 0;
-		left: 50%;
-	}
-
-	.label {
-		white-space: nowrap;
-		line-height: 1.1em;
+		left: 0; right: 0; bottom: 6px;
 		text-align: center;
-		min-height: 34px;
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
+		font-weight: 800;
+		font-size: 3.6em;
+		line-height: 1;
+		color: var(--m-mid);
+		opacity: 0.28;
+		letter-spacing: -0.03em;
+		user-select: none;
+	}
+	.place.gold   { --m-light: var(--gold-light);   --m-mid: var(--gold);   --m-deep: var(--gold-deep); }
+	.place.silver { --m-light: var(--silver-light); --m-mid: var(--silver); --m-deep: var(--silver-deep); }
+	.place.bronze { --m-light: var(--bronze-light); --m-mid: var(--bronze); --m-deep: var(--bronze-deep); }
+
+	.plate {
+		margin-top: 12px;
+		text-align: center;
+		font-weight: 600;
+		font-size: 0.95em;
+		line-height: 1.3;
+		cursor: pointer;
+		min-height: 2.6em;
+	}
+	.plate :global(.nested) { display: block; font-weight: 400; color: var(--muted); font-size: 0.85em; }
+
+	/* divisions */
+	.divisions {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: 18px;
+		margin: 48px auto 0;
+	}
+	.division { text-align: center; }
+	.division h6 {
+		margin: 0 0 14px;
+		font-size: 0.98em;
+		font-weight: 600;
+	}
+	.leaderBlock { position: relative; display: inline-block; }
+	.divisionLeader {
+		width: 72px; height: 72px;
+		border-radius: 50%;
+		border: 1px solid var(--line);
+		background: #fff;
+		object-fit: cover;
+		display: block;
+		cursor: pointer;
+	}
+	.shield {
 		position: absolute;
+		right: -6px; bottom: -6px;
+		width: 30px; height: 30px;
+		background: #fff;
+		border-radius: 50%;
+		padding: 3px;
+		box-shadow: 0 2px 6px rgba(17, 24, 39, 0.16);
+	}
+	.genLabel { display: block; margin-top: 10px; font-weight: 600; font-size: 0.92em; cursor: pointer; }
+	.genLabel :global(.nested) { display: block; font-weight: 400; color: var(--muted); font-size: 0.85em; }
+
+	/* the Toilet Bowl */
+	.toiletParent { margin: 56px auto 0; text-align: center; }
+	.bowl {
+		position: relative;
+		width: 176px;
+		height: 176px;
+		margin: 6px auto 0;
+	}
+	.bowl img.trophy { width: 100%; height: 100%; display: block; }
+	.bowl img.loser {
+		position: absolute;
+		width: 44px; height: 44px;
+		left: 50%; top: 44%;
 		transform: translate(-50%, -50%);
-		padding: 6px 30px;
-		background-color: var(--fff);
-		border: 1px solid var(--bbb);
-        box-shadow: 0px 3px 3px -2px var(--boxShadowOne), 0px 3px 4px 0px var(--boxShadowTwo), 0px 1px 8px 0px var(--boxShadowThree);
-	}
-
-	.firstLabel {
-		bottom: 60%;
-		left: 50%;
-	}
-
-	.secondLabel {
-		bottom: 40%;
-		left: 20%;
-	}
-
-	.thirdLabel {
-		bottom: 36%;
-		left: 80%;
-	}
-
-	.genLabel {
-		white-space: nowrap;
-		line-height: 1.1em;
-		min-height: 34px;
-		display: inline-flex;
-		flex-direction: column;
-		justify-content: center;
-		text-align: center;
-		margin: 15px auto 20px;
-		padding: 6px 30px;
-		background-color: var(--fff);
-		border: 1px solid var(--bbb);
-		box-shadow: 0px 3px 3px -2px var(--boxShadowOne), 0px 3px 4px 0px var(--boxShadowTwo), 0px 1px 8px 0px var(--boxShadowThree);
-	}
-
-	.division {
-		text-align: center;
-	}
-
-	.toiletParent {
-		width: 100%;
-		text-align: center;
-		padding: 25px 0 40px;
-		margin-top: 30px;
-		box-shadow: 0 12px 9px -12px rgba(0,0,0,0.4);
-	}
-
-	.banner {
-		display: block;
-		width: 65%;
-		max-width: 450px;
-		margin: 20px auto 0;
-	}
-
-	.toilet-banner {
-		display: block;
-		width: 50%;
-		max-width: 350px;
-		margin: 20px auto 0;
-	}
-
-	.clickable {
+		border-radius: 50%;
+		border: 2px solid #fff;
+		box-shadow: 0 2px 6px rgba(17, 24, 39, 0.2);
+		object-fit: cover;
 		cursor: pointer;
 	}
 
-	:global(.curOwner) {
-		font-size: 0.75em;
-		color: var(--bbb);
-		font-style: italic;
+	@media (max-width: 640px) {
+		.podium { gap: 6px; }
+		.numeral { font-size: 2.6em; }
+		.plate { font-size: 0.85em; }
+		.rule img { width: 46px; height: 46px; }
+		.caption { font-size: 0.82em; padding: 0 8px; }
 	}
-
-	@media (max-width: 680px) {
-		.label {
-			padding: 6px 8px;
-		}
-		.genLabel {
-			padding: 6px 8px;
-		}
-	}
-
-	@media (max-width: 630px) {
-		.label {
-			font-size: 0.9em;
-		}
-		.genLabel {
-			font-size: 0.9em;
-		}
-	}
-
-	@media (max-width: 610px) {
-		#podium {
-			width: 500px;
-			height: 417px;
-			position: relative;
-			margin: 10px auto 30px;
-		}
-
-		.firstLabel {
-			bottom: 58%;
-		}
-
-		.secondLabel {
-			bottom: 35%;
-		}
-
-		.thirdLabel {
-			bottom: 31%;
-		}
-	}
-
-	@media (max-width: 535px) {
-		.label {
-			font-size: 0.8em;
-		}
-		.genLabel {
-			font-size: 0.8em;
-		}
-	}
-
-	@media (max-width: 520px) {
-		.label {
-			font-size: 0.7em;
-			padding: 2px 4px;
-		}
-		.genLabel {
-			font-size: 0.7em;
-			padding: 2px 4px;
-		}
-	}
-
-	@media (max-width: 510px) {
-		#podium {
-			width: 400px;
-			height: 333px;
-		}
-	}
-
-	@media (max-width: 425px) {
-		.label {
-			font-size: 0.6em;
-		}
-		.genLabel {
-			font-size: 0.6em;
-		}
-	}
-
-	@media (max-width: 410px) {
-		#podium {
-			width: 300px;
-			height: 250px;
-		}
-
-		.firstLabel {
-			bottom: 53%;
-		}
-
-		.secondLabel {
-			bottom: 31%;
-		}
-
-		.thirdLabel {
-			bottom: 27%;
-		}
-	}
-
-	@media (max-width: 329px) {
-		.label {
-			font-size: 0.5em;
-		}
-		.genLabel {
-			font-size: 0.5em;
-		}
+	@media (max-width: 420px) {
+		.avatarWrap { --size: 64px !important; }
+		.place.gold .avatarWrap { --size: 80px !important; }
+		.step { --h: calc(var(--h-base) * 0.8); }
 	}
 </style>
 
 <div class="awards">
 	<h3>{year} Awards</h3>
 
-	<img src="/banner.png" class="banner" alt="The Champion's Cup" />
+	<div class="rule gold"><img src="/trophy-mark.svg" alt="" /></div>
+	<p class="caption">League Champion, Runner-up, and Third Place</p>
 
-	<div id="podium">
-		<img src="/podium.png" class="podiumImage" alt="podium" />
-
-		<!-- champs -->
-		<img src="{getAvatarFromTeamManagers(leagueTeamManagers, champion, year)}" class="first champ clickable" onclick={() => gotoManager({year, leagueTeamManagers, rosterID: champion})} alt="champion" />
-		<img src="/laurel.png" class="laurel" alt="laurel" />
-		<span class="label firstLabel clickable" onclick={() => gotoManager({year, leagueTeamManagers, rosterID: champion})}>{@html getNestedTeamNamesFromTeamManagers(leagueTeamManagers, year, champion)}</span>
-
-		<img src="{getAvatarFromTeamManagers(leagueTeamManagers, second, year)}" class="second champ clickable" onclick={() => gotoManager({year, leagueTeamManagers, rosterID: second})} alt="2nd" />
-		<span class="label secondLabel clickable" onclick={() => gotoManager({year, leagueTeamManagers, rosterID: second})}>{@html getNestedTeamNamesFromTeamManagers(leagueTeamManagers, year, second)}</span>
-
-		<img src="{getAvatarFromTeamManagers(leagueTeamManagers, third, year)}" class="third champ clickable" onclick={() => gotoManager({year, leagueTeamManagers, rosterID: third})} alt="3rd" />
-		<span class="label thirdLabel clickable" onclick={() => gotoManager({year, leagueTeamManagers, rosterID: third})}>{@html getNestedTeamNamesFromTeamManagers(leagueTeamManagers, year, third)}</span>
+	<div class="podium">
+		{#each places as p}
+			<div class="place {p.metal}">
+				<div class="avatarWrap" style="--size: {p.avatar}px" onclick={() => go(p.rosterID)} onkeydown={(e) => e.key === 'Enter' && go(p.rosterID)} role="button" tabindex="0">
+					<img src={avatar(p.rosterID)} alt="place {p.n}" />
+				</div>
+				<div class="step" style="--h: {p.height}px; --h-base: {p.height}px">
+					<div class="numeral">{p.n}</div>
+				</div>
+				<div class="plate" onclick={() => go(p.rosterID)} onkeydown={(e) => e.key === 'Enter' && go(p.rosterID)} role="button" tabindex="0">{@html names(p.rosterID)}</div>
+			</div>
+		{/each}
 	</div>
+
 	<div class="divisions">
 		{#each divisions as division}
 			{#if division.rosterID}
@@ -355,26 +249,24 @@
 						<h6>Regular Season Champion</h6>
 					{/if}
 					<div class="leaderBlock">
-						<img src="{getAvatarFromTeamManagers(leagueTeamManagers, division.rosterID, year)}" class="divisionLeader clickable" onclick={() => gotoManager({year, leagueTeamManagers, rosterID: division.rosterID})} alt="{division.name} champion" />
-						<img src="/medal.png" class="medal" alt="champion" />
+						<img src={avatar(division.rosterID)} class="divisionLeader" onclick={() => go(division.rosterID)} alt="{division.name} champion" />
+						<img src="/awards/division.svg" class="shield" alt="" />
 					</div>
-					<span class="genLabel clickable" onclick={() => gotoManager({year, leagueTeamManagers, rosterID: division.rosterID})}>{@html getNestedTeamNamesFromTeamManagers(leagueTeamManagers, year, division.rosterID)}</span>
+					<span class="genLabel" onclick={() => go(division.rosterID)} onkeydown={(e) => e.key === 'Enter' && go(division.rosterID)} role="button" tabindex="0">{@html names(division.rosterID)}</span>
 				</div>
 			{/if}
 		{/each}
 	</div>
 
-		<!-- Toilet Bowl -->
 	{#if toilet}
 		<div class="toiletParent">
-			
-			<img src="/toilet-banner.png" class="toilet-banner" alt="The Toilet Bowl" />
-
-			<div class="toiletBowl">
-				<img src="{getAvatarFromTeamManagers(leagueTeamManagers, toilet, year)}" class="toiletWinner clickable" onclick={() => gotoManager({year, leagueTeamManagers, rosterID: toilet})} alt="toilet bowl winner" />
-				<img src="/toilet-bowl-2.png" class="toilet" alt="toilet bowl" />
+			<div class="rule porcelain"><img src="/toilet-mark.svg" alt="" /></div>
+			<p class="caption">The Toilet Bowl — last one standing in the losers bracket</p>
+			<div class="bowl">
+				<img src="/toilet-mark.svg" class="trophy" alt="Toilet Bowl trophy" />
+				<img src={avatar(toilet)} class="loser" onclick={() => go(toilet)} alt="toilet bowl winner" />
 			</div>
-			<span class="genLabel clickable" onclick={() => gotoManager({year, leagueTeamManagers, rosterID: toilet})}>{@html getNestedTeamNamesFromTeamManagers(leagueTeamManagers, year, toilet)}</span>
+			<span class="genLabel" onclick={() => go(toilet)} onkeydown={(e) => e.key === 'Enter' && go(toilet)} role="button" tabindex="0">{@html names(toilet)}</span>
 		</div>
 	{/if}
 </div>

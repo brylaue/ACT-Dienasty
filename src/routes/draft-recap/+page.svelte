@@ -40,11 +40,13 @@
     .awardName { font-weight: 700; }
     .awardWinner { color: var(--accent, #2563eb); font-weight: 600; }
     .loading, .err { text-align: center; margin: 60px 0; color: var(--g555, #666); }
+    .titleIcon { width: 46px; height: 46px; vertical-align: -7px; margin-right: 4px; }
+    .hwIcon { width: 24px; height: 24px; vertical-align: -5px; margin-right: 2px; }
 </style>
 
 <div class="holder">
     {#if recap}
-        <h2>🎤 {recap.title}</h2>
+        <h2><img class="titleIcon" src="/roast-mic.svg" alt="" /> {recap.title}</h2>
         <p class="intro">{recap.intro}</p>
 
         {#each Object.entries(recap.rounds) as [rd, picks] (rd)}
@@ -63,7 +65,7 @@
 
         {#if recap.awards?.length}
             <div class="awards">
-                <h3>🏅 The Hardware</h3>
+                <h3><img class="hwIcon" src="/awards/record-1.svg" alt="" /> The Hardware</h3>
                 {#each recap.awards as a (a.award)}
                     <div class="awardRow">
                         <span class="awardName">{a.award}:</span>

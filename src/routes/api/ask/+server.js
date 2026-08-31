@@ -85,6 +85,11 @@ export async function POST(event) {
         const faqRes = await event.fetch('/data/oracle-faq.json');
         if (faqRes.ok) knowledgeObj.learnedRulings = (await faqRes.json()).rulings;
     } catch { /* no FAQ, no problem */ }
+    // pick protections and trade conditions Sleeper cannot represent
+    try {
+        const condRes = await event.fetch('/data/pick-conditions.json');
+        if (condRes.ok) knowledgeObj.pickConditions = (await condRes.json()).conditions;
+    } catch { /* none recorded */ }
     const staticKnowledge = JSON.stringify(knowledgeObj);
     const dynamicContext =
         `Current rosters (${rosterFreshness}):\n` + JSON.stringify(liveRosterSection) +

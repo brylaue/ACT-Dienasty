@@ -54,7 +54,7 @@
     const oddsTop = $derived(odds?.teams?.slice(0, 3) || []);
     const recordToBeat = $derived(recordWatch?.highs?.[0] || null);
 
-    const medal = (rank) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+    const medal = (rank) => '/awards/record-' + Math.min(rank, 3) + '.svg';
     const oddsColor = (pct) => pct >= 75 ? '#00ceb8' : pct >= 40 ? '#58a7ff' : pct >= 15 ? '#ffae58' : '#ff2a6d';
 </script>
 
@@ -79,7 +79,7 @@
                             onclick={() => {if(managers.length) gotoManager({year: podiums[0].year, leagueTeamManagers, rosterID: parseInt(podiums[0].champion)})}}
                             onkeydown={(e) => {if(e.key === 'Enter' && managers.length) gotoManager({year: podiums[0].year, leagueTeamManagers, rosterID: parseInt(podiums[0].champion)})}}>
                             <img src={getAvatarFromTeamManagers(leagueTeamManagers, podiums[0].champion, podiums[0].year)} class="champAvatar" alt="reigning champion" />
-                            <img src="/laurel.png" class="champLaurel" alt="" />
+                            <img src="/awards/champion.svg" class="champBadge" alt="" />
                         </div>
                         <div class="champName">{getTeamFromTeamManagers(leagueTeamManagers, podiums[0].champion, podiums[0].year).name}</div>
                         <div class="champSub">{podiums[0].year} League Champion &middot; the belt is on the line</div>
@@ -132,7 +132,7 @@
                         <div class="cardKicker">Power Pulse</div>
                         {#each prTop as t (t.rosterID)}
                             <div class="pulseRow">
-                                <span class="pMedal">{medal(t.rank)}</span>
+                                <img class="pMedal" src={medal(t.rank)} alt="rank {t.rank}" />
                                 <span class="pName">{t.name}</span>
                                 {#if t.prevRank != null && t.prevRank !== t.rank}
                                     <span class="pMove" class:up={t.prevRank > t.rank} class:down={t.prevRank < t.rank}>
@@ -247,33 +247,38 @@
 
     .champRing {
         position: relative;
-        width: 168px;
-        height: 168px;
+        width: 148px;
+        height: 148px;
         margin: 0 auto;
         cursor: pointer;
-        filter: drop-shadow(0 8px 20px rgba(16, 24, 40, 0.15));
+        border-radius: 50%;
+        padding: 5px;
+        background: conic-gradient(from 210deg, #f3dc8a, #c9a227 30%, #9a7a1e 55%, #f3dc8a 80%, #c9a227);
+        box-shadow: 0 10px 24px rgba(16, 24, 40, 0.16);
     }
 
     .champAvatar {
-        position: absolute;
-        transform: translate(-50%, -50%);
-        width: 92px;
-        height: 92px;
-        border-radius: 100%;
-        border: 2px solid var(--fff);
-        box-shadow: 0 0 0 1px var(--line);
-        left: 50%;
-        top: 43%;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        border: 4px solid var(--fff);
+        display: block;
+        object-fit: cover;
+        background: var(--fff);
     }
 
-    .champLaurel {
+    .champBadge {
         position: absolute;
-        transform: translate(-50%, -50%);
-        width: 152px;
-        height: auto;
-        left: 50%;
-        top: 50%;
+        right: -2px;
+        bottom: -2px;
+        width: 44px;
+        height: 44px;
+        padding: 6px;
+        border-radius: 50%;
+        background: var(--fff);
+        box-shadow: 0 3px 8px rgba(16, 24, 40, 0.18);
     }
+
 
     .champName {
         font-weight: 800;
@@ -393,7 +398,10 @@
         font-size: 0.95em;
     }
 
-    .pMedal { flex-shrink: 0; }
+    .pMedal {
+        width: 22px;
+        height: 22px;
+        vertical-align: -4px; flex-shrink: 0; }
     .pName {
         font-weight: 600;
         color: var(--ink);

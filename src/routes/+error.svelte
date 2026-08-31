@@ -31,7 +31,7 @@
         Hut, Hut, Blue 404!
     </h4>
     <div class='footballHolder'>
-        <img class='football' src='/deflated-football.png' alt='deflated football' />
+        <img class='football' src='/deflated-football.svg' alt='deflated football' />
     </div>
     <h5>
         Nothing Here... Try Another Page!

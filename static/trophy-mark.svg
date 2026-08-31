@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="#374151" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Champion's trophy"><defs>
+    <linearGradient id="m-gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F3DC8A"/><stop offset="0.55" stop-color="#C9A227"/><stop offset="1" stop-color="#9A7A1E"/>
+    </linearGradient>
+    <linearGradient id="s-gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F3DC8A" stop-opacity="0.9"/><stop offset="1" stop-color="#9A7A1E"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(0,0)">
+    <path d="M15 8h18v11a9 9 0 0 1-18 0z" fill="url(#m-gold)"/>
+    <path d="M15 10.5h-3.5a2 2 0 0 0-2 2v2.5a7 7 0 0 0 6.5 7M33 10.5h3.5a2 2 0 0 1 2 2v2.5a7 7 0 0 1-6.5 7"/>
+    <path d="M24 28v5"/>
+    <path d="M17 38h14l-1.5-5h-11z" fill="url(#m-gold)"/>
+    <path d="M14.5 38h19" stroke-width="2.4"/>
+    <path d="M19.5 12v6" stroke="#fff" stroke-opacity="0.75" stroke-width="1.4"/>
+  </g></svg>

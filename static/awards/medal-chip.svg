@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="#374151" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Division champion"><defs>
+    <linearGradient id="m-accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8FB1FF"/><stop offset="0.55" stop-color="#2563eb"/><stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="s-accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8FB1FF" stop-opacity="0.9"/><stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 5l14 5v12c0 8-6 14-14 17-8-3-14-9-14-17V10z" fill="url(#m-accent)"/>
+  <polygon points="24.00,15.50 25.72,19.63 30.18,19.99 26.78,22.90 27.82,27.26 24.00,24.93 20.18,27.26 21.22,22.90 17.82,19.99 22.28,19.63" fill="#fff" fill-opacity="0.9" stroke="#374151" stroke-width="1.1"/></svg>
