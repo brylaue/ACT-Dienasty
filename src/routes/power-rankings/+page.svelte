@@ -1,5 +1,6 @@
 <script>
 	import TrendChart from '$lib/TrendChart.svelte';
+	import RefreshButton from '$lib/RefreshButton.svelte';
 	import { getLeagueTeamManagers, gotoManager } from '$lib/utils/helper';
 	import { getAvatarFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
 
@@ -109,6 +110,8 @@
 	.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 4px; }
 	h2 { margin: 0; font-size: 1.6em; }
 	.meta { color: var(--muted); font-size: 0.88em; }
+	.refreshSlot { margin-left: auto; }
+	@media (max-width: 640px) { .refreshSlot { margin-left: 0; flex-basis: 100%; } }
 	.method { color: var(--muted); font-size: 0.86em; margin: 0 0 16px; max-width: 720px; line-height: 1.5; }
 	.tabs { display: flex; gap: 4px; margin: 0 0 18px; border-bottom: 1px solid var(--line); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 	.tabs::-webkit-scrollbar { display: none; }
@@ -243,8 +246,9 @@
 	<div class="head">
 		<h2>Power Rankings</h2>
 		{#if data}
-			<span class="meta">{data.week ? `Week ${data.week}` : ''}{data.preseason ? ' · preseason edition' : ''} · updated {ago(data.generated)}</span>
+			<span class="meta">{data.week ? `Week ${data.week}` : ''}{data.preseason ? ' · preseason edition' : ''}</span>
 		{/if}
+		<span class="refreshSlot"><RefreshButton /></span>
 	</div>
 	<p class="method">
 		{#if data?.preseason}

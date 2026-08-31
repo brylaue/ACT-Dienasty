@@ -34,7 +34,7 @@
         width: 46px;
         height: 46px;
         flex-shrink: 0; font-size: 1.5em; line-height: 1.2; }
-    .compBody { font-size: 0.92em; line-height: 1.5; color: var(--blk, #111); }
+    .compBody { font-size: 0.92em; line-height: 1.5; color: var(--ink); }
     .compBody strong { color: var(--accent, #2563eb); }
     .compNote { display: block; margin-top: 4px; font-size: 0.85em; color: var(--g555, #555); }
 </style>

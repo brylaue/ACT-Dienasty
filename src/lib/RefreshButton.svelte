@@ -7,6 +7,7 @@
 	let pass = $state('');
 	let status = $state('');
 	let busy = $state(false);
+	let needPass = $state(false); // only shown once the server asks for one
 
 	onMount(async () => {
 		try {
@@ -31,6 +32,7 @@
 			const r = await fetch('/api/refresh', { method: 'POST', headers: { 'x-refresh-passcode': pass } });
 			const d = await r.json().catch(() => ({}));
 			status = d.message || (r.ok ? 'Update requested.' : 'Something went wrong.');
+			if (r.status === 403) { needPass = true; status = pass ? 'Wrong passcode.' : 'This league requires a passcode to request updates.'; }
 			if (r.ok) { try { localStorage.setItem('refreshPass', pass); } catch { /* ignore */ } }
 		} catch {
 			status = 'Could not reach the site. Try again shortly.';
@@ -59,7 +61,7 @@
 </div>
 {#if open}
 	<div class="panel">
-		<input type="password" placeholder="league passcode" bind:value={pass} onkeydown={(e) => e.key === 'Enter' && requestUpdate()} />
+		{#if needPass || pass}<input type="password" placeholder="league passcode" bind:value={pass} onkeydown={(e) => e.key === 'Enter' && requestUpdate()} />{/if}
 		<button class="go" onclick={requestUpdate} disabled={busy}>{busy ? 'Requesting…' : 'Request update'}</button>
 		{#if status}<span class="status">{status}</span>{:else}<span class="status">Re-bakes rankings, odds, rosters, and the Oracle. Takes about 5 minutes to land.</span>{/if}
 	</div>
