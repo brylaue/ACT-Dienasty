@@ -227,7 +227,7 @@
         top: 50%;
         left: 50%;
         font-size: 2.5em;
-        color: var(--ccc);
+        color: var(--g999);
     }
 
     @media (max-width: 420px) {

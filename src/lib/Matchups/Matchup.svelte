@@ -214,6 +214,7 @@
         max-width: 32px;
         min-width: 32px;
 		height: 32px;
+			color: #fff;
 	}
 
 	.QB {
@@ -451,7 +452,7 @@
 
     .playerEmpty {
         height: 100%;
-        color: #555;
+        color: var(--g999);
         font-style: italic;
         display: flex;
         align-items: center;

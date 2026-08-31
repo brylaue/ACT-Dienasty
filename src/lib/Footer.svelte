@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
     import { managers } from '$lib/utils/helper';
 	import { tabs } from '$lib/utils/tabs';
+	import { enableBlog } from '$lib/utils/leagueInfo';
 	import { onMount } from 'svelte';
 
 	let outOfDate = $state(false);
@@ -86,7 +87,7 @@
 	<div id="navigation">
 		<ul>
 			{#each tabs as tab}
-				{#if !tab.nest}
+				{#if !tab.nest && (tab.label != 'Blog' || enableBlog)}
 					<li><div class="navLink" onclick={() => goto(tab.dest)}>{tab.label}</div></li>
 				{:else}
 					{#each tab.children as child}

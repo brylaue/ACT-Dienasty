@@ -158,7 +158,7 @@
         font-size: 0.72em;
         font-weight: 700;
         letter-spacing: 0.04em;
-        color: #b45309;
+        color: color-mix(in srgb, #f59e0b 65%, var(--ink));
         background: rgba(245, 158, 11, 0.12);
         border-radius: 999px;
         padding: 4px 12px;
@@ -173,7 +173,7 @@
         color: var(--g999);
         text-align: center;
     }
-    .h2h b { color: var(--blueTwo); font-weight: 600; }
+    .h2h b { color: var(--blueOne); font-weight: 600; }
     .blurb {
         margin-top: 10px;
         padding-top: 10px;

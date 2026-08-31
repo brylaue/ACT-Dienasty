@@ -107,7 +107,7 @@
         font-size: 0.8em;
     }
     .link a {
-        color: var(--blueTwo);
+        color: var(--blueOne);
         text-decoration: none;
     }
     .link a:hover { text-decoration: underline; }

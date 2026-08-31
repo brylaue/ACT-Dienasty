@@ -164,8 +164,8 @@
         padding: 1px 6px;
         border-radius: 10px;
     }
-    .delta.up { color: #007a6c; background: rgba(0, 206, 184, 0.15); }
-    .delta.down { color: #c21a50; background: rgba(255, 42, 109, 0.12); }
+    .delta.up { color: #16a34a; background: color-mix(in srgb, #16a34a 15%, transparent); }
+    .delta.down { color: #dc2626; background: color-mix(in srgb, #dc2626 15%, transparent); }
     .record {
         color: var(--g999);
         font-size: 0.8em;
