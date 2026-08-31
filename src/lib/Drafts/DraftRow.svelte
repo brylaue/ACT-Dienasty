@@ -26,12 +26,12 @@
         top: 0.1em;
         left: 0.1em;
         font-style: italic;
-        color: #444;
+        color: var(--g555);
     }
 
     .newOwner {
         font-style: italic;
-        color: #444;
+        color: var(--g555);
         text-align: center;
         white-space: break-spaces;
         line-height: 1.2em;
@@ -108,7 +108,7 @@
         white-space: break-spaces;
         line-height: 1em;
         bottom: 0.5em;
-        color: rgba(0, 0, 0, 0.87);
+        color: var(--g111);
     }
 </style>
 
