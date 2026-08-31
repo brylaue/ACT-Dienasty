@@ -46,11 +46,21 @@
                 (pairs[m.matchup_id] ||= []).push({ rosterID: m.roster_id, pts: m.points || 0 });
             }
             const games = Object.values(pairs).filter((g) => g.length === 2);
-            if (games.length) scoreboard = { week: st.week, games };
+            // before kickoff every score is 0.0 - that's a schedule, not a
+            // scoreboard. Show the matchups as a preview until points exist.
+            const started = games.some((g) => g[0].pts + g[1].pts > 0);
+            let kickoff = '';
+            if (!started && st.week === 1 && st.season_start_date) {
+                const d = new Date(st.season_start_date + 'T12:00:00Z');
+                while (d.getUTCDay() !== 4) d.setUTCDate(d.getUTCDate() + 1); // first Thursday night
+                kickoff = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+            }
+            if (games.length) scoreboard = { week: st.week, games, started, kickoff };
         } catch { /* scoreboard simply doesn't render */ }
     })();
 
     const nameFor = (rosterID) => pr?.teams?.find((t) => t.rosterID === rosterID)?.name || `Team ${rosterID}`;
+    const rankFor = (rosterID) => pr?.teams?.find((t) => t.rosterID === rosterID)?.rank || null;
     const oddsTop = $derived(odds?.teams?.slice(0, 3) || []);
     const recordToBeat = $derived(recordWatch?.highs?.[0] || null);
 
@@ -112,13 +122,21 @@
     {#if scoreboard}
         <section class="scoreboardWrap">
             <div class="scoreboard">
-                <span class="sbLabel">Week {scoreboard.week}</span>
+                <span class="sbLabel">{scoreboard.started ? `Week ${scoreboard.week}` : `Week ${scoreboard.week} matchups` + (scoreboard.kickoff ? ` · kickoff ${scoreboard.kickoff}` : '')}</span>
                 {#each scoreboard.games as g}
-                    <span class="sbGame" class:live={g[0].pts + g[1].pts > 0}>
-                        <span class="sbTeam" class:leading={g[0].pts > g[1].pts}>{nameFor(g[0].rosterID)} {g[0].pts.toFixed(1)}</span>
-                        <span class="sbDash">–</span>
-                        <span class="sbTeam" class:leading={g[1].pts > g[0].pts}>{g[1].pts.toFixed(1)} {nameFor(g[1].rosterID)}</span>
-                    </span>
+                    {#if scoreboard.started}
+                        <span class="sbGame live">
+                            <span class="sbTeam" class:leading={g[0].pts > g[1].pts}>{nameFor(g[0].rosterID).trim()} {g[0].pts.toFixed(1)}</span>
+                            <span class="sbDash">–</span>
+                            <span class="sbTeam" class:leading={g[1].pts > g[0].pts}>{g[1].pts.toFixed(1)} {nameFor(g[1].rosterID).trim()}</span>
+                        </span>
+                    {:else}
+                        <span class="sbGame">
+                            <span class="sbTeam">{#if rankFor(g[0].rosterID)}<span class="sbRank">#{rankFor(g[0].rosterID)}</span>{/if}{nameFor(g[0].rosterID).trim()}</span>
+                            <span class="sbVs">vs</span>
+                            <span class="sbTeam">{#if rankFor(g[1].rosterID)}<span class="sbRank">#{rankFor(g[1].rosterID)}</span>{/if}{nameFor(g[1].rosterID).trim()}</span>
+                        </span>
+                    {/if}
                 {/each}
             </div>
         </section>
@@ -491,6 +509,24 @@
     .sbGame { color: var(--muted); flex-shrink: 0; }
     .sbGame.live .sbTeam.leading { color: var(--ink); font-weight: 700; }
     .sbDash { padding: 0 4px; }
+    .sbVs { padding: 0 6px; font-size: 0.85em; color: var(--muted); }
+    .sbRank {
+        display: inline-block;
+        margin-right: 5px;
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: var(--accent);
+        color: var(--fff);
+        font-weight: 700;
+        font-size: 0.78em;
+        vertical-align: 1px;
+    }
+    .scoreboard .sbGame .sbTeam { color: var(--ink); }
+    .scoreboardWrap { position: relative; }
+    .scoreboard {
+        mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 48px), transparent);
+        -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 48px), transparent);
+    }
 
     /* ── about ── */
     .about { padding: 30px 20px 0; }
