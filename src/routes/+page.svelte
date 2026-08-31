@@ -1,4 +1,5 @@
 <script>
+    import RefreshButton from '$lib/RefreshButton.svelte';
 	import LinearProgress from '@smui/linear-progress';
 	import { getNflState, leagueName, getAwards, getLeagueTeamManagers, homepageText, managers, gotoManager, enableBlog, waitForAll } from '$lib/utils/helper';
 	import { Transactions, PowerRankings, HomePost} from '$lib/components';
@@ -114,6 +115,7 @@
                 <a class="ticket" href="/power-rankings"><span class="tLabel">Power Rankings</span><span class="tArrow">&rarr;</span></a>
                 <a class="ticket" href="/playoff-odds"><span class="tLabel">Playoff Odds</span><span class="tArrow">&rarr;</span></a>
                 <a class="ticket" href="/matchups"><span class="tLabel">This Week's Matchups</span><span class="tArrow">&rarr;</span></a>
+                <div class="refreshRow"><RefreshButton /></div>
             </div>
         </div>
     </section>
@@ -480,6 +482,8 @@
     }
     .histWho { text-align: center; font-weight: 700; }
     .histWhen { text-align: center; font-size: 0.72em; color: var(--muted); margin-top: 3px; }
+
+    .refreshRow { margin-top: 14px; }
 
     /* ── gameday scoreboard ── */
     .scoreboardWrap { padding: 14px 20px 0; }
