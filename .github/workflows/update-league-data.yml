@@ -2,9 +2,11 @@ name: Update league data
 
 on:
   schedule:
-    # Tuesdays 10:00 UTC (~6am ET), after Monday Night Football is final.
+    # Mon / Tue / Fri at 10:00 UTC (~6am ET). Monday catches Sunday's games,
+    # Tuesday finalizes after Monday Night Football, Friday refreshes after
+    # Thursday night plus the week's waivers and trades.
     # Off-season runs are harmless: no change means no commit, no deploy.
-    - cron: "0 10 * * 2"
+    - cron: "0 10 * * 1,2,5"
   workflow_dispatch: {}
 
 permissions:
