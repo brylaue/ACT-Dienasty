@@ -88,7 +88,7 @@
         font-size: 0.7em;
         letter-spacing: 0.06em;
         text-transform: uppercase;
-        color: var(--g999);
+        color: var(--muted);
         margin-bottom: 4px;
     }
     .team {

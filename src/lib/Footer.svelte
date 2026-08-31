@@ -37,6 +37,7 @@
 		color: var(--muted);
 		margin-top: 3em;
 	}
+	footer a { color: var(--accent); }
 
 	#navigation {
 		margin: 0 0 2em;

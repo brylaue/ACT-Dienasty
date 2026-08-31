@@ -72,7 +72,7 @@
     const recordToBeat = $derived(recordWatch?.highs?.[0] || null);
 
     const medal = (rank) => '/awards/record-' + Math.min(rank, 3) + '.svg';
-    const oddsColor = (pct) => pct >= 75 ? '#00ceb8' : pct >= 40 ? '#58a7ff' : pct >= 15 ? '#ffae58' : '#ff2a6d';
+    const oddsColor = (pct) => pct >= 75 ? '#059669' : pct >= 40 ? '#2563eb' : pct >= 15 ? '#d97706' : '#dc2626';
 </script>
 
 <svelte:head>

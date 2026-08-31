@@ -68,7 +68,7 @@
     .capRank {
         width: 1.6em;
         text-align: right;
-        color: var(--g999);
+        color: var(--muted);
         font-size: 0.85em;
         flex-shrink: 0;
     }

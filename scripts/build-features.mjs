@@ -66,12 +66,16 @@ const askClaudeJSON = async (system, user) => {
     const data = await res.json();
     const text = data.content?.find((b) => b.type === "text")?.text?.trim();
     if (!text) return null;
-    return JSON.parse(text.replace(/^```(json)?/i, "").replace(/```$/, "").trim());
+    // tolerate prose or fences around the object: take the outermost {...}
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) { console.warn(`Claude JSON call: no object in reply: ${text.slice(0, 120)}`); return null; }
+    return JSON.parse(m[0]);
   } catch (err) {
     console.warn(`Claude JSON call failed: ${err}`);
     return null;
   }
 };
+const askClaudeJSONRetry = async (system, user) => (await askClaudeJSON(system, user)) || (await askClaudeJSON(system, user));
 
 // --- gather current-season league state ---
 
@@ -455,16 +459,21 @@ const ranked = teams
     valueHistory: valueHistoryFor(t.rosterID, t.rosterValue),
   }));
 
-const blurbs = await askClaudeJSON(
+const blurbs = await askClaudeJSONRetry(
   `You write short, punchy one-line blurbs for a fantasy football dynasty league's weekly Power Rankings. Deadpan, confident, a little cocky for teams near the top and a little pitying for teams near the bottom - but never mean-spirited. Reply with ONLY a JSON object mapping each rosterID (as a string) to a blurb under 15 words, no trailing period. Vary phrasing and structure widely across teams - don't reuse the same setup twice.`,
   `Current Power Rankings (rank, team, record, points for, roster dynasty value):\n${ranked
     .map((t) => `${t.rank}. ${t.name} — ${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}, ${t.fpts.toFixed(1)} pts, roster value ${Math.round(t.rosterValue)}`)
     .join("\n")}\n\nWrite one blurb per team, keyed by this rosterID mapping:\n${ranked.map((t) => `"${t.rosterID}": rank ${t.rank}`).join("\n")}`,
 );
 
+// keep last bake's blurb for any team the model didn't return one for -
+// a stale joke beats a blank line under the team name
+const prevBlurbs = {};
+if (existsSync(PR_PATH)) { try { for (const t of JSON.parse(readFileSync(PR_PATH, "utf8")).teams || []) if (t.blurb) prevBlurbs[t.rosterID] = t.blurb; } catch { /* none */ } }
 for (const t of ranked) {
-  t.blurb = blurbs?.[String(t.rosterID)] || null;
+  t.blurb = blurbs?.[String(t.rosterID)] || prevBlurbs[t.rosterID] || null;
 }
+console.log(`blurbs: ${Object.keys(blurbs || {}).length} fresh, ${ranked.filter((t) => t.blurb).length}/${ranked.length} present`);
 
 mkdirSync(join(root, "static/data"), { recursive: true });
 writeFileSync(

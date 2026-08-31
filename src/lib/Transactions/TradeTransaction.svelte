@@ -46,7 +46,7 @@
     }
 
     .date {
-        color: var(--g999);
+        color: var(--muted);
         font-style: italic;
         font-size: 0.7em;
         text-align: center;

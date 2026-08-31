@@ -18,7 +18,7 @@
         top: 0.3em;
         left: 0.3em;
         font-style: italic;
-        color: #aaa;
+        color: var(--g555);
     }
 
     .draftPosPrev {

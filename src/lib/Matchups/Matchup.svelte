@@ -431,7 +431,7 @@
     }
 
     .totalProjection {
-        color: #ccc;
+        color: var(--muted);
         font-size: 0.7em;
         font-style: italic;
     }

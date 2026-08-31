@@ -23,12 +23,9 @@
         return Math.round((team.playoffPct - team.prevPct) * 10) / 10;
     };
 
-    const colorFor = (pct) => {
-        if (pct >= 75) return '#00ceb8';
-        if (pct >= 40) return '#0082c3';
-        if (pct >= 15) return '#ffae58';
-        return '#ff2a6d';
-    };
+    // text needs contrast on white and black; the bar can stay vivid
+    const colorFor = (pct) => pct >= 75 ? '#059669' : pct >= 40 ? '#2563eb' : pct >= 15 ? '#d97706' : '#dc2626';
+    const barFor = (pct) => pct >= 75 ? '#00ceb8' : pct >= 40 ? '#0082c3' : pct >= 15 ? '#ffae58' : '#ff2a6d';
 </script>
 
 <svelte:head>
@@ -69,7 +66,7 @@
                         </div>
                         <div class="record">{team.wins}-{team.losses}{team.ties ? `-${team.ties}` : ''}</div>
                         <div class="barTrack">
-                            <div class="bar" style="width: {team.playoffPct}%; background: {colorFor(team.playoffPct)}"></div>
+                            <div class="bar" style="width: {team.playoffPct}%; background: {barFor(team.playoffPct)}"></div>
                         </div>
                     </div>
                 </div>
