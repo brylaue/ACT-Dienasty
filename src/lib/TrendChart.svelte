@@ -140,16 +140,16 @@
 	.sub { color: var(--muted, #6b7280); font-size: 0.85em; flex-basis: 100%; margin: 0; }
 	.periods { margin-left: auto; display: flex; gap: 4px; }
 	.periods.metrics { margin-left: 0; }
-	.periods button { font: inherit; font-size: 0.8em; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line, #e5e7eb); background: var(--fff, #fff); color: var(--muted, #6b7280); cursor: pointer; }
+	.periods button { font: inherit; font-size: 0.8em; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--fff); color: var(--muted); cursor: pointer; }
 	.periods button.on { background: var(--accent, #2563eb); color: #fff; border-color: var(--accent, #2563eb); }
-	.card { background: var(--fff, #fff); border: 1px solid var(--line, #e5e7eb); border-radius: 12px; padding: 12px 8px 4px; }
+	.card { background: var(--fff); border: 1px solid var(--line); border-radius: 12px; padding: 12px 8px 4px; color: var(--ink); }
 	svg { width: 100%; height: auto; display: block; }
 	.line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; transition: opacity 0.15s; }
 	.dim .line { opacity: 0.12; }
 	.dim .line.on { opacity: 1; stroke-width: 3; }
 	.legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 2px 12px; padding: 10px 8px 6px; font-size: 0.82em; }
 	.legend button { font: inherit; display: flex; align-items: center; gap: 8px; background: none; border: none; padding: 3px 4px; cursor: pointer; color: inherit; text-align: left; border-radius: 6px; }
-	.legend button.on { background: color-mix(in srgb, var(--accent, #2563eb) 10%, transparent); }
+	.legend button.on { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 	.swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 	.lname { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 	.lval { font-variant-numeric: tabular-nums; color: var(--muted, #6b7280); }
@@ -158,15 +158,15 @@
 	.dot { opacity: 0.55; transition: r 0.1s; }
 	.dot.on { opacity: 1; }
 	.dim .dot { opacity: 0.1; } .dim .dot.on { opacity: 1; }
-	.hoverLine { stroke: #9ca3af; stroke-dasharray: 3 3; }
-	.tip { margin: 4px 8px 0; padding: 8px 10px; border: 1px solid var(--line, #e5e7eb); border-radius: 8px; background: #fff; font-size: 0.8em; }
+	.hoverLine { stroke: var(--muted); stroke-dasharray: 3 3; }
+	.tip { margin: 4px 8px 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--f8f8f8); font-size: 0.8em; }
 	.tipHead { font-weight: 700; margin-bottom: 6px; }
 	.tipGrid { display: grid; grid-template-columns: 10px 1fr auto auto; gap: 2px 10px; align-items: center; column-gap: 8px; max-height: 190px; overflow: auto; }
 	.tipGrid .lval { text-align: right; }
 	.flat { color: var(--muted, #6b7280); }
 	@media (min-width: 700px) { .tipGrid { grid-template-columns: 10px 1fr auto auto 10px 1fr auto auto; } }
-	.axis text { font-size: 10px; fill: #9ca3af; }
-	.axis line { stroke: #eef0f3; }
+	.axis text { font-size: 10px; fill: var(--muted); }
+	.axis line { stroke: var(--line); }
 	.endLabel { font-size: 10.5px; font-weight: 600; }
 	@media (max-width: 640px) { .legend { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

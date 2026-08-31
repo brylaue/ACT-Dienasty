@@ -19,9 +19,6 @@
 
 <style>
 	.awards {
-		--ink: #1f2937;
-		--muted: #6b7280;
-		--line: #e5e7eb;
 		--gold: #c9a227;
 		--gold-light: #f3dc8a;
 		--gold-deep: #9a7a1e;
@@ -99,7 +96,7 @@
 	.avatarWrap img {
 		display: block;
 		border-radius: 50%;
-		background: #fff;
+		background: var(--fff);
 		width: var(--size);
 		height: var(--size);
 		object-fit: cover;
@@ -108,7 +105,7 @@
 		width: 100%;
 		height: var(--h);
 		border-radius: 10px 10px 4px 4px;
-		background: #fff;
+		background: var(--fff);
 		border: 1px solid var(--line);
 		border-top: none;
 		box-shadow: 0 10px 24px -12px rgba(17, 24, 39, 0.28);
@@ -130,7 +127,7 @@
 		font-size: 3.6em;
 		line-height: 1;
 		color: var(--m-mid);
-		opacity: 0.28;
+		opacity: 0.45;
 		letter-spacing: -0.03em;
 		user-select: none;
 	}
@@ -167,7 +164,7 @@
 		width: 72px; height: 72px;
 		border-radius: 50%;
 		border: 1px solid var(--line);
-		background: #fff;
+		background: var(--fff);
 		object-fit: cover;
 		display: block;
 		cursor: pointer;
@@ -176,7 +173,7 @@
 		position: absolute;
 		right: -6px; bottom: -6px;
 		width: 30px; height: 30px;
-		background: #fff;
+		background: var(--fff);
 		border-radius: 50%;
 		padding: 3px;
 		box-shadow: 0 2px 6px rgba(17, 24, 39, 0.16);
@@ -199,7 +196,7 @@
 		left: 50%; top: 44%;
 		transform: translate(-50%, -50%);
 		border-radius: 50%;
-		border: 2px solid #fff;
+		border: 2px solid var(--fff);
 		box-shadow: 0 2px 6px rgba(17, 24, 39, 0.2);
 		object-fit: cover;
 		cursor: pointer;
