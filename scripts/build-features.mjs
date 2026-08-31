@@ -93,8 +93,22 @@ const fcRaw = await get(
   "https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=0.5",
 );
 const fcValues = {};
+const fcInfo = {};
+const fcPickList = [];
+const isPick = (e) => String(e.player?.sleeperId || "").startsWith("FP_") || /^\d{4} /.test(e.player?.name || "");
 for (const entry of fcRaw) {
-  if (entry.player?.sleeperId) fcValues[entry.player.sleeperId] = entry.value;
+  if (entry.player?.sleeperId && !isPick(entry)) {
+    fcValues[entry.player.sleeperId] = entry.value;
+    fcInfo[entry.player.sleeperId] = {
+      age: entry.player.maybeAge ?? null,
+      team: entry.player.maybeTeam ?? null,
+      trend30: entry.trend30Day ?? 0,
+      fcPosRank: entry.positionRank ?? null,
+      fcRank: entry.overallRank ?? null,
+    };
+  } else {
+    fcPickList.push({ name: entry.player?.name || "", value: entry.value });
+  }
 }
 
 const teams = rosters.map((r) => {
@@ -260,15 +274,178 @@ for (const t of teams) allPlay[t.rosterID] = { w: 0, l: 0 };
   }
 }
 
+// ---------------------------------------------------------------
+// LINEUP STRENGTH: Sleeper's season projections (half-PPR, matches the
+// league) give a "this season" axis to sit beside dynasty value. Each
+// team gets its optimal starting lineup, every starter's league-wide rank
+// at their position, and a strength number per position group.
+// ---------------------------------------------------------------
+const lite = (() => { try { return JSON.parse(readFileSync(join(root, "static/data/players-lite.json"), "utf8")); } catch { return {}; } })();
+const posOf = (pid) => (lite[pid] || "").split("|")[1] || "";
+const nameOf = (pid) => (lite[pid] || "").split("|")[0] || `Player ${pid}`;
+const projRaw = await get(
+  `https://api.sleeper.com/projections/nfl/${league.season}?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&order_by=pts_half_ppr`,
+).catch(() => []);
+const proj = {};
+const nflTeam = {};
+for (const e of projRaw || []) {
+  if (e.player_id && e.stats?.pts_half_ppr != null) proj[e.player_id] = e.stats.pts_half_ppr;
+  if (e.player_id && e.player?.team) nflTeam[e.player_id] = e.player.team;
+}
+const SLOTS = (league.roster_positions || []).filter((x) => x !== "BN");
+const FLEX_OK = { FLEX: ["RB", "WR", "TE"], SUPER_FLEX: ["QB", "RB", "WR", "TE"], WRRB_FLEX: ["RB", "WR"], REC_FLEX: ["WR", "TE"] };
+const activeOf = (r) => (r.players || []).filter((pid) => !(r.taxi || []).includes(pid) && !(r.reserve || []).includes(pid));
+
+const allActive = rosters.flatMap(activeOf);
+const posRankBy = (metric) => {
+  const byPos = {};
+  for (const pid of allActive) (byPos[posOf(pid)] ||= []).push(pid);
+  const rank = {};
+  for (const [pos, ids] of Object.entries(byPos)) {
+    ids.sort((a, b) => (metric[b] || 0) - (metric[a] || 0)).forEach((pid, i) => { rank[pid] = i + 1; });
+  }
+  return rank;
+};
+const projPosRank = posRankBy(proj);
+const valuePosRank = posRankBy(fcValues);
+
+const buildLineup = (r) => {
+  const pool = new Set(activeOf(r));
+  const take = (allowed) => {
+    let best = null;
+    for (const pid of pool) if (allowed.includes(posOf(pid)) && (best == null || (proj[pid] || 0) > (proj[best] || 0))) best = pid;
+    if (best != null) pool.delete(best);
+    return best;
+  };
+  const lineup = [];
+  // dedicated slots first, then flexes from what's left
+  const order = [...SLOTS.filter((x) => !FLEX_OK[x]), ...SLOTS.filter((x) => FLEX_OK[x])];
+  for (const slot of order) {
+    const pid = take(FLEX_OK[slot] || [slot]);
+    lineup.push({
+      slot, pid,
+      name: pid ? nameOf(pid) : null,
+      pos: pid ? posOf(pid) : null,
+      team: pid ? nflTeam[pid] || null : null,
+      proj: pid ? Math.round((proj[pid] || 0) * 10) / 10 : 0,
+      value: pid ? fcValues[pid] || 0 : 0,
+      projPosRank: pid ? projPosRank[pid] || null : null,
+      valuePosRank: pid ? valuePosRank[pid] || null : null,
+    });
+  }
+  // keep league slot order for display
+  const slotIx = Object.fromEntries(SLOTS.map((x, i) => [x + "#" + i, i]));
+  const seen = {};
+  lineup.forEach((l) => { seen[l.slot] = (seen[l.slot] || 0); l._ix = slotIx[l.slot + "#" + (SLOTS.indexOf(l.slot) + seen[l.slot])] ?? 99; seen[l.slot]++; });
+  lineup.sort((a, b) => a._ix - b._ix);
+  lineup.forEach((l) => delete l._ix);
+  const bench = [...pool].map((pid) => ({ pid, name: nameOf(pid), pos: posOf(pid), proj: Math.round((proj[pid] || 0) * 10) / 10, value: fcValues[pid] || 0 }))
+    .sort((a, b) => b.proj - a.proj).slice(0, 6);
+  const projTotal = Math.round(lineup.reduce((sum, l) => sum + l.proj, 0));
+  const posStrength = {};
+  for (const pos of ["QB", "RB", "WR", "TE"]) {
+    posStrength[pos] = {
+      proj: Math.round(lineup.filter((l) => l.pos === pos).reduce((sum, l) => sum + l.proj, 0)),
+      value: activeOf(r).filter((pid) => posOf(pid) === pos).reduce((sum, pid) => sum + (fcValues[pid] || 0), 0),
+    };
+  }
+  return { lineup, bench, projTotal, posStrength };
+};
+const lineups = Object.fromEntries(rosters.map((r) => [r.roster_id, buildLineup(r)]));
+// rank each position group across the league, both axes
+for (const pos of ["QB", "RB", "WR", "TE"]) for (const metric of ["proj", "value"]) {
+  const order = rosters.map((r) => r.roster_id).sort((a, b) => lineups[b].posStrength[pos][metric] - lineups[a].posStrength[pos][metric]);
+  order.forEach((rid, i) => { lineups[rid].posStrength[pos][metric + "Rank"] = i + 1; });
+}
+const projTotals = rosters.map((r) => lineups[r.roster_id].projTotal);
+const projRankOrder = rosters.map((r) => r.roster_id).sort((a, b) => lineups[b].projTotal - lineups[a].projTotal);
+const projRank = Object.fromEntries(projRankOrder.map((rid, i) => [rid, i + 1]));
+const valueRankOrder = rosters.map((r) => r.roster_id).sort((a, b) => (teams.find((t) => t.rosterID === b)?.rosterValue || 0) - (teams.find((t) => t.rosterID === a)?.rosterValue || 0));
+const valueRank = Object.fromEntries(valueRankOrder.map((rid, i) => [rid, i + 1]));
+const gamesPlayed = teams.some((t) => t.wins + t.losses + t.ties > 0);
+const ownersByRoster = (() => { try { return JSON.parse(readFileSync(join(root, "static/data/knowledge.json"), "utf8")).ownersByRoster || {}; } catch { return {}; } })();
+const ownerOf = (rid) => {
+  // "Bryan Laue (@laue); co-owner: David McKeon (@dmckeon7)" -> "Bryan & David"
+  const raw = ownersByRoster[String(rid)];
+  if (raw) {
+    const firsts = raw.split(";").map((part) => part.replace(/co-owner:/i, "").trim().split(" ")[0]).filter(Boolean);
+    if (firsts.length) return firsts.join(" & ");
+  }
+  const r = rosters.find((x) => x.roster_id === rid); const u = r && userById[r.owner_id]; return u?.display_name || null;
+};
+console.log(`lineup strength: ${Object.keys(proj).length} projections, ${gamesPlayed ? "in-season" : "preseason"} composite`);
+
+// ---------------------------------------------------------------
+// VALUE COMPOSITION: every rostered asset with its dynasty value, so the
+// page can draw positional stacks, team breakdowns and comparisons.
+// ---------------------------------------------------------------
+const tradedPicksAll = await get(`https://api.sleeper.app/v1/league/${leagueID}/traded_picks`).catch(() => []);
+const seasonNum = Number(league.season);
+const pickOwnerNow = {};
+for (const tp of tradedPicksAll || []) pickOwnerNow[`${tp.season}-${tp.round}-${tp.roster_id}`] = tp.owner_id; // last hop wins
+const pickValue = (season, round) => {
+  const ordinal = (n) => n + (["th", "st", "nd", "rd"][n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] || "th");
+  const specific = new RegExp(`^${season} Pick ${round}\\.`);
+  const general = new RegExp(`^${season} ${ordinal(round)}`);
+  const m = fcPickList.filter((x) => specific.test(x.name) || general.test(x.name));
+  if (m.length) return Math.round(m.reduce((a, b) => a + b.value, 0) / m.length);
+  return { 1: 2500, 2: 800, 3: 300 }[round] || 100;
+};
+const picksByRoster = {};
+for (const sOff of [1, 2, 3]) for (const round of [1, 2, 3, 4]) for (const r of rosters) {
+  const season = seasonNum + sOff;
+  const owner = pickOwnerNow[`${season}-${round}-${r.roster_id}`] ?? r.roster_id;
+  (picksByRoster[owner] ||= []).push({ season, round, orig: r.roster_id, origName: teamName(r).trim(), value: pickValue(season, round) });
+}
+const composition = {};
+for (const r of rosters) {
+  const status = (pid) => (r.taxi || []).includes(pid) ? "taxi" : (r.reserve || []).includes(pid) ? "ir" : "active";
+  const players = (r.players || []).map((pid) => ({
+    pid, name: nameOf(pid), pos: posOf(pid), team: fcInfo[pid]?.team || nflTeam[pid] || null,
+    age: fcInfo[pid]?.age ?? null, value: fcValues[pid] || 0, trend30: fcInfo[pid]?.trend30 || 0,
+    fcPosRank: fcInfo[pid]?.fcPosRank ?? null, proj: Math.round((proj[pid] || 0) * 10) / 10, status: status(pid),
+  })).sort((a, b) => b.value - a.value);
+  const picks = (picksByRoster[r.roster_id] || []).sort((a, b) => a.season - b.season || a.round - b.round);
+  const valueByPos = { QB: 0, RB: 0, WR: 0, TE: 0, OTHER: 0, PICK: picks.reduce((a, b) => a + b.value, 0) };
+  for (const pl of players) valueByPos[valueByPos[pl.pos] != null ? pl.pos : "OTHER"] += pl.value;
+  const weighted = players.filter((pl) => pl.age != null && pl.value > 0);
+  const avgAge = weighted.length ? weighted.reduce((a, pl) => a + pl.age * pl.value, 0) / weighted.reduce((a, pl) => a + pl.value, 0) : null;
+  composition[r.roster_id] = {
+    players, picks, valueByPos,
+    totalValue: Math.round(valueByPos.QB + valueByPos.RB + valueByPos.WR + valueByPos.TE + valueByPos.OTHER + valueByPos.PICK),
+    trend30: Math.round(players.reduce((a, pl) => a + pl.trend30, 0)),
+    avgAge: avgAge != null ? Math.round(avgAge * 10) / 10 : null,
+  };
+}
+
 const ranked = teams
   .map((t, ix) => ({
     ...t,
     allPlayW: allPlay[t.rosterID]?.w || 0,
     allPlayL: allPlay[t.rosterID]?.l || 0,
-    composite:
-      0.5 * norm(winPcts[ix], winPcts) +
-      0.3 * norm(t.fpts, fptsArr) +
-      0.2 * norm(t.rosterValue, valueArr),
+    // preseason: nothing has been played, so rank what the rosters project
+    // to score this season, tempered by dynasty value. In season the
+    // record and points take over and projections fade to a tiebreaker.
+    composite: gamesPlayed
+      ? 0.45 * norm(winPcts[ix], winPcts) +
+        0.3 * norm(t.fpts, fptsArr) +
+        0.15 * norm(t.rosterValue, valueArr) +
+        0.1 * norm(lineups[t.rosterID].projTotal, projTotals)
+      : 0.6 * norm(lineups[t.rosterID].projTotal, projTotals) +
+        0.4 * norm(t.rosterValue, valueArr),
+    owner: ownerOf(t.rosterID),
+    projTotal: lineups[t.rosterID].projTotal,
+    projRank: projRank[t.rosterID],
+    valueRank: valueRank[t.rosterID],
+    lineup: lineups[t.rosterID].lineup,
+    bench: lineups[t.rosterID].bench,
+    posStrength: lineups[t.rosterID].posStrength,
+    roster: composition[t.rosterID].players,
+    picks: composition[t.rosterID].picks,
+    valueByPos: composition[t.rosterID].valueByPos,
+    totalValue: composition[t.rosterID].totalValue,
+    trend30: composition[t.rosterID].trend30,
+    avgAge: composition[t.rosterID].avgAge,
   }))
   .sort((a, b) => b.composite - a.composite)
   .map((t, ix) => ({
@@ -292,7 +469,7 @@ for (const t of ranked) {
 mkdirSync(join(root, "static/data"), { recursive: true });
 writeFileSync(
   join(root, "static/data/power-rankings.json"),
-  JSON.stringify({ generated: new Date().toISOString(), teams: ranked }),
+  JSON.stringify({ generated: new Date().toISOString(), week: nflState?.season_type === "regular" ? Number(nflState.week) || null : null, preseason: !gamesPlayed, slots: SLOTS, teams: ranked }),
 );
 console.log(`wrote static/data/power-rankings.json (${ranked.length} teams)`);
 

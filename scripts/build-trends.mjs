@@ -41,8 +41,9 @@ const tradedPicks = await get(`https://api.sleeper.app/v1/league/${leagueID}/tra
 const fcRaw = await get("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=0.5");
 const fcPlayers = {};
 const fcPicks = [];
+const isPick = (e) => String(e.player?.sleeperId || "").startsWith("FP_") || /^\d{4} /.test(e.player?.name || "");
 for (const e of fcRaw) {
-  if (e.player?.sleeperId) fcPlayers[e.player.sleeperId] = e.value;
+  if (e.player?.sleeperId && !isPick(e)) fcPlayers[e.player.sleeperId] = e.value;
   else fcPicks.push({ name: e.player?.name || "", value: e.value });
 }
 const pickValue = (s, r) => valueForPick(fcPicks, s, r);
@@ -126,6 +127,7 @@ for (const cp of checkpoints) {
   const ranks = rankAll(values);
   backfillPoints.push({
     d: day(cp.getTime()),
+    phase: "off",
     week: null,
     source: "backfill",
     teams: Object.fromEntries(rosterIDs.map((rid) => [rid, { rank: null, valueRank: ranks[rid], value: values[rid] }])),
@@ -142,7 +144,10 @@ const liveValues = Object.fromEntries(rosterIDs.map((rid) => [rid, valueOf(now[r
 const liveRanks = rankAll(liveValues);
 const today = {
   d: day(Date.now()),
-  week: state.season_type === "regular" && state.week > 0 ? Number(state.week) : null,
+  // phase + week let the chart thin points to one per NFL week in season
+  // (preseason included) and one per month in the off-season
+  phase: ["pre", "regular", "post"].includes(state.season_type) ? state.season_type : "off",
+  week: ["pre", "regular", "post"].includes(state.season_type) && state.week > 0 ? Number(state.week) : null,
   source: "bake",
   teams: Object.fromEntries(rosterIDs.map((rid) => [rid, {
     rank: prBy[rid]?.rank ?? null, // composite power rank (bake only)

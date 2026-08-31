@@ -18,9 +18,18 @@
 
 	const PALETTE = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c', '#4f46e5', '#0d9488', '#9f1239'];
 
+	// one point per month in the off-season, one per NFL week (preseason
+	// included) in season: the last bake in each bucket represents it
+	const bucketKey = (p) => (p.phase && p.phase !== 'off' && p.week != null) ? `${p.d.slice(0, 4)}-${p.phase}-${String(p.week).padStart(2, '0')}` : p.d.slice(0, 7);
+	const thinned = $derived.by(() => {
+		if (!ledger) return [];
+		const byKey = new Map();
+		for (const p of ledger.points) byKey.set(bucketKey(p), p); // ledger is date-sorted, last wins
+		return [...byKey.values()].sort((a, b) => a.d.localeCompare(b.d));
+	});
 	const points = $derived.by(() => {
 		if (!ledger) return [];
-		let pts = ledger.points.filter((p) => Object.values(p.teams).some((t) => t[metric] != null));
+		let pts = thinned.filter((p) => Object.values(p.teams).some((t) => t[metric] != null));
 		if (period === '4w') {
 			const cutoff = Date.now() - 28 * 864e5;
 			const recent = pts.filter((p) => new Date(p.d).getTime() >= cutoff);
@@ -89,8 +98,38 @@
 	});
 	const label = (p) => {
 		const d = new Date(p.d + 'T12:00:00Z');
-		return p.week ? `Wk ${p.week}` : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+		if (p.phase === 'pre' && p.week) return `Pre ${p.week}`;
+		if (p.phase === 'post' && p.week) return `Playoffs`;
+		if (p.week) return `Wk ${p.week}`;
+		return d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
 	};
+	const longLabel = (p) => {
+		const d = new Date(p.d + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+		if (p.phase === 'pre' && p.week) return `Preseason week ${p.week} · ${d}`;
+		if (p.week) return `${p.phase === 'post' ? 'Playoffs' : 'Week ' + p.week} · ${d}`;
+		return `${d}${p.source === 'backfill' ? ' · reconstructed' : ''}`;
+	};
+	// hover state: which point index is under the cursor
+	let hover = $state(null);
+	let svgEl = $state(null);
+	const onMove = (e) => {
+		if (!svgEl || !points.length) return;
+		const rect = svgEl.getBoundingClientRect();
+		const x = ((e.clientX - rect.left) / rect.width) * W;
+		let best = 0;
+		for (let i = 1; i < xs.length; i++) if (Math.abs(xs[i] - x) < Math.abs(xs[best] - x)) best = i;
+		hover = best;
+	};
+	const hoverRows = $derived.by(() => {
+		if (hover == null || !points[hover]) return [];
+		const p = points[hover];
+		const prev = hover > 0 ? points[hover - 1] : null;
+		return teamIDs
+			.map((rid) => ({ rid, name: ledger.teams[rid], v: p.teams[rid]?.[metric], pv: prev?.teams[rid]?.[metric] }))
+			.filter((r) => r.v != null)
+			.sort((a, b) => isRank ? a.v - b.v : b.v - a.v)
+			.map((r) => ({ ...r, d: r.pv == null ? null : (isRank ? r.pv - r.v : r.v - r.pv) }));
+	});
 	const tickIdx = $derived(points.length <= 8 ? points.map((_, i) => i) : points.map((_, i) => i).filter((i) => i === 0 || i === points.length - 1 || i % Math.ceil(points.length / 7) === 0));
 </script>
 
@@ -116,6 +155,16 @@
 	.lval { font-variant-numeric: tabular-nums; color: var(--muted, #6b7280); }
 	.up { color: #16a34a; } .down { color: #dc2626; }
 	.empty { color: var(--muted, #6b7280); font-size: 0.9em; padding: 12px; }
+	.dot { opacity: 0.55; transition: r 0.1s; }
+	.dot.on { opacity: 1; }
+	.dim .dot { opacity: 0.1; } .dim .dot.on { opacity: 1; }
+	.hoverLine { stroke: #9ca3af; stroke-dasharray: 3 3; }
+	.tip { margin: 4px 8px 0; padding: 8px 10px; border: 1px solid var(--line, #e5e7eb); border-radius: 8px; background: #fff; font-size: 0.8em; }
+	.tipHead { font-weight: 700; margin-bottom: 6px; }
+	.tipGrid { display: grid; grid-template-columns: 10px 1fr auto auto; gap: 2px 10px; align-items: center; column-gap: 8px; max-height: 190px; overflow: auto; }
+	.tipGrid .lval { text-align: right; }
+	.flat { color: var(--muted, #6b7280); }
+	@media (min-width: 700px) { .tipGrid { grid-template-columns: 10px 1fr auto auto 10px 1fr auto auto; } }
 	.axis text { font-size: 10px; fill: #9ca3af; }
 	.axis line { stroke: #eef0f3; }
 	.endLabel { font-size: 10.5px; font-weight: 600; }
@@ -145,7 +194,7 @@
 		{:else if points.length < 2}
 			<p class="empty">Not enough history yet - this chart fills in as the bakes accumulate.</p>
 		{:else}
-			<svg viewBox="0 0 {W} {H}" class:dim={focus != null} role="img" aria-label={title}>
+			<svg viewBox="0 0 {W} {H}" class:dim={focus != null} role="img" aria-label={title} bind:this={svgEl} onmousemove={onMove} onmouseleave={() => hover = null} ontouchstart={(e) => onMove(e.touches[0])} ontouchmove={(e) => onMove(e.touches[0])}>
 				<g class="axis">
 					{#each (isRank ? Array.from({ length: teamIDs.length }, (_, i) => i + 1) : [range.lo, (range.lo + range.hi) / 2, range.hi]) as v}
 						<line x1={PL} x2={W - PR} y1={y(v)} y2={y(v)} />
@@ -155,14 +204,36 @@
 						<text x={xs[i]} y={H - 10} text-anchor="middle">{label(points[i])}</text>
 					{/each}
 				</g>
+				{#if hover != null && xs[hover] != null}
+					<line class="hoverLine" x1={xs[hover]} x2={xs[hover]} y1={PT} y2={H - PB} />
+				{/if}
 				{#each teamIDs as rid, k}
 					<path class="line" class:on={focus === rid} d={path(rid)} stroke={PALETTE[k % PALETTE.length]} onclick={() => focus = focus === rid ? null : rid} role="button" tabindex="-1" />
+					{#each points as p, i}
+						{#if p.teams[rid]?.[metric] != null}
+							<circle class="dot" class:on={focus === rid || hover === i} cx={xs[i]} cy={y(p.teams[rid][metric])} r={hover === i ? 3.6 : 2.4} fill={PALETTE[k % PALETTE.length]} />
+						{/if}
+					{/each}
 				{/each}
 				{#each narrow ? [] : legend as t, k}
 					{@const idx = teamIDs.indexOf(t.rid)}
 					<text class="endLabel" x={W - PR + 8} y={endLabelY[t.rid] + 3.5} fill={PALETTE[idx % PALETTE.length]} opacity={focus == null || focus === t.rid ? 1 : 0.25}>{t.name.length > 20 ? t.name.slice(0, 19) + '…' : t.name}</text>
 				{/each}
 			</svg>
+			{#if hover != null && points[hover]}
+				<div class="tip">
+					<div class="tipHead">{longLabel(points[hover])}</div>
+					<div class="tipGrid">
+						{#each (focus ? hoverRows.filter((r) => r.rid === focus) : hoverRows) as r}
+							{@const idx = teamIDs.indexOf(r.rid)}
+							<span class="swatch" style="background: {PALETTE[idx % PALETTE.length]}"></span>
+							<span class="lname">{r.name}</span>
+							<span class="lval">{fmt(r.v)}</span>
+							<span class={r.d > 0 ? 'up' : r.d < 0 ? 'down' : 'flat'}>{r.d == null ? '' : r.d === 0 ? '·' : (r.d > 0 ? '▲' : '▼') + (isRank ? Math.abs(r.d) : fmt(Math.abs(r.d)).replace('#', ''))}</span>
+						{/each}
+					</div>
+				</div>
+			{/if}
 			<div class="legend">
 				{#each legend as t}
 					{@const idx = teamIDs.indexOf(t.rid)}
