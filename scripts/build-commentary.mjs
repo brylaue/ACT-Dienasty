@@ -341,10 +341,10 @@ for (const { t, classified } of gradeableTrades) {
     // freeze the trade's value picture NOW - grading old trades with
     // today's values is nonsense, so a future GM Report Card needs the
     // numbers as they stood when the trade happened
-    if (classified?.totals && t.rosters?.length === 2) {
+    if (classified?.totals && t.rosters?.length >= 2) {
       existing.tradeMeta[t.id] = {
         at: t.status_updated || Date.now(),
-        rosters: t.rosters, // [rosterA, rosterB]
+        rosters: t.rosters, // every side, in move order
         totals: classified.totals, // dynasty value each side received, at trade time
         gapPct: classified.gapPct,
         tier: classified.tier,

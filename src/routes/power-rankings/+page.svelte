@@ -1,4 +1,5 @@
 <script>
+	import TrendChart from '$lib/TrendChart.svelte';
     import LinearProgress from '@smui/linear-progress';
 
     let data = null;
@@ -236,3 +237,6 @@
         margin-top: 24px;
     }
 </style>
+
+<TrendChart metric="valueRank" metricOptions={[['valueRank', 'Rank'], ['value', 'Value']]} title="Roster value over time" subtitle="Each roster's dynasty value (players plus future picks) and where it ranks. Points before the season are reconstructed from the transaction ledger at current prices, so the line shows what each manager built, not price swings." />
+<TrendChart metric="rank" title="Power rank over time" subtitle="The composite power rank from each bake - record, points, roster value and all-play combined. Starts accumulating from the first in-season bake." />

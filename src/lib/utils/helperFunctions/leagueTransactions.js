@@ -353,10 +353,10 @@ const digestTransaction = ({ transaction, currentSeason }) => {
       },
     };
 
-    if (pick.roster_id != pick.previous_owner_id) {
-      move[transactionRosters.indexOf(pick.owner_id)].pick.original_owner =
-        pick.roster_id;
-    }
+    // always say whose pick it is - a "2027 1st" means nothing without the
+    // franchise it belongs to, even when the trader is the original owner
+    move[transactionRosters.indexOf(pick.owner_id)].pick.original_owner =
+      pick.roster_id;
 
     move[transactionRosters.indexOf(pick.previous_owner_id)] = "origin";
 

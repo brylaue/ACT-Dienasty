@@ -27,49 +27,67 @@ export const valueForPick = (picks, season, round) => {
 };
 
 /*
-  Classify a 2-team trade: which side (by index 0/1) comes out ahead and by
-  how much. No team names involved.
+  Classify a trade with any number of teams. Each side is graded on the
+  value it RECEIVED minus the value it SENT; the winner is the side with
+  the biggest net gain, the loser the biggest net loss. For two-team trades
+  this reduces exactly to comparing what each side received. No team names.
   Returns null when the trade can't be meaningfully graded.
 */
 export const classifyTrade = (transaction, values) => {
   if (transaction.type != "trade") return null;
-  if (transaction.rosters.length != 2) return null; // 3-team chaos: not today
+  const n = transaction.rosters.length;
+  if (n < 2) return null;
 
-  const totals = transaction.rosters.map(() => 0);
+  const received = transaction.rosters.map(() => 0);
+  const sent = transaction.rosters.map(() => 0);
 
   for (const move of transaction.moves) {
+    let value = 0;
+    let destIx = -1;
+    let originIx = -1;
     for (let ix = 0; ix < move.length; ix++) {
       const asset = move[ix];
-      if (!asset || asset === "origin" || typeof asset !== "object") continue;
+      if (asset === "origin") { originIx = ix; continue; }
+      if (!asset || typeof asset !== "object") continue;
+      destIx = ix;
       if (asset.player) {
         const v = values.players[asset.player];
-        if (v != null) totals[ix] += v;
+        if (v != null) value += v;
       } else if (asset.pick) {
-        totals[ix] += valueForPick(
-          values.picks,
-          asset.pick.season,
-          asset.pick.round,
-        );
+        value += valueForPick(values.picks, asset.pick.season, asset.pick.round);
       } else if (asset.budget) {
         // FAAB dollars are worth roughly a late-round dart throw
-        totals[ix] += asset.budget.amount * 2;
+        value += asset.budget.amount * 2;
       }
     }
+    if (destIx >= 0) received[destIx] += value;
+    if (originIx >= 0) sent[originIx] += value;
   }
 
-  if (totals[0] + totals[1] < 100) return null; // nothing gradeable
+  const moved = received.reduce((a, b) => a + b, 0);
+  if (moved < 100) return null; // nothing gradeable
 
-  const winnerIx = totals[0] >= totals[1] ? 0 : 1;
-  const loserIx = winnerIx === 0 ? 1 : 0;
-  const gapPct =
-    (totals[winnerIx] - totals[loserIx]) / Math.max(totals[loserIx], 1);
+  const net = received.map((r, ix) => r - sent[ix]);
+  let winnerIx = 0, loserIx = 0;
+  for (let ix = 1; ix < n; ix++) {
+    if (net[ix] > net[winnerIx]) winnerIx = ix;
+    if (net[ix] < net[loserIx]) loserIx = ix;
+  }
+  if (n === 2) {
+    // preserve the original two-team formula so historical tradeMeta stays comparable
+    winnerIx = received[0] >= received[1] ? 0 : 1;
+    loserIx = winnerIx === 0 ? 1 : 0;
+  }
+  const gapPct = n === 2
+    ? (received[winnerIx] - received[loserIx]) / Math.max(received[loserIx], 1)
+    : (net[winnerIx] - net[loserIx]) / Math.max(moved / n, 1);
 
   let tier = "even";
   if (gapPct >= 0.4) tier = "fleece";
   else if (gapPct >= 0.2) tier = "clear";
   else if (gapPct >= 0.08) tier = "edge";
 
-  return { totals, winnerIx, loserIx, gapPct, tier };
+  return { totals: received, sent, net, winnerIx, loserIx, gapPct, tier, teams: n };
 };
 
 export const gradeFor = (gapPct, isWinner) => {

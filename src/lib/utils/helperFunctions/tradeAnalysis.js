@@ -103,7 +103,7 @@ const VERDICTS = {
 };
 
 /*
-  Analyze a digested trade transaction (2-team trades only) and attach a
+  Analyze a digested trade transaction (any number of teams) and attach a
   comedic verdict line. If a fresh, AI-written line for this exact
   transaction is available (baked weekly into static/data/commentary.json,
   keyed by transaction id), that's used - so every trade gets its own take
@@ -137,9 +137,9 @@ export const analyzeTrade = (transaction, values, teamNames, commentary) => {
     gapPct,
     tier,
     verdict: line,
-    grades: {
-      [winner.rosterID]: gradeFor(gapPct, true),
-      [loser.rosterID]: gradeFor(gapPct, false),
-    },
+    grades: Object.fromEntries(sides.map((side) => [
+      side.rosterID,
+      side === winner ? gradeFor(gapPct, true) : side === loser ? gradeFor(gapPct, false) : "B",
+    ])),
   };
 };

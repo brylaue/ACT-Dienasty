@@ -61,6 +61,12 @@
     })();
 
     const nameFor = (rosterID) => pr?.teams?.find((t) => t.rosterID === rosterID)?.name || `Team ${rosterID}`;
+    let ltm = $state(null);
+    leagueTeamManagersData.then((v) => { ltm = v; }).catch(() => {});
+    const avatarFor = (rosterID) => {
+        if (!ltm) return null;
+        try { return getAvatarFromTeamManagers(ltm, rosterID, ltm.currentSeason); } catch { return null; }
+    };
     const rankFor = (rosterID) => pr?.teams?.find((t) => t.rosterID === rosterID)?.rank || null;
     const oddsTop = $derived(odds?.teams?.slice(0, 3) || []);
     const recordToBeat = $derived(recordWatch?.highs?.[0] || null);
@@ -122,23 +128,29 @@
 
     <!-- ── LEAGUE PULSE: the numbers that matter right now ─────── -->
     {#if scoreboard}
-        <section class="scoreboardWrap">
-            <div class="scoreboard">
-                <span class="sbLabel">{scoreboard.started ? `Week ${scoreboard.week}` : `Week ${scoreboard.week} matchups` + (scoreboard.kickoff ? ` · kickoff ${scoreboard.kickoff}` : '')}</span>
+        <section class="matchupsWrap">
+            <div class="matchupsHead">
+                <span class="mhTitle">Week {scoreboard.week} matchups</span>
+                {#if !scoreboard.started && scoreboard.kickoff}<span class="mhSub">Kickoff {scoreboard.kickoff}</span>
+                {:else if scoreboard.started}<span class="mhSub live">Live scores</span>{/if}
+                <a class="mhAll" href="/matchups">All matchups &rarr;</a>
+            </div>
+            <div class="matchups">
                 {#each scoreboard.games as g}
-                    {#if scoreboard.started}
-                        <span class="sbGame live">
-                            <span class="sbTeam" class:leading={g[0].pts > g[1].pts}>{nameFor(g[0].rosterID).trim()} {g[0].pts.toFixed(1)}</span>
-                            <span class="sbDash">–</span>
-                            <span class="sbTeam" class:leading={g[1].pts > g[0].pts}>{g[1].pts.toFixed(1)} {nameFor(g[1].rosterID).trim()}</span>
-                        </span>
-                    {:else}
-                        <span class="sbGame">
-                            <span class="sbTeam">{#if rankFor(g[0].rosterID)}<span class="sbRank">#{rankFor(g[0].rosterID)}</span>{/if}{nameFor(g[0].rosterID).trim()}</span>
-                            <span class="sbVs">vs</span>
-                            <span class="sbTeam">{#if rankFor(g[1].rosterID)}<span class="sbRank">#{rankFor(g[1].rosterID)}</span>{/if}{nameFor(g[1].rosterID).trim()}</span>
-                        </span>
-                    {/if}
+                    {@const a = g[0]}
+                    {@const b = g[1]}
+                    {@const aLead = scoreboard.started && a.pts > b.pts}
+                    {@const bLead = scoreboard.started && b.pts > a.pts}
+                    <a class="mCard" href="/matchups">
+                        {#each [a, b] as t, i}
+                            <div class="mRow" class:lead={scoreboard.started && t.pts > (i === 0 ? b.pts : a.pts)} class:trail={scoreboard.started && t.pts < (i === 0 ? b.pts : a.pts)}>
+                                {#if avatarFor(t.rosterID)}<img class="mAvatar" src={avatarFor(t.rosterID)} alt="" />{:else}<span class="mAvatar"></span>{/if}
+                                <span class="mName">{nameFor(t.rosterID).trim()}</span>
+                                {#if scoreboard.started}<span class="mScore">{t.pts.toFixed(1)}</span>
+                                {:else if rankFor(t.rosterID)}<span class="mRank">#{rankFor(t.rosterID)}</span>{/if}
+                            </div>
+                        {/each}
+                    </a>
                 {/each}
             </div>
         </section>
@@ -485,51 +497,56 @@
 
     .refreshRow { margin-top: 14px; }
 
-    /* ── gameday scoreboard ── */
-    .scoreboardWrap { padding: 14px 20px 0; }
-    .scoreboard {
-        max-width: 980px;
-        margin: 0 auto;
+    /* ── this week's matchups ── */
+    .matchupsWrap { padding: 18px 20px 0; max-width: 1020px; margin: 0 auto; }
+    .matchupsHead {
         display: flex;
-        align-items: center;
-        gap: 18px;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+        align-items: baseline;
+        gap: 12px;
+        margin: 0 0 10px 2px;
+    }
+    .mhTitle { font-weight: 700; font-size: 0.95em; color: var(--ink); }
+    .mhSub { font-size: 0.82em; color: var(--muted); }
+    .mhSub.live { color: #16a34a; font-weight: 600; }
+    .mhAll { margin-left: auto; font-size: 0.82em; color: var(--accent); text-decoration: none; }
+    .matchups {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+    .mCard {
+        display: flex;
+        flex-direction: column;
         background: var(--fff);
         border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 10px 16px;
-        font-size: 0.82em;
-        white-space: nowrap;
+        border-radius: 12px;
+        padding: 6px 12px;
+        text-decoration: none;
+        color: var(--ink);
+        transition: border-color 0.15s;
     }
-    .sbLabel {
-        font-weight: 700;
-        font-size: 0.85em;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--accent);
+    .mCard:hover { border-color: var(--accent); }
+    .mRow { display: flex; align-items: center; gap: 10px; padding: 7px 0; min-width: 0; }
+    .mRow + .mRow { border-top: 1px solid var(--line); }
+    .mAvatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; background: var(--fff); border: 1px solid var(--line); object-fit: cover; display: inline-block; }
+    .mName { flex: 1; font-size: 0.9em; font-weight: 600; line-height: 1.25; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .mRank {
         flex-shrink: 0;
-    }
-    .sbGame { color: var(--muted); flex-shrink: 0; }
-    .sbGame.live .sbTeam.leading { color: var(--ink); font-weight: 700; }
-    .sbDash { padding: 0 4px; }
-    .sbVs { padding: 0 6px; font-size: 0.85em; color: var(--muted); }
-    .sbRank {
-        display: inline-block;
-        margin-right: 5px;
-        padding: 1px 5px;
-        border-radius: 5px;
-        background: var(--accent);
-        color: var(--fff);
+        font-size: 0.74em;
         font-weight: 700;
-        font-size: 0.78em;
-        vertical-align: 1px;
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 10%, transparent);
+        border-radius: 5px;
+        padding: 2px 6px;
     }
-    .scoreboard .sbGame .sbTeam { color: var(--ink); }
-    .scoreboardWrap { position: relative; }
-    .scoreboard {
-        mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 48px), transparent);
-        -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 48px), transparent);
+    .mScore { flex-shrink: 0; font-weight: 800; font-size: 1.05em; font-variant-numeric: tabular-nums; }
+    .mRow.lead .mScore { color: var(--accent); }
+    .mRow.trail { opacity: 0.65; }
+    @media (max-width: 860px) { .matchups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 520px) {
+        .matchups { grid-template-columns: 1fr; }
+        .mAvatar { width: 30px; height: 30px; }
+        .mhAll { display: none; }
     }
 
     /* ── about ── */

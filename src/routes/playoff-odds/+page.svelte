@@ -1,4 +1,5 @@
 <script>
+	import TrendChart from '$lib/TrendChart.svelte';
     import LinearProgress from '@smui/linear-progress';
 
     let data = null;
@@ -205,3 +206,5 @@
         margin-top: 24px;
     }
 </style>
+
+<TrendChart metric="playoffPct" title="Playoff odds over time" subtitle="Each team's playoff probability from every bake's 3,000-season simulation." />

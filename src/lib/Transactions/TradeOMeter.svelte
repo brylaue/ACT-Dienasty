@@ -10,7 +10,7 @@
     const now = new Date();
     const currentNflSeason = now.getMonth() < 3 ? now.getFullYear() - 1 : now.getFullYear();
     const gradeable = transaction.type == 'trade'
-        && transaction.rosters.length == 2
+        && transaction.rosters.length >= 2
         && transaction.season >= currentNflSeason;
 
     const teamNames = transaction.rosters.map((r) =>
@@ -52,15 +52,13 @@
         background-color: var(--eee);
     }
 
-    .barA {
-        background-color: var(--blueOne);
-        transition: width 0.6s ease;
-    }
+    .seg { height: 100%; }
+    .seg0 { background: var(--accent, #2563eb); }
+    .seg1 { background: #f59e0b; }
+    .seg2 { background: #10b981; }
 
-    .barB {
-        background-color: var(--QB);
-        transition: width 0.6s ease;
-    }
+    .totals.multi { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; text-align: center; }
+    .sideName { display: block; font-size: 0.8em; color: var(--muted, #6b7280); }
 
     .totals {
         display: flex;
@@ -102,18 +100,18 @@
             <div class="tradeOMeter">
                 <div class="tomHeader">⚖️ Trade-o-Meter</div>
                 <div class="bar">
-                    <div class="barA" style="width: {analysis.sides[0].total / (analysis.sides[0].total + analysis.sides[1].total) * 100}%"></div>
-                    <div class="barB" style="width: {analysis.sides[1].total / (analysis.sides[0].total + analysis.sides[1].total) * 100}%"></div>
+                    {#each analysis.sides as side, ix}
+                        <div class="seg seg{ix % 3}" style="width: {side.total / Math.max(analysis.sides.reduce((a, s) => a + s.total, 0), 1) * 100}%"></div>
+                    {/each}
                 </div>
-                <div class="totals">
-                    <span>
-                        {analysis.sides[0].total.toLocaleString()}
-                        <span class="grade">{analysis.grades[analysis.sides[0].rosterID]}</span>
-                    </span>
-                    <span>
-                        <span class="grade">{analysis.grades[analysis.sides[1].rosterID]}</span>
-                        {analysis.sides[1].total.toLocaleString()}
-                    </span>
+                <div class="totals" class:multi={analysis.sides.length > 2}>
+                    {#each analysis.sides as side}
+                        <span class="sideTotal">
+                            {#if analysis.sides.length > 2}<span class="sideName">{side.name}</span>{/if}
+                            {side.total.toLocaleString()}
+                            <span class="grade">{analysis.grades[side.rosterID]}</span>
+                        </span>
+                    {/each}
                 </div>
                 <div class="verdict">{analysis.verdict}</div>
                 <div class="disclaimer">per FantasyCalc dynasty values (superflex, 0.5 PPR) · for entertainment &amp; trash talk purposes</div>

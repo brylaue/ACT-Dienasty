@@ -76,6 +76,7 @@ const askClaudeJSON = async (system, user) => {
 // --- gather current-season league state ---
 
 const league = await get(`https://api.sleeper.app/v1/league/${leagueID}`);
+const nflState = await get("https://api.sleeper.app/v1/state/nfl").catch(() => null);
 const rosters = await get(`https://api.sleeper.app/v1/league/${leagueID}/rosters`);
 const users = await get(`https://api.sleeper.app/v1/league/${leagueID}/users`);
 const playoffTeams = Math.max(league.settings?.playoff_teams || 6, 6); // constitution: 6 as of Aug 2026 vote (Sleeper may lag)
@@ -182,6 +183,28 @@ if (existsSync(PR_PATH)) {
   } catch {
     /* no previous data - movement/trends just won't show this week */
   }
+}
+
+// WEEK-OVER-WEEK, not bake-over-bake: with three bakes a week the previous
+// file may be three days old. The trends ledger lets us anchor "previous"
+// to the last snapshot from a different NFL week (or, out of season, the
+// last snapshot at least six days old) so every arrow answers "how did
+// this week change things".
+const TRENDS_PATH = join(root, "static/data/trends.json");
+const weekAnchor = (() => {
+  if (!existsSync(TRENDS_PATH)) return null;
+  try {
+    const ledger = JSON.parse(readFileSync(TRENDS_PATH, "utf8"));
+    const bakes = (ledger.points || []).filter((pt) => pt.source === "bake");
+    if (!bakes.length) return null;
+    const thisWeek = nflState?.season_type === "regular" && nflState.week > 0 ? Number(nflState.week) : null;
+    const cutoff = Date.now() - 6 * 864e5;
+    const eligible = bakes.filter((pt) => (thisWeek != null && pt.week != null ? pt.week < thisWeek : new Date(pt.d).getTime() <= cutoff));
+    return eligible.length ? eligible[eligible.length - 1] : null;
+  } catch { return null; }
+})();
+if (weekAnchor) {
+  for (const [rid, t] of Object.entries(weekAnchor.teams)) if (t.rank != null) prevRanks[rid] = t.rank;
 }
 
 // append this run's dynasty value to each team's history (one point per
@@ -376,6 +399,7 @@ if (existsSync(ODDS_PATH)) {
   try {
     const prev = JSON.parse(readFileSync(ODDS_PATH, "utf8"));
     for (const t of prev.teams || []) prevPcts[t.rosterID] = t.playoffPct;
+    if (weekAnchor) for (const [rid, t] of Object.entries(weekAnchor.teams)) if (t.playoffPct != null) prevPcts[rid] = t.playoffPct;
   } catch {
     /* no previous data - movement just won't show this week */
   }
