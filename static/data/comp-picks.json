@@ -1,0 +1,26 @@
+{
+  "note": "Compensatory pick 1.13 (constitution 3.2.5): the Toilet Bowl (loser's bracket) winner earns a pick between rounds 1 and 2, fully tradable. In effect since the 2025 draft. The pick lives outside Sleeper's draft board - the commissioner processes the selection as a roster add.",
+  "effectiveSeason": 2025,
+  "picks": [
+    {
+      "season": 2025,
+      "wonYear": 2024,
+      "rosterID": 8,
+      "teamName": "The 5th Rounders",
+      "owner": "David Bortz",
+      "player": "Jaxson Dart",
+      "pos": "QB",
+      "postscript": "later traded to Immigrants (Oct 2025)"
+    },
+    {
+      "season": 2026,
+      "wonYear": 2025,
+      "rosterID": 6,
+      "teamName": "Silver Bullets",
+      "owner": "Alex Campbell",
+      "player": "Jonah Coleman",
+      "pos": "RB",
+      "postscript": null
+    }
+  ]
+}

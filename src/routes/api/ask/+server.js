@@ -87,6 +87,10 @@ export async function POST(event) {
     } catch { /* no FAQ, no problem */ }
     // pick protections and trade conditions Sleeper cannot represent
     try {
+        const compRes = await event.fetch('/data/comp-picks.json');
+        if (compRes.ok) knowledgeObj.compPickHistory = await compRes.json();
+    } catch { /* strip absent */ }
+    try {
         const condRes = await event.fetch('/data/pick-conditions.json');
         if (condRes.ok) knowledgeObj.pickConditions = (await condRes.json()).conditions;
     } catch { /* none recorded */ }

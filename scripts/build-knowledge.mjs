@@ -17,6 +17,17 @@ import { taxiClaimCost } from "../src/lib/server/taxiCost.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
+// Toilet Bowl comp-pick history (curated static/data/comp-picks.json): players
+// selected with a 1.13 look "undrafted" to Sleeper because the pick is
+// exercised outside the draft board.
+const normName = (n) => String(n).toLowerCase().replace(/[^a-z]/g, "");
+let compByName = {};
+let compPicksData = null;
+try {
+  compPicksData = JSON.parse(readFileSync(join(root, "static/data/comp-picks.json"), "utf8"));
+  for (const cp of compPicksData.picks || []) compByName[normName(cp.player)] = cp;
+} catch { /* file optional */ }
+
 const get = async (url, retries = 4) => {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -262,7 +273,8 @@ const describe = (id) => {
   const name = pl ? `${pl.first_name} ${pl.last_name}` : `Player ${id}`;
   const pos = pl?.position || "?";
   const d = draftedBy[id];
-  const drafted = d ? `drafted ${d.year} R${d.round}` : "undrafted in this league's annual drafts";
+  const comp = compByName[normName(name)];
+  const drafted = d ? `drafted ${d.year} R${d.round}` : comp ? `selected with the ${comp.season} compensatory pick 1.13 by ${comp.teamName}` : "undrafted in this league's annual drafts";
   return { name, pos, drafted, round: d?.round || null };
 };
 
@@ -822,6 +834,7 @@ const knowledge = {
     "Franchises persist by roster across seasons even as team names change year to year - each franchise entry lists its former names (e.g. the franchise now called 'TDs in Your Face' won the 2018 title under the name 'mcmath15').",
   seasons: seasons.map(({ _owners, _names, ...rest }) => rest),
   rosters: rosterSection,
+  compPickHistory: compPicksData,
   claimSeason,
   draftedBy: draftedByCompact,
   droppedPlayers,
