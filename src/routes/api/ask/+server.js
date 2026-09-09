@@ -90,6 +90,12 @@ export async function POST(event) {
         const compRes = await event.fetch('/data/comp-picks.json');
         if (compRes.ok) knowledgeObj.compPickHistory = await compRes.json();
     } catch { /* strip absent */ }
+    // the Oracle's own weekly matchup predictions (baked into commentary.json)
+    // - it should never claim it has no forecast when /predictions shows one
+    try {
+        const cRes = await event.fetch('/data/commentary.json');
+        if (cRes.ok) { const c = await cRes.json(); const keys = Object.keys(c.predictions || {}).sort(); const latest = keys[keys.length - 1]; if (latest) knowledgeObj.oracleWeeklyPredictions = { note: `The Oracle's published matchup predictions (${latest.replace('-', ' week ')}) from the site's Predictions page.`, predictions: c.predictions[latest] }; }
+    } catch { /* none baked yet */ }
     try {
         const condRes = await event.fetch('/data/pick-conditions.json');
         if (condRes.ok) knowledgeObj.pickConditions = (await condRes.json()).conditions;
