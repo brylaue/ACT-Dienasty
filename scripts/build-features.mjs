@@ -459,21 +459,35 @@ const ranked = teams
     valueHistory: valueHistoryFor(t.rosterID, t.rosterValue),
   }));
 
-const blurbs = await askClaudeJSONRetry(
-  `You write short, punchy one-line blurbs for a fantasy football dynasty league's weekly Power Rankings. Deadpan, confident, a little cocky for teams near the top and a little pitying for teams near the bottom - but never mean-spirited. Reply with ONLY a JSON object mapping each rosterID (as a string) to a blurb under 15 words, no trailing period. Vary phrasing and structure widely across teams - don't reuse the same setup twice.`,
+// each entry must echo the team name it's about; a wrong echo means the
+// model shuffled keys (it happened: a Risky Business line landed on the
+// Immigrants), and that entry gets dropped instead of shipped
+const blurbsRaw = await askClaudeJSONRetry(
+  `You write short, punchy one-line blurbs for a fantasy football dynasty league's weekly Power Rankings. Deadpan, confident, a little cocky for teams near the top and a little pitying for teams near the bottom - but never mean-spirited. Reply with ONLY a JSON object mapping each rosterID (as a string) to {"team": "<the exact team name for that rosterID>", "line": "<blurb under 15 words, no trailing period>"}. The team field must repeat the name exactly as given. Vary phrasing and structure widely across teams - don't reuse the same setup twice.`,
   `Current Power Rankings (rank, team, record, points for, roster dynasty value):\n${ranked
-    .map((t) => `${t.rank}. ${t.name} — ${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}, ${t.fpts.toFixed(1)} pts, roster value ${Math.round(t.rosterValue)}`)
-    .join("\n")}\n\nWrite one blurb per team, keyed by this rosterID mapping:\n${ranked.map((t) => `"${t.rosterID}": rank ${t.rank}`).join("\n")}`,
+    .map((t) => `${t.rank}. ${t.name.trim()} — ${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}, ${t.fpts.toFixed(1)} pts, roster value ${Math.round(t.rosterValue)}`)
+    .join("\n")}\n\nWrite one entry per team for this rosterID → team mapping:\n${ranked.map((t) => `"${t.rosterID}": ${t.name.trim()} (rank ${t.rank})`).join("\n")}`,
 );
+const normTeam = (n) => String(n || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const blurbs = {};
+let dropped = 0;
+for (const t of ranked) {
+  const e = blurbsRaw?.[String(t.rosterID)];
+  if (!e) continue;
+  const line = typeof e === "string" ? e : e.line; // tolerate the old flat shape
+  const echo = typeof e === "string" ? null : e.team;
+  if (echo != null && normTeam(echo) !== normTeam(t.name)) { dropped++; continue; }
+  if (line) blurbs[String(t.rosterID)] = String(line);
+}
 
 // keep last bake's blurb for any team the model didn't return one for -
 // a stale joke beats a blank line under the team name
 const prevBlurbs = {};
 if (existsSync(PR_PATH)) { try { for (const t of JSON.parse(readFileSync(PR_PATH, "utf8")).teams || []) if (t.blurb) prevBlurbs[t.rosterID] = t.blurb; } catch { /* none */ } }
 for (const t of ranked) {
-  t.blurb = blurbs?.[String(t.rosterID)] || prevBlurbs[t.rosterID] || null;
+  t.blurb = blurbs[String(t.rosterID)] || prevBlurbs[t.rosterID] || null;
 }
-console.log(`blurbs: ${Object.keys(blurbs || {}).length} fresh, ${ranked.filter((t) => t.blurb).length}/${ranked.length} present`);
+console.log(`blurbs: ${Object.keys(blurbs).length} fresh, ${dropped} dropped for wrong team echo, ${ranked.filter((t) => t.blurb).length}/${ranked.length} present`);
 
 mkdirSync(join(root, "static/data"), { recursive: true });
 writeFileSync(

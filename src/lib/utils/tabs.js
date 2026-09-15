@@ -98,7 +98,7 @@ export const tabs = [
         icon: "inventory_2",
     },
     {
-        label: "Sunday Shame",
+        label: "Tuesday Roundup",
         dest: "/recap",
       },
       {

@@ -8,7 +8,7 @@
     export let leagueTeamManagers;
 
     /*
-      Sunday Shame: the weekly recap nobody asked for and everybody needs.
+      Tuesday Roundup (née Sunday Shame): the weekly recap nobody asked for and everybody needs.
       Season/week list comes from the baked data file; the selected week is
       fetched live from Sleeper because shame requires bench points
       (players_points), which the bake doesn't carry.
@@ -81,6 +81,52 @@
     };
     init();
 
+    // "points left on the bench" the honest way: the best score a LEGAL
+    // lineup could have produced minus what the starters actually scored.
+    // Raw bench totals overstate it - you can't start three QBs.
+    const SLOT_ELIG = {
+        QB: ['QB'], RB: ['RB'], WR: ['WR'], TE: ['TE'], K: ['K'], DEF: ['DEF'],
+        FLEX: ['RB', 'WR', 'TE'], WRRB_FLEX: ['WR', 'RB'], REC_FLEX: ['WR', 'TE'],
+        SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'],
+        DL: ['DL'], LB: ['LB'], DB: ['DB'], IDP_FLEX: ['DL', 'LB', 'DB'],
+    };
+    const optimalPoints = (playerIDs, pointsMap, posOf, slots) => {
+        const lineupSlots = (slots || []).filter((s) => SLOT_ELIG[s]);
+        const pool = (playerIDs || []).map((id) => ({ pos: posOf(id), pts: pointsMap?.[id] || 0 })).filter((p) => p.pos);
+        const order = [...lineupSlots].sort((a, b) => SLOT_ELIG[a].length - SLOT_ELIG[b].length);
+        const used = new Set();
+        let total = 0;
+        for (const slot of order) {
+            let best = -Infinity, bi = -1;
+            for (let i = 0; i < pool.length; i++) {
+                if (used.has(i) || !SLOT_ELIG[slot].includes(pool[i].pos)) continue;
+                if (pool[i].pts > best) { best = pool[i].pts; bi = i; }
+            }
+            if (bi >= 0) { used.add(bi); total += Math.max(best, 0); }
+        }
+        return total;
+    };
+
+    let playerPos = null;       // pid -> position, from players-lite
+    const slotCache = {};       // leagueID -> roster_positions
+    const loadLineupContext = async (leagueID) => {
+        if (!playerPos) {
+            try {
+                const r = await fetch('/data/players-lite.json');
+                const lite = r.ok ? await r.json() : {};
+                playerPos = {};
+                for (const [id, v] of Object.entries(lite)) playerPos[id] = String(v).split('|')[1] || null;
+            } catch { playerPos = {}; }
+        }
+        if (!slotCache[leagueID]) {
+            try {
+                const r = await retryFetch(`https://api.sleeper.app/v1/league/${leagueID}`);
+                slotCache[leagueID] = (await r.json()).roster_positions || [];
+            } catch { slotCache[leagueID] = []; }
+        }
+        return slotCache[leagueID];
+    };
+
     const seasonFor = (year) => seasons.find((s) => s.year == year);
     const teamName = (rosterID, year) => getTeamFromTeamManagers(leagueTeamManagers, rosterID, `${year}`).name;
 
@@ -94,16 +140,18 @@
         try {
             const res = await retryFetch(`https://api.sleeper.app/v1/league/${season.leagueID}/matchups/${week}`);
             const entries = await res.json();
+            const slots = await loadLineupContext(season.leagueID);
             const teams = [];
             const pairs = {};
             for (const e of entries) {
                 const starterPts = (e.starters_points || []).reduce((t, v) => t + (v || 0), 0);
-                const totalPts = Object.values(e.players_points || {}).reduce((t, v) => t + (v || 0), 0);
+                const optimal = optimalPoints(e.players, e.players_points, (id) => playerPos?.[id], slots);
                 const t = {
                     rosterID: e.roster_id,
                     name: teamName(e.roster_id, year),
                     pts: starterPts,
-                    bench: Math.max(totalPts - starterPts, 0),
+                    // what a legal set of swaps was actually worth, not the raw bench sum
+                    bench: Math.max(Math.round((optimal - starterPts) * 10) / 10, 0),
                 };
                 teams.push(t);
                 if (e.matchup_id != null) {
@@ -197,6 +245,13 @@
         font-size: 0.9em;
         padding: 0 1em;
     }
+
+    .metricNote {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.78em;
+        margin: 2px 0 14px;
+    }
     .controls {
         display: flex;
         justify-content: center;
@@ -278,8 +333,9 @@
     }
 </style>
 
-<h2>Sunday Shame</h2>
-<p class="subtitle">The weekly recap: who cooked, who got cooked, and who lost with the winning lineup sitting on their bench.</p>
+<h2>Tuesday Roundup</h2>
+<p class="subtitle">The week in review, fresh every Tuesday morning once the dust settles: who cooked, who got cooked, and who lost with the winning lineup sitting on their bench.</p>
+<p class="metricNote">Bench points = best legal lineup minus the lineup that started. Slot-for-slot swaps only — nobody gets credit for starting three quarterbacks.</p>
 
 <div class="controls">
     <select bind:value={selYear}>

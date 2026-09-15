@@ -1,6 +1,6 @@
 /*
   Bakes fresh, AI-written one-liners for Trade-o-Meter verdicts, waiver
-  headlines, and Sunday Shame recap flavor lines into
+  headlines, and Tuesday Roundup recap flavor lines into
   static/data/commentary.json, keyed by transaction id (trades/waivers) or
   "year-week" (recaps).
 
@@ -193,7 +193,7 @@ const newWaivers = digested.filter(
 );
 
 // --- figure out which weeks of the current season are finished but don't
-// have a Sunday Shame recap baked yet (reads the rivalry data bake that
+// have a Tuesday Roundup recap baked yet (reads the rivalry data bake that
 // runs right before this script in the same workflow, so it always has
 // the latest "which weeks have final scores" info) ---
 
@@ -270,7 +270,7 @@ const classifiedWaivers = newWaivers
   .filter((x) => x.classified);
 
 console.log(
-  `${gradeableTrades.length} new gradeable trades, ${classifiedWaivers.length} new waiver moves, ${newRecapWeeks.length} new Sunday Shame recap(s) to write fresh lines for.`,
+  `${gradeableTrades.length} new gradeable trades, ${classifiedWaivers.length} new waiver moves, ${newRecapWeeks.length} new Tuesday Roundup recap(s) to write fresh lines for.`,
 );
 
 // --- ask Claude for one fresh line per transaction ---
@@ -374,14 +374,14 @@ for (const { t, classified } of classifiedWaivers) {
   }
 }
 
-// --- Sunday Shame: one Claude call per finished week, asking for all 4
+// --- Tuesday Roundup (recap page): one Claude call per finished week, asking for all 4
 // flavor lines (bench/toilet/blowout/heartbreak) at once as JSON, since
 // they're all about the same week and this keeps it to 1 call/week instead
 // of 4. Mirrors the exact stats src/lib/Recap/index.svelte computes client-
 // side (top score, low score, bench points left on the bench, closest and
 // widest margins) so the AI is reacting to the real week, not guessing. ---
 
-const RECAP_SYSTEM = `You write short, dry, deadpan flavor lines for a fantasy football dynasty league's weekly "Sunday Shame" recap. You'll get stats for one specific week and must reply with ONLY a JSON object (no markdown fences, no preamble) with exactly these keys, each a short phrase (not a full sentence, no trailing period) that could follow a dash after a stat, e.g. "left 42.1 points riding the pine — {your bench phrase}":
+const RECAP_SYSTEM = `You write short, dry, deadpan flavor lines for a fantasy football dynasty league's weekly "Tuesday Roundup" recap. You'll get stats for one specific week and must reply with ONLY a JSON object (no markdown fences, no preamble) with exactly these keys, each a short phrase (not a full sentence, no trailing period) that could follow a dash after a stat, e.g. "left 42.1 points riding the pine — {your bench phrase}":
 {"bench": "...", "toilet": "...", "blowout": "...", "heartbreak": "..."}
 - bench: reacts to a team leaving a lot of points on the bench (worse if they also lost with the bench points sitting right there)
 - toilet: reacts to the lowest score of the week
@@ -408,6 +408,43 @@ const recentRecapLines = Object.values(existing.recaps).flatMap((r) => [
   r.heartbreak,
 ].filter(Boolean));
 
+// bench points the honest way: best LEGAL lineup minus actual starters.
+const SLOT_ELIG = {
+  QB: ["QB"], RB: ["RB"], WR: ["WR"], TE: ["TE"], K: ["K"], DEF: ["DEF"],
+  FLEX: ["RB", "WR", "TE"], WRRB_FLEX: ["WR", "RB"], REC_FLEX: ["WR", "TE"],
+  SUPER_FLEX: ["QB", "RB", "WR", "TE"],
+  DL: ["DL"], LB: ["LB"], DB: ["DB"], IDP_FLEX: ["DL", "LB", "DB"],
+};
+const optimalPoints = (playerIDs, pointsMap, posOf, slots) => {
+  const lineupSlots = (slots || []).filter((sl) => SLOT_ELIG[sl]);
+  const pool = (playerIDs || []).map((id) => ({ pos: posOf(id), pts: pointsMap?.[id] || 0 })).filter((pl) => pl.pos);
+  const order = [...lineupSlots].sort((a, b) => SLOT_ELIG[a].length - SLOT_ELIG[b].length);
+  const used = new Set();
+  let total = 0;
+  for (const slot of order) {
+    let best = -Infinity, bi = -1;
+    for (let i = 0; i < pool.length; i++) {
+      if (used.has(i) || !SLOT_ELIG[slot].includes(pool[i].pos)) continue;
+      if (pool[i].pts > best) { best = pool[i].pts; bi = i; }
+    }
+    if (bi >= 0) { used.add(bi); total += Math.max(best, 0); }
+  }
+  return total;
+};
+let _litePos = null;
+const litePos = (id) => {
+  if (!_litePos) {
+    _litePos = {};
+    try {
+      const lite = JSON.parse(readFileSync(join(root, "static/data/players-lite.json"), "utf8"));
+      for (const [pid, v] of Object.entries(lite)) _litePos[pid] = String(v).split("|")[1] || null;
+    } catch { /* empty map - bench falls back to 0 delta */ }
+  }
+  return _litePos[id];
+};
+const _league = await get(`https://api.sleeper.app/v1/league/${leagueID}`).catch(() => null);
+const slotsFor = _league?.roster_positions || [];
+
 for (const { year, week, key } of newRecapWeeks) {
   let entries;
   try {
@@ -424,11 +461,12 @@ for (const { year, week, key } of newRecapWeeks) {
   const pairs = {};
   for (const e of entries) {
     const starterPts = (e.starters_points || []).reduce((t, v) => t + (v || 0), 0);
-    const totalPts = Object.values(e.players_points || {}).reduce((t, v) => t + (v || 0), 0);
+    const optimal = optimalPoints(e.players, e.players_points, litePos, slotsFor);
     const team = {
       rosterID: e.roster_id,
       pts: starterPts,
-      bench: Math.max(totalPts - starterPts, 0),
+      // legal-swap value, not the raw bench sum
+      bench: Math.max(Math.round((optimal - starterPts) * 10) / 10, 0),
     };
     teams.push(team);
     if (e.matchup_id != null) {
