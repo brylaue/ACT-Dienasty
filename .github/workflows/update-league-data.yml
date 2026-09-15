@@ -6,7 +6,13 @@ on:
     # Tuesday finalizes after Monday Night Football, Friday refreshes after
     # Thursday night plus the week's waivers and trades.
     # Off-season runs are harmless: no change means no commit, no deploy.
-    - cron: "0 10 * * 1,2,5"
+    # 05:37 UTC = 1:37am EDT / 12:37am EST - after Sunday/Monday/Thursday
+    # night games, done long before 3am Eastern. Odd minute on purpose:
+    # GitHub delays or skips on-the-hour crons (Sep 14's 10:00 ran 6h late).
+    - cron: "37 5 * * 1,2,5"
+    # catch-up pass in case GitHub delayed the first - the bake is
+    # idempotent, a second run just means fresher data
+    - cron: "53 6 * * 1,2,5"
   workflow_dispatch: {}
 
 permissions:
