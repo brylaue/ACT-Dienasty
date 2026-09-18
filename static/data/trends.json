@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-18T10:00:52.032Z",
+ "generated": "2026-09-18T11:53:32.543Z",
  "season": 2026,
  "about": "Backfill points reconstruct roster composition at monthly checkpoints, valued at the prices on the day the backfill ran. Bake points are live snapshots. Values = players + future picks (FantasyCalc superflex 0.5 PPR).",
  "teams": {
@@ -1731,7 +1731,7 @@
      "rank": 10,
      "valueRank": 4,
      "value": 76654,
-     "playoffPct": 4.3,
+     "playoffPct": 4.1,
      "wins": 0,
      "losses": 2,
      "ties": 0
@@ -1740,7 +1740,7 @@
      "rank": 2,
      "valueRank": 2,
      "value": 87499,
-     "playoffPct": 82.6,
+     "playoffPct": 83.5,
      "wins": 2,
      "losses": 0,
      "ties": 0
@@ -1749,7 +1749,7 @@
      "rank": 5,
      "valueRank": 9,
      "value": 61692,
-     "playoffPct": 95.6,
+     "playoffPct": 96.4,
      "wins": 2,
      "losses": 0,
      "ties": 0
@@ -1758,7 +1758,7 @@
      "rank": 7,
      "valueRank": 10,
      "value": 55779,
-     "playoffPct": 5.2,
+     "playoffPct": 5,
      "wins": 1,
      "losses": 1,
      "ties": 0
@@ -1767,7 +1767,7 @@
      "rank": 4,
      "valueRank": 8,
      "value": 68147,
-     "playoffPct": 70.1,
+     "playoffPct": 70.6,
      "wins": 2,
      "losses": 0,
      "ties": 0
@@ -1776,7 +1776,7 @@
      "rank": 6,
      "valueRank": 6,
      "value": 72591,
-     "playoffPct": 71.5,
+     "playoffPct": 69.6,
      "wins": 1,
      "losses": 1,
      "ties": 0
@@ -1785,7 +1785,7 @@
      "rank": 8,
      "valueRank": 3,
      "value": 86080,
-     "playoffPct": 35.9,
+     "playoffPct": 35.7,
      "wins": 0,
      "losses": 2,
      "ties": 0
@@ -1794,7 +1794,7 @@
      "rank": 9,
      "valueRank": 5,
      "value": 72721,
-     "playoffPct": 46,
+     "playoffPct": 46.1,
      "wins": 0,
      "losses": 2,
      "ties": 0
@@ -1803,7 +1803,7 @@
      "rank": 1,
      "valueRank": 1,
      "value": 107846,
-     "playoffPct": 93.3,
+     "playoffPct": 93.2,
      "wins": 2,
      "losses": 0,
      "ties": 0
@@ -1812,7 +1812,7 @@
      "rank": 3,
      "valueRank": 7,
      "value": 69978,
-     "playoffPct": 87.5,
+     "playoffPct": 87.7,
      "wins": 2,
      "losses": 0,
      "ties": 0
@@ -1821,7 +1821,7 @@
      "rank": 12,
      "valueRank": 11,
      "value": 53995,
-     "playoffPct": 0.1,
+     "playoffPct": 0.2,
      "wins": 0,
      "losses": 2,
      "ties": 0
@@ -1830,7 +1830,7 @@
      "rank": 11,
      "valueRank": 12,
      "value": 51319,
-     "playoffPct": 8,
+     "playoffPct": 7.8,
      "wins": 0,
      "losses": 2,
      "ties": 0
