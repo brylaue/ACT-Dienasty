@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-22T10:15:30.492Z",
+ "generated": "2026-09-22T12:05:35.249Z",
  "season": 2026,
  "about": "Backfill points reconstruct roster composition at monthly checkpoints, valued at the prices on the day the backfill ran. Bake points are live snapshots. Values = players + future picks (FantasyCalc superflex 0.5 PPR).",
  "teams": {
@@ -1981,7 +1981,7 @@
      "rank": 3,
      "valueRank": 9,
      "value": 61617,
-     "playoffPct": 91.1,
+     "playoffPct": 90.2,
      "wins": 4,
      "losses": 0,
      "ties": 0
@@ -1999,7 +1999,7 @@
      "rank": 4,
      "valueRank": 8,
      "value": 66926,
-     "playoffPct": 95.1,
+     "playoffPct": 94.8,
      "wins": 3,
      "losses": 1,
      "ties": 0
@@ -2008,7 +2008,7 @@
      "rank": 5,
      "valueRank": 5,
      "value": 72001,
-     "playoffPct": 76.1,
+     "playoffPct": 75.7,
      "wins": 3,
      "losses": 1,
      "ties": 0
@@ -2026,7 +2026,7 @@
      "rank": 6,
      "valueRank": 6,
      "value": 70811,
-     "playoffPct": 83.7,
+     "playoffPct": 85.2,
      "wins": 2,
      "losses": 2,
      "ties": 0
@@ -2035,7 +2035,7 @@
      "rank": 1,
      "valueRank": 1,
      "value": 103470,
-     "playoffPct": 97.1,
+     "playoffPct": 96.7,
      "wins": 4,
      "losses": 0,
      "ties": 0
@@ -2044,7 +2044,7 @@
      "rank": 7,
      "valueRank": 7,
      "value": 69363,
-     "playoffPct": 57,
+     "playoffPct": 57.4,
      "wins": 2,
      "losses": 2,
      "ties": 0
