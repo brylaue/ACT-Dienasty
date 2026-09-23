@@ -2,13 +2,13 @@ name: Parlay Builder bot
 
 on:
   schedule:
-    # Hourly Tue-Thu. The script works out what's due in Eastern time -
+    # Every 15 minutes Tue-Thu. The script works out what's due in Eastern time -
     # Tuesday opener, nag 24h before the deadline, slip at the deadline -
     # and posts each at most once per week, so delays and doubles are harmless.
     # The deadline itself follows the real NFL schedule (2h before the
     # week's first kickoff, capped at Thu 6pm ET), and runs stop at the
     # league's playoff weeks. Odd minute: on-the-hour crons get delayed.
-    - cron: "13 * * * 2,3,4"
+    - cron: "7,22,37,52 * * * 2,3,4"   # every 15 min Tue-Thu: the pinned board refreshes as legs land
   workflow_dispatch:
     inputs:
       mode:
