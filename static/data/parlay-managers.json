@@ -1,0 +1,22 @@
+{
+  "note": "Slack user IDs → team, so managers can reply to the opener with just their leg. Co-owners map to the same team. Keep in sync when ownership changes.",
+  "users": {
+    "UTB8NMCLQ": "Immigrants",
+    "US6FUMPRQ": "TDs in Your Face",
+    "URQFMR589": "Title Chase",
+    "US0P6RDSR": "The Maniacs",
+    "U02839EDU74": "The Maniacs",
+    "USJRGKTDJ": "Crab Boilers",
+    "USMFL0KPY": "We Have The Meats",
+    "USYEVTKC2": "Silver Bullets",
+    "US7R5B3C3": "The 5th Rounders",
+    "US6FUKE2E": "The 5th Rounders",
+    "U02SQMEQ4R1": "Risky Business",
+    "U02SQMB3U4T": "Risky Business",
+    "U03TD0Z1E7M": "swillke",
+    "U0650HX32KV": "Dirty Birds",
+    "U08J2BJARLL": "Dirty Birds",
+    "U019492QG30": "C-Men",
+    "USJRGMXK6": "C-Men"
+  }
+}

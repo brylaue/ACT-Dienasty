@@ -1,9 +1,13 @@
 /*
   Parlay Builder bot for #weeklyparlaybuilder.
 
-  Each team submits one leg per week through the Slack Workflow form, which
-  posts a line matching:   🎯 LEG | <Team Name> | <leg text>
-  (Typing that format by hand in the channel works too.)
+  Each team submits one leg per week, either:
+    - by REPLYING in the opener's thread with just the leg ("Vikings ML") -
+      the team is inferred from the Slack user (static/data/parlay-managers.json)
+    - by posting a 🎯-prefixed message in the channel (same inference)
+    - or the explicit form:   🎯 LEG | <Team Name> | <leg text>
+      (works from anyone, e.g. the commish entering a leg on someone's behalf)
+  Latest submission per team wins.
 
   Modes (first CLI arg):
     open     Tuesday  - announce the week, name who's on the hook
@@ -49,6 +53,8 @@ if (!FORCE && etNow.getHours() !== WANT_ET_HOUR) {
 
 // ── league context ────────────────────────────────────────────────────────
 const leagueInfo = readFileSync(join(root, "src/lib/utils/leagueInfo.js"), "utf8");
+let userTeam = {};
+try { userTeam = JSON.parse(readFileSync(join(root, "static/data/parlay-managers.json"), "utf8")).users || {}; } catch { /* map optional */ }
 const leagueID = leagueInfo.match(/leagueID\s*=\s*["']([0-9]+)["']/)[1];
 const get = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(`${r.status} ${url}`); return r.json(); };
 
@@ -79,9 +85,15 @@ if (lastWeek >= 1) {
 
 // ── slack helpers ─────────────────────────────────────────────────────────
 const DRY_HISTORY = [
-  { text: "🎯 LEG | Immigrants | Bijan anytime TD" },
-  { text: "🎯 LEG | The Maniacs | Bills -3.5" },
-  { text: "🎯 LEG | Risky Business | Over 47.5 CIN/BAL" },
+  { ts: "3", text: "🎯 LEG | Immigrants | Bijan anytime TD" },
+  { ts: "2", text: "🎯 Bills -3.5", user: "US0P6RDSR" },
+  { ts: "1", text: "🎰 *Week 3 Parlay Builder is OPEN* ...", bot_id: "B1", reply_count: 2 },
+];
+const DRY_REPLIES = [
+  { ts: "1", text: "🎰 *Week 3 Parlay Builder is OPEN* ...", bot_id: "B1" },
+  { ts: "1.1", text: "Vikings ML", user: "U02SQMEQ4R1" },
+  { ts: "1.2", text: "I'll take Davante Adams anytime TD", user: "UTB8NMCLQ" },
+  { ts: "1.3", text: "Garrett Wilson Anytime TD - free money", user: "URQFMR589" },
 ];
 const slack = async (method, payload) => {
   if (DRY) { console.log(`\n[dry] ${method} →\n${payload.text || JSON.stringify(payload)}`); return { ts: "0" }; }
@@ -98,6 +110,7 @@ const slackGet = async (method, params) => {
   if (DRY) {
     if (method === "conversations.list") return { channels: [{ id: "DRY", name: CHANNEL_NAME }] };
     if (method === "conversations.history") return { messages: DRY_HISTORY, has_more: false, response_metadata: {} };
+    if (method === "conversations.replies") return { messages: DRY_REPLIES, has_more: false, response_metadata: {} };
   }
   const qs = new URLSearchParams(params).toString();
   const r = await fetch(`https://slack.com/api/${method}?${qs}`, { headers: { authorization: `Bearer ${TOKEN}` } });
@@ -135,25 +148,52 @@ if (!channelID) {
 }
 if (!channelID) { console.error(`channel #${CHANNEL_NAME} not found. Check the exact channel name, and that the bot was invited (/invite @Parlay Builder).`); process.exit(1); }
 
-// legs submitted since Monday 00:00 ET this week
+// legs submitted since Monday 00:00 ET this week, from three sources:
+// explicit "LEG | Team | leg" lines, 🎯-prefixed posts from known managers,
+// and plain replies in the opener's thread from known managers.
+const cleanLeg = (t) => String(t || "")
+  .replace(/^[\s🎯🎰:\-–—]+/u, "")
+  .replace(/^(?:i'?ll take|i'?ll go|i got|i'?m taking|give me|gimme|let'?s do|let'?s go|my leg is|my leg:|leg:)\s+/i, "")
+  .replace(/\s+/g, " ").trim();
 const readLegs = async () => {
   const monday = new Date(etNow);
   monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7)); // back to Monday
   monday.setHours(0, 0, 0, 0);
   const oldest = String(Math.floor(monday.getTime() / 1000));
-  const legs = {}; // teamName -> latest leg text (messages arrive newest-first; first seen wins)
+  const legs = {}; // team -> { leg, ts }
+  const consider = (team, leg, ts) => {
+    if (!team || !leg || leg.length < 3 || /\?$/.test(leg)) return;
+    if (!legs[team] || Number(ts) > Number(legs[team].ts)) legs[team] = { leg, ts };
+  };
+  const teamFromText = (name) => allTeams.find((t) => t.toLowerCase() === String(name).trim().toLowerCase());
+  const parse = (msg, inThread) => {
+    const text = msg.text || "";
+    const explicit = text.match(/LEG\s*\|\s*([^|]+?)\s*\|\s*(.+)/);
+    if (explicit) return consider(teamFromText(explicit[1]), cleanLeg(explicit[2]), msg.ts);
+    if (msg.bot_id || msg.subtype) return;                     // bot posts / joins / edits
+    const team = userTeam[msg.user];
+    if (!team) return;
+    if (inThread || /^\s*🎯/u.test(text)) consider(team, cleanLeg(text), msg.ts);
+  };
+  const openers = [];
   for (let cursor = ""; ;) {
     const d = await slackGet("conversations.history", { channel: channelID, oldest, limit: 200, cursor });
     for (const msg of d.messages || []) {
-      const m = (msg.text || "").match(/LEG\s*\|\s*([^|]+?)\s*\|\s*(.+)/);
-      if (!m) continue;
-      const team = allTeams.find((t) => t.toLowerCase() === m[1].trim().toLowerCase());
-      if (team && !legs[team]) legs[team] = m[2].trim().replace(/\s+/g, " ");
+      if (/Parlay Builder is OPEN/.test(msg.text || "") && msg.reply_count) openers.push(msg.ts);
+      parse(msg, false);
     }
     cursor = d.response_metadata?.next_cursor;
     if (!cursor || !d.has_more) break;
   }
-  return legs;
+  for (const ts of openers) {
+    for (let cursor = ""; ;) {
+      const d = await slackGet("conversations.replies", { channel: channelID, ts, limit: 200, cursor });
+      for (const msg of d.messages || []) if (msg.ts !== ts) parse(msg, true);
+      cursor = d.response_metadata?.next_cursor;
+      if (!cursor || !d.has_more) break;
+    }
+  }
+  return Object.fromEntries(Object.entries(legs).map(([t, v]) => [t, v.leg]));
 };
 
 // ── modes ─────────────────────────────────────────────────────────────────
@@ -163,7 +203,7 @@ if (MODE === "open") {
     : `First week - agree on who places it, or nominate last season's Toilet Bowl champ for old times' sake.`;
   await slack("chat.postMessage", {
     channel: channelID,
-    text: `🎰 *Week ${nflWeek} Parlay Builder is OPEN*\n${hook}\nOne leg per team - use the *Add my leg* workflow (⚡ shortcut in this channel), or post \`🎯 LEG | Your Team | your leg\`.\n*Legs lock Thursday 6:00pm ET.* Miss it and the placer picks your leg for you - no appeals.`,
+    text: `🎰 *Week ${nflWeek} Parlay Builder is OPEN*\n${hook}\n*Reply to this message with your leg* - just the bet, e.g. "Vikings ML" - we know whose team you are. (Entering one for someone else? Post \`🎯 LEG | Their Team | the leg\`.)\n*Legs lock Thursday 6:00pm ET.* Miss it and the placer picks your leg for you - no appeals.`,
   });
   console.log(`opened week ${nflWeek}${placer ? `, placer ${placer.name}` : ""}`);
 } else if (MODE === "nag") {
@@ -190,5 +230,8 @@ if (MODE === "open") {
     text: `🔒 *WEEK ${nflWeek} SLIP — ${inCount}/12 legs* · ${placerLine}\n${slip || "(no legs submitted - somehow, this league found a new low)"}${missingLine}\n_Placer: copy the line above into the book and reply here with the slip screenshot before kickoff._`,
   });
   await slack("pins.add", { channel: channelID, timestamp: res.ts }).catch(() => {});
+  if (inCount) {
+    await slack("chat.postMessage", { channel: channelID, thread_ts: res.ts, text: allTeams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legs[t]}`).join("\n") });
+  }
   console.log(`compiled ${inCount}/12 legs for week ${nflWeek}`);
 }
