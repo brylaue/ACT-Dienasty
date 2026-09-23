@@ -1,0 +1,54 @@
+name: Parlay Builder bot
+
+on:
+  schedule:
+    # Crons are UTC; each mode fires at BOTH possible UTC hours and the
+    # script only acts when Eastern time matches (10am open, 6pm nag/compile).
+    # Odd minutes on purpose - on-the-hour crons get delayed.
+    - cron: "7 14 * * 2"   # Tue 10am EDT
+    - cron: "7 15 * * 2"   # Tue 10am EST
+    - cron: "7 22 * * 3"   # Wed 6pm EDT
+    - cron: "7 23 * * 3"   # Wed 6pm EST
+    - cron: "1 22 * * 4"   # Thu 6pm EDT  (compile - deadline)
+    - cron: "1 23 * * 4"   # Thu 6pm EST
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "open | nag | compile"
+        required: true
+        default: "compile"
+      force:
+        description: "skip the ET-hour gate (for testing)"
+        required: false
+        default: "true"
+      channel:
+        description: "channel name override (test in a private channel first)"
+        required: false
+        default: "weeklyparlaybuilder"
+
+jobs:
+  parlay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Work out the mode from the schedule
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ github.event.inputs.mode }}" >> "$GITHUB_OUTPUT"
+            if [ "${{ github.event.inputs.force }}" = "true" ]; then echo "force=--force" >> "$GITHUB_OUTPUT"; fi
+          else
+            case "$(date -u +%u)" in
+              2) echo "mode=open" >> "$GITHUB_OUTPUT" ;;
+              3) echo "mode=nag" >> "$GITHUB_OUTPUT" ;;
+              4) echo "mode=compile" >> "$GITHUB_OUTPUT" ;;
+            esac
+          fi
+      - name: Run the Parlay Builder bot
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          PARLAY_CHANNEL: ${{ github.event.inputs.channel || 'weeklyparlaybuilder' }}
+        run: node scripts/parlay-bot.mjs ${{ steps.mode.outputs.mode }} ${{ steps.mode.outputs.force }}
