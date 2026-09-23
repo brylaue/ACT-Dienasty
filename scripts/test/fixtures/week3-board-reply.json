@@ -1,0 +1,31 @@
+{
+ "note": "A leg replied under the pinned BOARD (not the opener).",
+ "messages": [
+  {
+   "ts": "1790129735.158609",
+   "user": "U0C3B7QEC9M",
+   "bot_id": "B0C3MK8FJSZ",
+   "text": ":clipboard: *WEEK 3 BOARD \u2014 0/12 legs* \u00b7 Placer: *Dirty Birds* \u00b7 locks *Thursday 6 PM ET*",
+   "reply_count": 1
+  },
+  {
+   "ts": "1790129734.687469",
+   "user": "U0C3B7QEC9M",
+   "bot_id": "B0C3MK8FJSZ",
+   "text": ":slot_machine: *Week 3 Parlay Builder is OPEN* ..."
+  }
+ ],
+ "replies": [
+  {
+   "ts": "1790129735.158609",
+   "user": "U0C3B7QEC9M",
+   "bot_id": "B0C3MK8FJSZ",
+   "text": "board"
+  },
+  {
+   "ts": "1790140000.000000",
+   "user": "USJRGKTDJ",
+   "text": "Browns ML"
+  }
+ ]
+}

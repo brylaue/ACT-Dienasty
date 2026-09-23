@@ -54,7 +54,7 @@
     "smui-theme-dark": "smui-theme compile static/smui-dark.css -i src/theme/dark",
     "lint": "prettier --check --plugin-search-dir=. . && eslint --ignore-path .gitignore .",
     "format": "prettier --write --plugin-search-dir=. .",
-    "test": "vitest",
+    "test": "node scripts/test/run.mjs",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"
   },

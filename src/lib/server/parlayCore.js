@@ -146,3 +146,41 @@ export const weekFlags = (messages, deadlineMs) => {
   }
   return flags;
 };
+
+// ── season record: did the slip hit? ──────────────────────────────────────
+// Managers report the result by replying to the lock notice ("Hit!", "we
+// won", "parlay busted", "miss"). Lenient on phrasing, strict on position:
+// the verdict word has to lead the message (after an optional "parlay / it /
+// we / that"), so "hit me up on my main line" isn't a win.
+export const parlayResultFromText = (text) => {
+  const t = String(text || "").replace(/^[\s🎰🎉😭👎✅❌:]+/u, "").replace(/:(?:white_check_mark|x|tada|money_with_wings|sob)+:/gi, "").trim();
+  const lead = /^(?:the\s+)?(?:parlay|slip|it|we|that|ticket)?\s*/i;
+  const rest = t.replace(lead, "");
+  if (/^(?:hit|hits|cashed|cash(?:ed)?(?:\s+in)?|won|winner|paid(?:\s+out)?)\b(?!\s+me\b)/i.test(rest)) return "hit";
+  if (/^(?:miss(?:ed)?|lost|loss|bust(?:ed)?|dead|didn'?t\s+hit|no\s+good|whiff(?:ed)?|L)\b/i.test(rest)) return "miss";
+  return null;
+};
+
+// Build the season record from channel history (oldest first): every
+// "Week N legs are locked" notice opens a window that closes at the next
+// opener; the latest verdict from a known manager inside that window -
+// a reply in the notice's thread, or a short top-level post - is the result.
+// repliesFor(ts) → thread replies for that notice.
+export const seasonRecord = ({ messages, teamOfUser, repliesByTs = {} }) => {
+  const asc = [...messages].sort((a, b) => Number(a.ts) - Number(b.ts));
+  const locks = asc.filter((m) => m.bot_id && /Week (\d+) legs are locked/i.test(m.text || "")).map((m) => ({ week: Number((m.text || "").match(/Week (\d+) legs are locked/i)[1]), ts: Number(m.ts), raw: m.ts }));
+  const openerTs = asc.filter((m) => m.bot_id && isOpener(m.text)).map((m) => Number(m.ts));
+  const byWeek = [];
+  for (const lock of locks) {
+    const end = openerTs.find((o) => o > lock.ts) ?? Infinity;
+    const candidates = [
+      ...(repliesByTs[lock.raw] || []),
+      ...asc.filter((m) => Number(m.ts) > lock.ts && Number(m.ts) < end && !m.bot_id && String(m.text || "").length <= 40),
+    ].filter((m) => teamOfUser(m.user)).sort((a, b) => Number(a.ts) - Number(b.ts));
+    let result = null;
+    for (const m of candidates) { const r = parlayResultFromText(m.text); if (r) result = r; }
+    byWeek.push({ week: lock.week, result });
+  }
+  const wins = byWeek.filter((w) => w.result === "hit").length, losses = byWeek.filter((w) => w.result === "miss").length;
+  return { wins, losses, byWeek };
+};

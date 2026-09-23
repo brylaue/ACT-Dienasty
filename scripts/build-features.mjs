@@ -492,6 +492,22 @@ for (const t of teams) {
 }
 const projTotalsAdj = teams.map((t) => lineups[t.rosterID].projTotal - projLossByRoster[t.rosterID]);
 
+// the sim's team strength: this season's actual scoring, shrunk toward the
+// availability-adjusted projection while the sample is small. Weight on
+// actuals = n / (n + 4): two games shouldn't put anyone at 100%, by midseason
+// the results dominate. Spread is blended the same way toward the league's.
+const strengthFor = (rid) => {
+  const scores = weeklyScores[rid] || [];
+  const n = scores.length;
+  const ix = teams.findIndex((t) => t.rosterID === rid);
+  const projRaw = ix >= 0 ? projTotalsAdj[ix] / GAMES_IN_SEASON : 0;
+  const projPerGame = projRaw > 30 ? projRaw : (leagueMean || 120);
+  const w = n / (n + 4);
+  const actualMean = n ? scores.reduce((a, b) => a + b, 0) / n : projPerGame;
+  const actualStdev = n >= 2 ? Math.sqrt(scores.reduce((sum, v) => sum + (v - actualMean) ** 2, 0) / (n - 1)) : (leagueStdev || 25);
+  return { mean: w * actualMean + (1 - w) * projPerGame, stdev: Math.max(w * (actualStdev || (leagueStdev || 25) * 0.5) + (1 - w) * (leagueStdev || 25), 1) };
+};
+
 // last completed week's result per roster, for the movement explanation
 const lastResult = {};
 if (existsSync(RIVALRY_PATH) && playedWeeks.length) {
@@ -695,7 +711,7 @@ const schedStrength = {};
 for (const t of teams) {
   const opps = [];
   for (const w of remainingWeeks) for (const [a, b] of schedule[w] || []) { if (a === t.rosterID) opps.push(b); if (b === t.rosterID) opps.push(a); }
-  schedStrength[t.rosterID] = opps.length ? opps.reduce((sum, o) => sum + meanStdevFor(o).mean, 0) / opps.length : null;
+  schedStrength[t.rosterID] = opps.length ? opps.reduce((sum, o) => sum + strengthFor(o).mean, 0) / opps.length : null;
 }
 const schedRankOf = (() => { const ids = teams.map((t) => t.rosterID).filter((r) => schedStrength[r] != null).sort((x, y) => schedStrength[y] - schedStrength[x]); return Object.fromEntries(ids.map((r, i) => [r, i + 1])); })();
 
@@ -712,8 +728,8 @@ for (let sim = 0; sim < SIMS; sim++) {
       for (let i = 0; i < ids.length - 1; i += 2) pairs.push([ids[i], ids[i + 1]]);
     }
     for (const [a, b] of pairs) {
-      const { mean: ma, stdev: sa } = meanStdevFor(a);
-      const { mean: mb, stdev: sb } = meanStdevFor(b);
+      const { mean: ma, stdev: sa } = strengthFor(a);
+      const { mean: mb, stdev: sb } = strengthFor(b);
       const scoreA = Math.max(gaussian(ma - injuryPenalty(a, w), sa), 0);
       const scoreB = Math.max(gaussian(mb - injuryPenalty(b, w), sb), 0);
       state[a].fpts += scoreA;
@@ -771,7 +787,7 @@ const odds = teams
     topPickPct: Math.round((topPick[t.rosterID] / SIMS) * 1000) / 10,
     top3PickPct: Math.round((top3Pick[t.rosterID] / SIMS) * 1000) / 10,
     injuries: injuryReport[t.rosterID],
-    simMean: Math.round(meanStdevFor(t.rosterID).mean * 10) / 10,
+    simMean: Math.round(strengthFor(t.rosterID).mean * 10) / 10,
     schedRank: schedRankOf[t.rosterID] ?? null,
   }))
   .sort((a, b) => b.playoffPct - a.playoffPct);
@@ -779,7 +795,7 @@ for (const o of odds) {
   const parts = [];
   const lr = lastResult[o.rosterID];
   if (lr && lr.opp != null) parts.push(`${lr.tied ? "tied" : lr.won ? "beat" : "lost to"} ${nameByRid[lr.opp]} → now ${o.wins}-${o.losses}${o.ties ? `-${o.ties}` : ""}`);
-  parts.push(`scoring ${o.simMean.toFixed(1)}/wk (${ordinal(odds.map((x) => x.rosterID).sort((x, y) => meanStdevFor(y).mean - meanStdevFor(x).mean).indexOf(o.rosterID) + 1)} in the sim)`);
+  parts.push(`sim rating ${o.simMean.toFixed(1)}/wk (${ordinal(odds.map((x) => x.rosterID).sort((x, y) => strengthFor(y).mean - strengthFor(x).mean).indexOf(o.rosterID) + 1)}), results blended with projections`);
   if (o.schedRank) parts.push(`remaining schedule ${ordinal(o.schedRank)}-toughest`);
   for (const r of (o.injuries || []).filter((x) => x.weeklyImpact >= 1.5 || x.gamesOut >= 4).slice(0, 2)) parts.push(injuryPhrase(r, true));
   const d = o.prevPct == null ? null : Math.round((o.playoffPct - o.prevPct) * 10) / 10;
@@ -795,7 +811,7 @@ writeFileSync(
     playoffTeams,
     remainingWeeks: remainingWeeks.length,
     simulations: SIMS,
-    injuryModel: "Each team's weekly scoring draw is docked for injured starters while they're expected out: IR/PUP a minimum of 4 games, Out per the injury report (week-to-week if unspecified), Doubtful/Questionable a 75%/25% fraction of one week. The dock is the starter's projected points minus the best healthy bench option.",
+    injuryModel: "Each team's rating blends this season's results with its projected lineup - projections carry more weight early, results take over as games pile up - so two games can't put anyone at 100%. The weekly draw is then docked for injured starters while they're expected out: IR/PUP a minimum of 4 games, Out per the injury report (week-to-week if unspecified), Doubtful/Questionable a 75%/25% fraction of one week. The dock is the starter's projected points minus the best healthy bench option.",
     teams: odds,
   }),
 );

@@ -34,7 +34,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { boardUnchanged, collectLegs, isBoard, isOpener, reactionPlan, renderBoard as renderBoardCore, weekFlags } from "../src/lib/server/parlayCore.js";
+import { boardUnchanged, collectLegs, isBoard, isOpener, reactionPlan, renderBoard as renderBoardCore, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MODE = process.argv[2];
@@ -172,7 +172,7 @@ const slackGet = async (method, params) => {
     if (method === "conversations.list") return { channels: [{ id: "DRY", name: CHANNEL_NAME }] };
     const fx = process.env.PARLAY_TEST_FIXTURE ? JSON.parse(readFileSync(process.env.PARLAY_TEST_FIXTURE, "utf8")) : null; // test-only
     if (method === "conversations.history") return { messages: fx?.messages || DRY_HISTORY, has_more: false, response_metadata: {} };
-    if (method === "conversations.replies") return { messages: fx?.replies || DRY_REPLIES, has_more: false, response_metadata: {} };
+    if (method === "conversations.replies") return { messages: Array.isArray(fx?.replies) ? fx.replies : (fx?.replies?.[params.ts] || (fx ? [] : DRY_REPLIES)), has_more: false, response_metadata: {} };
   }
   const qs = new URLSearchParams(params).toString();
   const r = await fetch(`https://slack.com/api/${method}?${qs}`, { headers: { authorization: `Bearer ${TOKEN}` } });
@@ -255,6 +255,34 @@ const readLegs = async () => {
   return Object.fromEntries(Object.entries(legs).map(([t, v]) => [t, v.leg]));
 };
 
+// ── season parlay record: "Week N legs are locked" notices + the hit/miss
+// verdict managers reply with (thread or a short post before the next opener)
+const readSeasonRecord = async () => {
+  const oldest = String(Math.floor(Date.UTC(Number(state.season), 8, 1) / 1000)); // Sep 1
+  const messages = [];
+  for (let cursor = ""; ;) {
+    const d = await slackGet("conversations.history", { channel: channelID, oldest, limit: 200, cursor });
+    messages.push(...(d.messages || []));
+    cursor = d.response_metadata?.next_cursor;
+    if (!cursor || !d.has_more) break;
+  }
+  const repliesByTs = {};
+  for (const m of messages) {
+    if (m.bot_id && /Week \d+ legs are locked/i.test(m.text || "") && m.reply_count) {
+      const d = await slackGet("conversations.replies", { channel: channelID, ts: m.ts, limit: 200 }).catch(() => ({ messages: [] }));
+      repliesByTs[m.ts] = (d.messages || []).filter((r) => r.ts !== m.ts);
+    }
+  }
+  const teamOfUser = (uid) => (userTeam[uid] != null ? teamName(Number(userTeam[uid])) : null);
+  return seasonRecordCore({ messages, teamOfUser, repliesByTs });
+};
+const recordLine = (rec) => {
+  if (!rec.byWeek.length) return "";
+  const last = rec.byWeek[rec.byWeek.length - 1];
+  const lastNote = last.result ? ` · last week ${last.result === "hit" ? "HIT 🎉" : "missed"}` : ` · last week's result not reported yet - reply hit/miss under the lock notice`;
+  return `Season parlay record: *${rec.wins}-${rec.losses}*${lastNote}.`;
+};
+
 // ── what has the bot already posted this week? (dedupe for tick) ──────
 const postedThisWeek = async () => weekFlags((await loadWeek()).messages, deadline);
 
@@ -289,9 +317,10 @@ const postOpener = async () => {
   const hook = placer
     ? `On the hook this week: *${placer.name}* (league-low ${placer.pts} last week). They place the bet.`
     : `First week - agree on who places it, or nominate last season's Toilet Bowl champ for old times' sake.`;
+  const rec = recordLine(await readSeasonRecord().catch(() => ({ wins: 0, losses: 0, byWeek: [] })));
   await slack("chat.postMessage", {
     channel: channelID,
-    text: `🎰 *Week ${nflWeek} Parlay Builder is OPEN*\n${hook}\n*Post your leg here* - just the bet, e.g. "Vikings ML" - we know whose team you are, and you'll get a ✅ when it's logged. (Entering one for someone else? Post \`🎯 LEG | Their Team | the leg\`.)\n*Legs lock ${deadlineLabel}.* Miss it and the placer picks your leg for you - no appeals.`,
+    text: `🎰 *Week ${nflWeek} Parlay Builder is OPEN*\n${hook}${rec ? `\n${rec}` : ""}\n*Post your leg here* - just the bet, e.g. "Vikings ML" - we know whose team you are, and you'll get a ✅ when it's logged. (Entering one for someone else? Post \`🎯 LEG | Their Team | the leg\`.)\n*Legs lock ${deadlineLabel}.* Miss it and the placer picks your leg for you - no appeals.`,
   });
   await updateBoard(await readLegs(), false);
   console.log(`opened week ${nflWeek}; deadline ${deadlineLabel}; board pinned`);
@@ -324,7 +353,7 @@ const postSlip = async () => {
   const placerLine = placer ? `*${placer.name}*, you're up` : "placer TBD";
   await slack("chat.postMessage", {
     channel: channelID,
-    text: `🔒 *Week ${nflWeek} legs are locked* - ${inCount}/${allTeams.length} in. The pinned slip is final; ${placerLine}.${missing.length ? ` Placer picks for: ${missing.join(", ")}.` : ""}`,
+    text: `🔒 *Week ${nflWeek} legs are locked* - ${inCount}/${allTeams.length} in. The pinned slip is final; ${placerLine}.${missing.length ? ` Placer picks for: ${missing.join(", ")}.` : ""}\n_Once it settles, reply here with *hit* or *miss* - the bot keeps the season record._`,
   });
   console.log(`locked ${inCount}/${allTeams.length} legs for week ${nflWeek}`);
 };
