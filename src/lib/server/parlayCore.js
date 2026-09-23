@@ -11,8 +11,13 @@ export const cleanLeg = (t) => String(t || "")
 
 // a plain message from a known manager counts as a leg when it reads like a
 // bet: short, no question, betting vocabulary in it
-export const looksLikeLeg = (t) => t.length <= 90 && !/\?/.test(t) &&
-  /\b(ML|moneyline|anytime|any time|TD|touchdown|over|under|spread|[+-]\d+(\.\d+)?|\d+\+\s*(yds|yards|rec|receptions|rush|pass)|to score|first TD|parlay|o\/u|[ou]\d+(\.\d+)?)\b/i.test(t);
+const CHATTER = /\b(you|your|you're|guys|lol|lmao|haha|thanks|thank|sorry|please|pls|send|bets|everyone|reminder|deadline|placed|submitted|bet is|slip)\b/i;
+export const looksLikeLeg = (t) => t.length <= 90 && !/\?/.test(t) && !CHATTER.test(t) && !/[.!]\s+[A-Z]/.test(t) && (
+  /\b(ML|moneyline|anytime|any time|TD|TDs|touchdowns?|over|under|spread|ATS|covers?|to cover|to win|wins? by|win|first half|1st half|1H|2H|quarter|1Q|team total|total|alt|prop|to score|first TD|last TD|parlay|o\/u|[ou]\d+(\.\d+)?|yds|yards|rushing|receiving|passing|receptions|rec|completions|attempts|sacks?|INT|interceptions?|field goals?|FG|longest|assists?|rebounds?)\b/i.test(t)
+  || /[+-]\d+(\.\d+)?\b/.test(t)          // a spread or a price: -3.5, +150
+  || /\b\d+\+\s*\w/.test(t)               // 75+ yards, 5+ receptions
+  || /\bby \d+/i.test(t)                   // Lions by 10
+);
 
 /*
   Turn channel messages (+ thread replies) into { team: { leg, ts } }.
