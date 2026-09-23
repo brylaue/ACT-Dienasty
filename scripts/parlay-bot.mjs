@@ -106,16 +106,34 @@ const slackGet = async (method, params) => {
   return d;
 };
 
-// find the channel id (public or private the bot is in)
-let channelID = null;
-for (let cursor = ""; ;) {
-  const d = await slackGet("conversations.list", { types: "public_channel,private_channel", limit: 200, cursor });
-  const hit = d.channels.find((c) => c.name === CHANNEL_NAME);
-  if (hit) { channelID = hit.id; break; }
-  cursor = d.response_metadata?.next_cursor;
-  if (!cursor) break;
+// plain-English failure reasons instead of stack traces
+const explain = (err) => {
+  const m = String(err?.message || err);
+  if (/missing_scope/.test(m)) return `${m}\n→ Add the missing scope under OAuth & Permissions in the Slack app, click "Reinstall to Workspace", then paste the NEW token into the SLACK_BOT_TOKEN secret.`;
+  if (/invalid_auth|not_authed|token_revoked/.test(m)) return `${m}\n→ The SLACK_BOT_TOKEN secret isn't a valid bot token (should start with xoxb-). Re-copy it from OAuth & Permissions.`;
+  if (/not_in_channel|channel_not_found/.test(m)) return `${m}\n→ Run /invite @Parlay Builder inside #${CHANNEL_NAME}.`;
+  return m;
+};
+process.on("unhandledRejection", (err) => { console.error(`Parlay bot failed: ${explain(err)}`); process.exit(1); });
+
+// find the channel id: public channels first (needs channels:read), then
+// private ones if the app has groups:read - a private channel needs the
+// bot invited AND those scopes
+const findChannel = async (types) => {
+  for (let cursor = ""; ;) {
+    const d = await slackGet("conversations.list", { types, limit: 200, exclude_archived: true, cursor });
+    const hit = d.channels.find((c) => c.name === CHANNEL_NAME);
+    if (hit) return hit.id;
+    cursor = d.response_metadata?.next_cursor;
+    if (!cursor) return null;
+  }
+};
+let channelID = await findChannel("public_channel");
+if (!channelID) {
+  try { channelID = await findChannel("private_channel"); }
+  catch (err) { console.error(`Couldn't list private channels (${err.message}). If #${CHANNEL_NAME} is private, add scopes groups:read + groups:history, reinstall the app, update the secret.`); }
 }
-if (!channelID) { console.error(`channel #${CHANNEL_NAME} not found (is the bot invited?)`); process.exit(1); }
+if (!channelID) { console.error(`channel #${CHANNEL_NAME} not found. Check the exact channel name, and that the bot was invited (/invite @Parlay Builder).`); process.exit(1); }
 
 // legs submitted since Monday 00:00 ET this week
 const readLegs = async () => {
