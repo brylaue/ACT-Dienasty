@@ -34,7 +34,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { boardUnchanged, collectLegs, isOpener, reactionPlan, renderBoard as renderBoardCore, weekFlags } from "../src/lib/server/parlayCore.js";
+import { boardUnchanged, collectLegs, isBoard, isOpener, reactionPlan, renderBoard as renderBoardCore, weekFlags } from "../src/lib/server/parlayCore.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MODE = process.argv[2];
@@ -219,7 +219,7 @@ const loadWeek = async () => {
   const messages = []; const openers = [];
   for (let cursor = ""; ;) {
     const d = await slackGet("conversations.history", { channel: channelID, oldest, limit: 200, cursor });
-    for (const msg of d.messages || []) { messages.push(msg); if (isOpener(msg.text) && msg.reply_count) openers.push(msg.ts); }
+    for (const msg of d.messages || []) { messages.push(msg); if ((isOpener(msg.text) || (msg.bot_id && isBoard(msg.text))) && msg.reply_count) openers.push(msg.ts); } // legs replied under the opener OR the pinned board
     cursor = d.response_metadata?.next_cursor;
     if (!cursor || !d.has_more) break;
   }

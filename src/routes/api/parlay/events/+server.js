@@ -77,7 +77,7 @@ const refreshBoard = async (selfUserId) => {
     for (const m of d.messages || []) {
       messages.push(m);
       if (m.bot_id && isBoard(m.text) && !board) board = m; // newest first
-      if (isOpener(m.text) && m.reply_count) openers.push(m.ts);
+      if ((isOpener(m.text) || (m.bot_id && isBoard(m.text))) && m.reply_count) openers.push(m.ts); // opener OR board threads
     }
     cursor = d.response_metadata?.next_cursor;
     if (!cursor || !d.has_more) break;

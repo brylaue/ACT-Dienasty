@@ -53,7 +53,13 @@ export async function GET() {
 
   const scoringSettings = leagueData.scoring_settings;
 
-  return json(computePlayers(playerData, weeklyData, scoringSettings));
+  // this response costs 22 upstream Sleeper fetches to build; let Vercel's
+  // edge serve one copy per hour (and a stale one while it refreshes)
+  // instead of rebuilding it for every visitor. Browsers still keep their
+  // own day-long copy in localStorage on top of this.
+  return json(computePlayers(playerData, weeklyData, scoringSettings), {
+    headers: { "cache-control": "public, s-maxage=3600, stale-while-revalidate=86400" },
+  });
 }
 
 const computePlayers = (playerData, weeklyData, scoringSettings) => {
