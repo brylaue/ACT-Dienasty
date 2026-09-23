@@ -2,21 +2,19 @@ name: Parlay Builder bot
 
 on:
   schedule:
-    # Crons are UTC; each mode fires at BOTH possible UTC hours and the
-    # script only acts when Eastern time matches (10am open, 6pm nag/compile).
-    # Odd minutes on purpose - on-the-hour crons get delayed.
-    - cron: "7 14 * * 2"   # Tue 10am EDT
-    - cron: "7 15 * * 2"   # Tue 10am EST
-    - cron: "7 22 * * 3"   # Wed 6pm EDT
-    - cron: "7 23 * * 3"   # Wed 6pm EST
-    - cron: "1 22 * * 4"   # Thu 6pm EDT  (compile - deadline)
-    - cron: "1 23 * * 4"   # Thu 6pm EST
+    # Hourly Tue-Thu. The script works out what's due in Eastern time -
+    # Tuesday opener, nag 24h before the deadline, slip at the deadline -
+    # and posts each at most once per week, so delays and doubles are harmless.
+    # The deadline itself follows the real NFL schedule (2h before the
+    # week's first kickoff, capped at Thu 6pm ET), and runs stop at the
+    # league's playoff weeks. Odd minute: on-the-hour crons get delayed.
+    - cron: "13 * * * 2,3,4"
   workflow_dispatch:
     inputs:
       mode:
-        description: "open | nag | compile"
+        description: "tick | open | nag | compile"
         required: true
-        default: "compile"
+        default: "tick"
       force:
         description: "skip the ET-hour gate (for testing)"
         required: false
@@ -41,11 +39,7 @@ jobs:
             echo "mode=${{ github.event.inputs.mode }}" >> "$GITHUB_OUTPUT"
             if [ "${{ github.event.inputs.force }}" = "true" ]; then echo "force=--force" >> "$GITHUB_OUTPUT"; fi
           else
-            case "$(date -u +%u)" in
-              2) echo "mode=open" >> "$GITHUB_OUTPUT" ;;
-              3) echo "mode=nag" >> "$GITHUB_OUTPUT" ;;
-              4) echo "mode=compile" >> "$GITHUB_OUTPUT" ;;
-            esac
+            echo "mode=tick" >> "$GITHUB_OUTPUT"
           fi
       - name: Run the Parlay Builder bot
         env:
