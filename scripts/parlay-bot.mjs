@@ -34,6 +34,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { collectLegs, renderBoard as renderBoardCore, isOpener, isBoard, isLockedBoard } from "../src/lib/server/parlayCore.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MODE = process.argv[2];
@@ -143,6 +144,8 @@ if (lastWeek >= 1) {
 const DRY_HISTORY = [
   { ts: "3", text: "🎯 LEG | Immigrants | Bijan anytime TD" },
   { ts: "2", text: "🎯 Bills -3.5", user: "US0P6RDSR" },
+  { ts: "2.5", text: "Derrick Henry anytime td", user: "US7R5B3C3" },
+  { ts: "2.6", text: "Bryan I don't even have time to do my real work lol, you're good", user: "US0P6RDSR" },
   { ts: "1", text: "🎰 *Week 3 Parlay Builder is OPEN* ...", bot_id: "B1", reply_count: 2 },
 ];
 const DRY_REPLIES = [
@@ -204,66 +207,54 @@ if (!channelID) {
 }
 if (!channelID) { console.error(`channel #${CHANNEL_NAME} not found. Check the exact channel name, and that the bot was invited (/invite @Parlay Builder).`); process.exit(1); }
 
-// legs submitted since Monday 00:00 ET this week, from three sources:
-// explicit "LEG | Team | leg" lines, 🎯-prefixed posts from known managers,
-// and plain replies in the opener's thread from known managers.
-const cleanLeg = (t) => String(t || "")
-  .replace(/^[\s🎯🎰:\-–—]+/u, "")
-  .replace(/^(?:i'?ll take|i'?ll go|i got|i'?m taking|give me|gimme|let'?s do|let'?s go|my leg is|my leg:|leg:)\s+/i, "")
-  .replace(/\s+/g, " ").trim();
+// legs submitted since Monday 00:00 ET this week (shared parser in
+// src/lib/server/parlayCore.js - the instant events endpoint uses the same)
 const readLegs = async () => {
-  const monday = new Date(etNow);
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7)); // back to Monday
-  monday.setHours(0, 0, 0, 0);
   const oldest = String(Math.floor(monday.getTime() / 1000));
-  const legs = {}; // team -> { leg, ts }
-  const consider = (team, leg, ts) => {
-    if (!team || !leg || leg.length < 3 || /\?$/.test(leg)) return;
-    if (!legs[team] || Number(ts) > Number(legs[team].ts)) legs[team] = { leg, ts };
-  };
-  const teamFromText = (name) => allTeams.find((t) => t.toLowerCase() === String(name).trim().toLowerCase());
-  const parse = (msg, inThread) => {
-    const text = msg.text || "";
-    const explicit = text.match(/LEG\s*\|\s*([^|]+?)\s*\|\s*(.+)/);
-    if (explicit) return consider(teamFromText(explicit[1]), cleanLeg(explicit[2]), msg.ts);
-    if (msg.bot_id || msg.subtype) return;                     // bot posts / joins / edits
-    const team = userTeam[msg.user] != null ? teamName(Number(userTeam[msg.user])) : null;
-    if (!team) return;
-    if (inThread || /^\s*🎯/u.test(text)) consider(team, cleanLeg(text), msg.ts);
-  };
-  const openers = [];
+  const messages = []; const openers = [];
   for (let cursor = ""; ;) {
     const d = await slackGet("conversations.history", { channel: channelID, oldest, limit: 200, cursor });
-    for (const msg of d.messages || []) {
-      if (/Parlay Builder is OPEN/.test(msg.text || "") && msg.reply_count) openers.push(msg.ts);
-      parse(msg, false);
-    }
+    for (const msg of d.messages || []) { messages.push(msg); if (isOpener(msg.text) && msg.reply_count) openers.push(msg.ts); }
     cursor = d.response_metadata?.next_cursor;
     if (!cursor || !d.has_more) break;
   }
+  const replies = [];
   for (const ts of openers) {
     for (let cursor = ""; ;) {
       const d = await slackGet("conversations.replies", { channel: channelID, ts, limit: 200, cursor });
-      for (const msg of d.messages || []) if (msg.ts !== ts) parse(msg, true);
+      for (const msg of d.messages || []) if (msg.ts !== ts) replies.push(msg);
       cursor = d.response_metadata?.next_cursor;
       if (!cursor || !d.has_more) break;
     }
   }
+  const teamOfUser = (uid) => (userTeam[uid] != null ? teamName(Number(userTeam[uid])) : null);
+  const legs = collectLegs({ messages, replies, allTeams, teamOfUser });
+  // acknowledge every registered leg with a ✅ (needs reactions:write; a
+  // missing scope just logs a hint)
+  let reactHint = false;
+  for (const v of Object.values(legs)) {
+    try { await slack("reactions.add", { channel: channelID, timestamp: v.ts, name: "white_check_mark" }); }
+    catch (err) { const m = String(err.message); if (/already_reacted/.test(m)) continue; if (/missing_scope|not_allowed/.test(m)) reactHint = true; }
+  }
+  if (reactHint) console.log("Can't ✅ legs: add the reactions:write scope to the Slack app and reinstall it.");
   return Object.fromEntries(Object.entries(legs).map(([t, v]) => [t, v.leg]));
 };
 
 // ── what has the bot already posted this week? (dedupe for tick) ──────
 const postedThisWeek = async () => {
   const oldest = String(Math.floor(monday.getTime() / 1000));
-  const flags = { opener: false, nag: false, slip: false, signoff: false };
+  const flags = { opener: false, nag: false, slip: false, signoff: false, boardTs: null };
   for (let cursor = ""; ;) {
     const d = await slackGet("conversations.history", { channel: channelID, oldest, limit: 200, cursor });
     for (const m of d.messages || []) {
       if (!m.bot_id) continue;
       const t = m.text || "";
-      if (/Parlay Builder is OPEN/.test(t)) flags.opener = true;
+      if (isOpener(t)) flags.opener = true;
       if (/legs in\.\*|All \d+ legs are in/.test(t)) flags.nag = true;
-      if (/WEEK \d+ SLIP/.test(t)) flags.slip = true;
+      // only a slip posted at the real deadline counts as a lock - an early
+      // manual compile (or a test) just becomes the live board again
+      if (isLockedBoard(t) && Number(m.ts) * 1000 >= deadline - 30 * 60e3) flags.slip = true;
+      if (isBoard(t) && !flags.boardTs) flags.boardTs = m.ts; // newest wins
       if (/wrap on the Parlay Builder/.test(t)) flags.signoff = true;
     }
     cursor = d.response_metadata?.next_cursor;
@@ -272,15 +263,34 @@ const postedThisWeek = async () => {
   return flags;
 };
 
+// ── the live board: a pinned message the bot edits as legs land ──────────
+const renderBoard = (legs, locked) => renderBoardCore({
+  legs, allTeams, week: nflWeek, placerName: placer?.name || null, deadlineLabel,
+  kickoffLabel: etLabel(earliestKick || thursday6 + 2 * 3600e3), locked,
+});
+let boardTs = null;
+const updateBoard = async (legs, locked = false) => {
+  const text = renderBoard(legs, locked);
+  if (boardTs) {
+    await slack("chat.update", { channel: channelID, ts: boardTs, text });
+  } else {
+    const res = await slack("chat.postMessage", { channel: channelID, text });
+    boardTs = res.ts;
+    await slack("pins.add", { channel: channelID, timestamp: boardTs }).catch(() => {});
+  }
+  return boardTs;
+};
+
 const postOpener = async () => {
   const hook = placer
     ? `On the hook this week: *${placer.name}* (league-low ${placer.pts} last week). They place the bet.`
     : `First week - agree on who places it, or nominate last season's Toilet Bowl champ for old times' sake.`;
   await slack("chat.postMessage", {
     channel: channelID,
-    text: `🎰 *Week ${nflWeek} Parlay Builder is OPEN*\n${hook}\n*Reply to this message with your leg* - just the bet, e.g. "Vikings ML" - we know whose team you are. (Entering one for someone else? Post \`🎯 LEG | Their Team | the leg\`.)\n*Legs lock ${deadlineLabel}.* Miss it and the placer picks your leg for you - no appeals.`,
+    text: `🎰 *Week ${nflWeek} Parlay Builder is OPEN*\n${hook}\n*Post your leg here* - just the bet, e.g. "Vikings ML" - we know whose team you are, and you'll get a ✅ when it's logged. (Entering one for someone else? Post \`🎯 LEG | Their Team | the leg\`.)\n*Legs lock ${deadlineLabel}.* Miss it and the placer picks your leg for you - no appeals.`,
   });
-  console.log(`opened week ${nflWeek}; deadline ${deadlineLabel}`);
+  await updateBoard(await readLegs(), false);
+  console.log(`opened week ${nflWeek}; deadline ${deadlineLabel}; board pinned`);
 };
 const postNag = async () => {
   const legs = await readLegs();
@@ -293,22 +303,20 @@ const postNag = async () => {
       text: `⏰ *${Object.keys(legs).length}/${allTeams.length} legs in.* Still missing: ${missing.map((t) => `*${t}*`).join(", ")}.\nDeadline is *${deadlineLabel}* - after that the placer chooses for you, and history says they will not be kind.`,
     });
   }
+  await updateBoard(legs, false);
   console.log(`nagged; ${missing.length} team(s) missing`);
 };
 const postSlip = async () => {
   const legs = await readLegs();
   const inCount = Object.keys(legs).length;
   const missing = allTeams.filter((t) => !legs[t]);
-  const slip = allTeams.filter((t) => legs[t]).map((t) => legs[t]).join("  •  ");
-  const placerLine = placer ? `Placer: *${placer.name}*` : "Placer: TBD";
-  const missingLine = missing.length ? `\nMissing (placer picks these): ${missing.join(", ")}` : "";
-  const res = await slack("chat.postMessage", {
+  await updateBoard(legs, true); // the pinned board becomes the final slip
+  const placerLine = placer ? `*${placer.name}*, you're up` : "placer TBD";
+  await slack("chat.postMessage", {
     channel: channelID,
-    text: `🔒 *WEEK ${nflWeek} SLIP — ${inCount}/${allTeams.length} legs* · ${placerLine}\n${slip || "(no legs submitted - somehow, this league found a new low)"}${missingLine}\n_Placer: copy the line above into the book and reply here with the slip screenshot before kickoff (${etLabel(earliestKick || thursday6 + 2 * 3600e3)})._`,
+    text: `🔒 *Week ${nflWeek} legs are locked* - ${inCount}/${allTeams.length} in. The pinned slip is final; ${placerLine}.${missing.length ? ` Placer picks for: ${missing.join(", ")}.` : ""}`,
   });
-  await slack("pins.add", { channel: channelID, timestamp: res.ts }).catch(() => {});
-  if (inCount) await slack("chat.postMessage", { channel: channelID, thread_ts: res.ts, text: allTeams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legs[t]}`).join("\n") });
-  console.log(`compiled ${inCount}/${allTeams.length} legs for week ${nflWeek}`);
+  console.log(`locked ${inCount}/${allTeams.length} legs for week ${nflWeek}`);
 };
 const postSignoff = async () => {
   await slack("chat.postMessage", { channel: channelID, text: `🏁 That's a wrap on the ${state.season} Parlay Builder - ${playoffStart - 1} weeks of legs, one slip a week, and at least one bet that hit. Back next September. Good luck in the playoffs (and the Toilet Bowl).` });
@@ -317,7 +325,8 @@ const postSignoff = async () => {
 
 // ── modes ─────────────────────────────────────────────────────────────────
 if (MODE === "tick") {
-  const flags = FORCE ? { opener: false, nag: false, slip: false, signoff: false } : await postedThisWeek();
+  const flags = FORCE ? { opener: false, nag: false, slip: false, signoff: false, boardTs: null } : await postedThisWeek();
+  boardTs = flags.boardTs;
   const now = Date.now();
   const tuesday10 = epochFromET(monday.getFullYear(), monday.getMonth(), monday.getDate() + 1, 10);
   if (seasonOver) {
@@ -329,13 +338,20 @@ if (MODE === "tick") {
     await postNag();
   } else if (now >= tuesday10 && now < nagAt && !flags.opener) {
     await postOpener();
+  } else if (!flags.slip && flags.opener) {
+    const legs = await readLegs();          // ✅ new legs, refresh the pinned board
+    await updateBoard(legs, false);
+    console.log(`board refreshed: ${Object.keys(legs).length}/${allTeams.length} legs (deadline ${deadlineLabel})`);
   } else {
     console.log(`nothing due (deadline ${deadlineLabel}; opener ${flags.opener}, nag ${flags.nag}, slip ${flags.slip})`);
   }
 } else if (MODE === "open") {
+  boardTs = (await postedThisWeek()).boardTs;
   if (seasonOver) { if (nflWeek === playoffStart) await postSignoff(); else console.log("season over"); } else await postOpener();
 } else if (MODE === "nag") {
+  boardTs = (await postedThisWeek()).boardTs;
   await postNag();
 } else if (MODE === "compile") {
+  boardTs = (await postedThisWeek()).boardTs;
   await postSlip();
 }
