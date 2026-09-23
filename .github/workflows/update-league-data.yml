@@ -25,7 +25,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Scheduled runs come in pairs (05:37 + a 06:53 catch-up in case GitHub
+  # delayed the first). The catch-up only needs to run if the first one
+  # didn't land - so on a schedule trigger, skip when the committed bake is
+  # under three hours old. Manual runs (the Update button) always bake.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          AGE=$(node -e 'const g = require("./static/data/power-rankings.json").generated; console.log(Number.isFinite(Date.parse(g)) ? Math.round((Date.now() - Date.parse(g)) / 60000) : 999999)')
+          if [ "$AGE" -lt 180 ]; then
+            echo "Last bake landed ${AGE} min ago - the earlier scheduled run already covered this; skipping the catch-up."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Last bake is ${AGE} min old - baking."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   update:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
