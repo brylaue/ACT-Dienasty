@@ -190,12 +190,14 @@ const valueArr = teams.map((t) => t.rosterValue);
 // week-over-week movement and roster-value trendlines
 const PR_PATH = join(root, "static/data/power-rankings.json");
 let prevRanks = {};
+let prevTeams = {};
 let prevValueHistory = {};
 if (existsSync(PR_PATH)) {
   try {
     const prev = JSON.parse(readFileSync(PR_PATH, "utf8"));
     for (const t of prev.teams || []) {
       prevRanks[t.rosterID] = t.rank;
+      prevTeams[t.rosterID] = t;
       if (Array.isArray(t.valueHistory)) prevValueHistory[t.rosterID] = t.valueHistory;
     }
   } catch {
@@ -296,6 +298,34 @@ for (const e of projRaw || []) {
   if (e.player_id && e.stats?.pts_half_ppr != null) proj[e.player_id] = e.stats.pts_half_ppr;
   if (e.player_id && e.player?.team) nflTeam[e.player_id] = e.player.team;
 }
+// ---------------------------------------------------------------
+// INJURIES: Sleeper's status + notes → expected games missed. NFL rules
+// give hard floors (IR/PUP = 4 games); "Out" is week-to-week unless the
+// report names a span; Doubtful/Questionable are a fraction of ONE week.
+// ---------------------------------------------------------------
+const playersBlob = await get("https://api.sleeper.app/v1/players/nfl").catch(() => ({}));
+const gamesOutFor = (pl) => {
+  const st = pl?.injury_status || (pl?.status === "Injured Reserve" ? "IR" : pl?.status === "PUP" ? "PUP" : null);
+  if (!st) return { status: null, gamesOut: 0 };
+  const notes = String(pl.injury_notes || "").toLowerCase();
+  const seasonEnding = /season-ending|out for the season|rest of the season|torn acl|acl tear|achilles|torn pec|lisfranc/.test(notes);
+  const span = notes.match(/(\d+)\s*(?:-|to)\s*(\d+)\s*weeks?/) || notes.match(/(\d+)\s*weeks?/);
+  const spanGames = span ? (span[2] ? Math.ceil((Number(span[1]) + Number(span[2])) / 2) : Number(span[1])) : null;
+  const games = notes.match(/(\d+)[- ]games?/);
+  if (st === "IR") return { status: "IR", gamesOut: seasonEnding ? 99 : Math.max(4, spanGames || 4), seasonEnding };
+  if (st === "PUP") return { status: "PUP", gamesOut: Math.max(4, spanGames || 4) };
+  if (st === "Sus") return { status: "Sus", gamesOut: games ? Number(games[1]) : 1 };
+  if (st === "Out") return { status: "Out", gamesOut: seasonEnding ? 99 : spanGames || 1, seasonEnding };
+  if (st === "Doubtful") return { status: "Doubtful", gamesOut: 0.75 };
+  if (st === "Questionable") return { status: "Questionable", gamesOut: 0.25 };
+  return { status: st, gamesOut: 0 };
+};
+const injuryOf = (pid) => {
+  const pl = playersBlob[pid];
+  const d = gamesOutFor(pl);
+  return d.status ? { ...d, part: pl.injury_body_part || null, notes: pl.injury_notes || null } : null;
+};
+
 const SLOTS = (league.roster_positions || []).filter((x) => x !== "BN");
 const FLEX_OK = { FLEX: ["RB", "WR", "TE"], SUPER_FLEX: ["QB", "RB", "WR", "TE"], WRRB_FLEX: ["RB", "WR"], REC_FLEX: ["WR", "TE"] };
 const activeOf = (r) => (r.players || []).filter((pid) => !(r.taxi || []).includes(pid) && !(r.reserve || []).includes(pid));
@@ -343,6 +373,7 @@ const buildLineup = (r) => {
   lineup.forEach((l) => { seen[l.slot] = (seen[l.slot] || 0); l._ix = slotIx[l.slot + "#" + (SLOTS.indexOf(l.slot) + seen[l.slot])] ?? 99; seen[l.slot]++; });
   lineup.sort((a, b) => a._ix - b._ix);
   lineup.forEach((l) => delete l._ix);
+  const benchPool = [...pool].map((pid) => ({ pid, pos: posOf(pid), proj: proj[pid] || 0 }));
   const bench = [...pool].map((pid) => ({ pid, name: nameOf(pid), pos: posOf(pid), proj: Math.round((proj[pid] || 0) * 10) / 10, value: fcValues[pid] || 0 }))
     .sort((a, b) => b.proj - a.proj).slice(0, 6);
   const projTotal = Math.round(lineup.reduce((sum, l) => sum + l.proj, 0));
@@ -353,7 +384,7 @@ const buildLineup = (r) => {
       value: activeOf(r).filter((pid) => posOf(pid) === pos).reduce((sum, pid) => sum + (fcValues[pid] || 0), 0),
     };
   }
-  return { lineup, bench, projTotal, posStrength };
+  return { lineup, bench, benchPool, projTotal, posStrength };
 };
 const lineups = Object.fromEntries(rosters.map((r) => [r.roster_id, buildLineup(r)]));
 // rank each position group across the league, both axes
@@ -422,6 +453,66 @@ for (const r of rosters) {
   };
 }
 
+// ---------------------------------------------------------------
+// INJURED STARTERS: what each absence costs per week (starter's per-game
+// projection minus the best healthy bench option at an eligible slot),
+// and for how many games. Feeds the composite, the sim and the "why".
+// ---------------------------------------------------------------
+const GAMES_IN_SEASON = 17;
+const nextWeekGuess = (() => { for (let w = 1; w < 19; w++) if (!playedWeeks.includes(w)) return w; return 18; })();
+const injuryReport = {};
+const projLossByRoster = {};
+for (const t of teams) {
+  const L = lineups[t.rosterID];
+  const report = [];
+  const usedBench = new Set();
+  for (const l of L.lineup) {
+    if (!l.pid) continue;
+    const inj = injuryOf(l.pid);
+    if (!inj || inj.gamesOut <= 0) continue;
+    const perGame = (proj[l.pid] || 0) / GAMES_IN_SEASON;
+    const allowed = FLEX_OK[l.slot] || [l.slot];
+    const repl = L.benchPool.filter((b) => allowed.includes(b.pos) && !usedBench.has(b.pid) && !injuryOf(b.pid)?.gamesOut)
+      .sort((a, b) => b.proj - a.proj)[0];
+    if (repl) usedBench.add(repl.pid);
+    const weeklyImpact = Math.max(perGame - (repl ? repl.proj / GAMES_IN_SEASON : 0), 0);
+    const throughWeek = inj.gamesOut >= 99 ? null : nextWeekGuess + Math.ceil(inj.gamesOut) - 1;
+    report.push({
+      pid: l.pid, name: l.name, pos: l.pos, status: inj.status, part: inj.part,
+      gamesOut: inj.gamesOut, seasonEnding: !!inj.seasonEnding, throughWeek,
+      weeklyImpact: Math.round(weeklyImpact * 10) / 10,
+      replacement: repl ? nameOf(repl.pid) : null,
+    });
+  }
+  report.sort((a, b) => b.weeklyImpact * Math.min(b.gamesOut, 4) - a.weeklyImpact * Math.min(a.gamesOut, 4));
+  injuryReport[t.rosterID] = report;
+  const gamesLeft = Math.max(GAMES_IN_SEASON - playedWeeks.length, 1);
+  projLossByRoster[t.rosterID] = report.reduce((sum, r) => sum + r.weeklyImpact * Math.min(r.gamesOut, gamesLeft), 0);
+}
+const projTotalsAdj = teams.map((t) => lineups[t.rosterID].projTotal - projLossByRoster[t.rosterID]);
+
+// last completed week's result per roster, for the movement explanation
+const lastResult = {};
+if (existsSync(RIVALRY_PATH) && playedWeeks.length) {
+  const rivalry = JSON.parse(readFileSync(RIVALRY_PATH, "utf8"));
+  const season = rivalry.seasons?.[leagueID];
+  const lastWk = Math.max(...playedWeeks);
+  const wk = season?.weeks?.[lastWk - 1];
+  if (wk) {
+    const scores = [];
+    for (const matchupID in wk) {
+      const entries = wk[matchupID].map((e) => ({ rid: e.roster_id, pts: (e.points || []).reduce((s2, v) => s2 + (v || 0), 0) }));
+      for (const e of entries) {
+        const opp = entries.find((x) => x.rid !== e.rid);
+        lastResult[e.rid] = { week: lastWk, pts: e.pts, opp: opp?.rid ?? null, oppPts: opp?.pts ?? null, won: opp ? e.pts > opp.pts : null, tied: opp ? e.pts === opp.pts : false };
+        scores.push(e.pts);
+      }
+    }
+    scores.sort((a, b) => b - a);
+    for (const rid in lastResult) lastResult[rid].scoreRank = scores.indexOf(lastResult[rid].pts) + 1;
+  }
+}
+
 const ranked = teams
   .map((t, ix) => ({
     ...t,
@@ -434,8 +525,8 @@ const ranked = teams
       ? 0.45 * norm(winPcts[ix], winPcts) +
         0.3 * norm(t.fpts, fptsArr) +
         0.15 * norm(t.rosterValue, valueArr) +
-        0.1 * norm(lineups[t.rosterID].projTotal, projTotals)
-      : 0.6 * norm(lineups[t.rosterID].projTotal, projTotals) +
+        0.1 * norm(projTotalsAdj[ix], projTotalsAdj)
+      : 0.6 * norm(projTotalsAdj[ix], projTotalsAdj) +
         0.4 * norm(t.rosterValue, valueArr),
     owner: ownerOf(t.rosterID),
     projTotal: lineups[t.rosterID].projTotal,
@@ -456,6 +547,8 @@ const ranked = teams
     ...t,
     rank: ix + 1,
     prevRank: prevRanks[t.rosterID] ?? null,
+    injuries: injuryReport[t.rosterID],
+    projTotalAdj: Math.round(projTotalsAdj[teams.indexOf(t)]),
     valueHistory: valueHistoryFor(t.rosterID, t.rosterValue),
   }));
 
@@ -478,6 +571,44 @@ for (const t of ranked) {
   const echo = typeof e === "string" ? null : e.team;
   if (echo != null && normTeam(echo) !== normTeam(t.name)) { dropped++; continue; }
   if (line) blurbs[String(t.rosterID)] = String(line);
+}
+
+// ---------------------------------------------------------------
+// WHY IT MOVED: deterministic, from the actual drivers - last result,
+// who passed whom, roster-value swings, and injuries with their duration.
+// ---------------------------------------------------------------
+const ordinal = (n) => n + (["th", "st", "nd", "rd"][((n % 100) > 10 && (n % 100) < 14) ? 0 : n % 10] || "th");
+const nameByRid = Object.fromEntries(ranked.map((t) => [t.rosterID, t.name.trim()]));
+const injuryPhrase = (r, forSim) => {
+  const part = r.part ? ` (${r.part.toLowerCase()})` : "";
+  if (r.status === "Questionable") return `${r.name} questionable${part} — game-time call, ~${Math.round(r.weeklyImpact * 0.25)}-pt dock this week only`;
+  if (r.status === "Doubtful") return `${r.name} doubtful${part} — one week, ~${Math.round(r.weeklyImpact * 0.75)}-pt dock`;
+  const span = r.seasonEnding ? "season-ending" : r.status === "IR" ? `IR, minimum 4 games — out through Wk ${r.throughWeek}` : r.status === "PUP" ? `PUP — out through Wk ${r.throughWeek}` : r.status === "Sus" ? `suspended through Wk ${r.throughWeek}` : r.gamesOut > 1 ? `report says ~${Math.ceil(r.gamesOut)} weeks — through Wk ${r.throughWeek}` : "week-to-week";
+  return `${r.name} ${r.status === "Out" && r.gamesOut <= 1 ? "out" : ""}${part}: ${span}, ~${Math.round(r.weeklyImpact)} pts/wk${forSim ? " docked in the sim while out" : ""}`;
+};
+for (const t of ranked) {
+  const parts = [];
+  const lr = lastResult[t.rosterID];
+  if (lr && lr.opp != null) {
+    const verb = lr.tied ? "Tied" : lr.won ? "Beat" : "Lost to";
+    const rankNote = lr.scoreRank <= 2 ? ` (week's ${lr.scoreRank === 1 ? "top" : "2nd-best"} score)` : lr.scoreRank >= ranked.length - 1 ? ` (week's ${lr.scoreRank === ranked.length ? "lowest" : "2nd-lowest"} score)` : "";
+    parts.push(`${verb} ${nameByRid[lr.opp]} ${lr.pts.toFixed(1)}–${lr.oppPts.toFixed(1)}${rankNote}`);
+  }
+  const prev = prevTeams[t.rosterID];
+  if (prev && prev.rank != null && prev.rank !== t.rank) {
+    const movedUp = t.rank < prev.rank;
+    const between = ranked.filter((o) => o.rosterID !== t.rosterID && prevTeams[o.rosterID]?.rank != null &&
+      (movedUp ? (prevTeams[o.rosterID].rank < prev.rank && o.rank > t.rank) : (prevTeams[o.rosterID].rank > prev.rank && o.rank < t.rank)))
+      .map((o) => o.name.trim());
+    if (between.length) parts.push(`${movedUp ? "jumped" : "passed by"} ${between.slice(0, 3).join(", ")}${between.length > 3 ? ` +${between.length - 3}` : ""}`);
+  }
+  if (prev && prev.rosterValue != null) {
+    const dv = t.rosterValue - prev.rosterValue;
+    if (Math.abs(dv) >= 1500) parts.push(`roster value ${dv > 0 ? "+" : "−"}${(Math.abs(dv) / 1000).toFixed(1)}k since last bake`);
+  }
+  for (const r of (injuryReport[t.rosterID] || []).filter((x) => x.weeklyImpact >= 1.5 || x.gamesOut >= 4).slice(0, 2)) parts.push(injuryPhrase(r, false));
+  const head = prev?.rank == null ? `First ranking with games played` : t.rank === prev.rank ? `Held ${ordinal(t.rank)}` : `${t.rank < prev.rank ? "Up" : "Down"} to ${ordinal(t.rank)} from ${ordinal(prev.rank)}`;
+  t.why = `${head}. ${parts.join(" · ")}${parts.length ? "." : ""}`;
 }
 
 // keep last bake's blurb for any team the model didn't return one for -
@@ -545,6 +676,28 @@ const madePlayoffs = Object.fromEntries(teams.map((t) => [t.rosterID, 0]));
 const topPick = Object.fromEntries(teams.map((t) => [t.rosterID, 0]));
 const top3Pick = Object.fromEntries(teams.map((t) => [t.rosterID, 0]));
 
+// expected points lost to injuries in a given remaining week: full impact
+// while a multi-week absence lasts, a probability-weighted fraction for
+// Doubtful/Questionable (which only touch the very next week)
+const injuryPenalty = (rid, w) => {
+  const offset = remainingWeeks.indexOf(w); // 0 = the upcoming week
+  let pen = 0;
+  for (const r of injuryReport[rid] || []) {
+    if (r.gamesOut < 1) { if (offset === 0) pen += r.weeklyImpact * r.gamesOut; continue; }
+    if (offset < Math.ceil(r.gamesOut)) pen += r.weeklyImpact;
+  }
+  return pen;
+};
+// remaining-schedule difficulty: average opponent scoring mean over the
+// real schedule (random re-pairs are ignored)
+const schedStrength = {};
+for (const t of teams) {
+  const opps = [];
+  for (const w of remainingWeeks) for (const [a, b] of schedule[w] || []) { if (a === t.rosterID) opps.push(b); if (b === t.rosterID) opps.push(a); }
+  schedStrength[t.rosterID] = opps.length ? opps.reduce((sum, o) => sum + meanStdevFor(o).mean, 0) / opps.length : null;
+}
+const schedRankOf = (() => { const ids = teams.map((t) => t.rosterID).filter((r) => schedStrength[r] != null).sort((x, y) => schedStrength[y] - schedStrength[x]); return Object.fromEntries(ids.map((r, i) => [r, i + 1])); })();
+
 for (let sim = 0; sim < SIMS; sim++) {
   const state = Object.fromEntries(
     teams.map((t) => [t.rosterID, { wins: t.wins, losses: t.losses, ties: t.ties, fpts: t.fpts }]),
@@ -560,8 +713,8 @@ for (let sim = 0; sim < SIMS; sim++) {
     for (const [a, b] of pairs) {
       const { mean: ma, stdev: sa } = meanStdevFor(a);
       const { mean: mb, stdev: sb } = meanStdevFor(b);
-      const scoreA = Math.max(gaussian(ma, sa), 0);
-      const scoreB = Math.max(gaussian(mb, sb), 0);
+      const scoreA = Math.max(gaussian(ma - injuryPenalty(a, w), sa), 0);
+      const scoreB = Math.max(gaussian(mb - injuryPenalty(b, w), sb), 0);
       state[a].fpts += scoreA;
       state[b].fpts += scoreB;
       if (scoreA > scoreB) state[a].wins++, state[b].losses++;
@@ -616,8 +769,23 @@ const odds = teams
     prevPct: prevPcts[t.rosterID] ?? null,
     topPickPct: Math.round((topPick[t.rosterID] / SIMS) * 1000) / 10,
     top3PickPct: Math.round((top3Pick[t.rosterID] / SIMS) * 1000) / 10,
+    injuries: injuryReport[t.rosterID],
+    simMean: Math.round(meanStdevFor(t.rosterID).mean * 10) / 10,
+    schedRank: schedRankOf[t.rosterID] ?? null,
   }))
   .sort((a, b) => b.playoffPct - a.playoffPct);
+for (const o of odds) {
+  const parts = [];
+  const lr = lastResult[o.rosterID];
+  if (lr && lr.opp != null) parts.push(`${lr.tied ? "tied" : lr.won ? "beat" : "lost to"} ${nameByRid[lr.opp]} → now ${o.wins}-${o.losses}${o.ties ? `-${o.ties}` : ""}`);
+  parts.push(`scoring ${o.simMean.toFixed(1)}/wk (${ordinal(odds.map((x) => x.rosterID).sort((x, y) => meanStdevFor(y).mean - meanStdevFor(x).mean).indexOf(o.rosterID) + 1)} in the sim)`);
+  if (o.schedRank) parts.push(`remaining schedule ${ordinal(o.schedRank)}-toughest`);
+  for (const r of (o.injuries || []).filter((x) => x.weeklyImpact >= 1.5 || x.gamesOut >= 4).slice(0, 2)) parts.push(injuryPhrase(r, true));
+  const d = o.prevPct == null ? null : Math.round((o.playoffPct - o.prevPct) * 10) / 10;
+  const head = d == null ? `First odds with games played` : d === 0 ? `Held at ${o.playoffPct}%` : `${d > 0 ? "Up" : "Down"} ${Math.abs(d)} pts to ${o.playoffPct}%`;
+  if (parts.length) parts[0] = parts[0][0].toUpperCase() + parts[0].slice(1);
+  o.why = `${head}. ${parts.join(" · ")}${parts.length ? "." : ""}`;
+}
 
 writeFileSync(
   join(root, "static/data/playoff-odds.json"),
@@ -626,6 +794,7 @@ writeFileSync(
     playoffTeams,
     remainingWeeks: remainingWeeks.length,
     simulations: SIMS,
+    injuryModel: "Each team's weekly scoring draw is docked for injured starters while they're expected out: IR/PUP a minimum of 4 games, Out per the injury report (week-to-week if unspecified), Doubtful/Questionable a 75%/25% fraction of one week. The dock is the starter's projected points minus the best healthy bench option.",
     teams: odds,
   }),
 );

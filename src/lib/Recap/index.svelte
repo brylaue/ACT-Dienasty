@@ -34,6 +34,18 @@
         "the bench had the answers all along",
         "somewhere, a lineup optimizer weeps",
     ];
+    const TINKER_LINES = [
+        "the rare lineup change made from wisdom, not panic",
+        "tinkering vindicated, insufferably so",
+        "the waiver wire finally paid its rent",
+        "proof the buttons occasionally do something",
+    ];
+    const LEFTALONE_LINES = [
+        "outsmarted by their own cleverness",
+        "last week's lineup filed a grievance",
+        "the changes were made with confidence, which makes it worse",
+        "sometimes the best move is a nap",
+    ];
     const TOILET_LINES = [
         "thoughts and prayers",
         "the less said, the better",
@@ -158,6 +170,28 @@
                     (pairs[e.matchup_id] = pairs[e.matchup_id] || []).push(t);
                 }
             }
+            // stand-pat counterfactual: re-submit LAST week's starters into
+            // this week's scoring (a starter no longer on the roster = 0).
+            // Only lineups that actually changed are in the running.
+            let bestTinker = null, worstTinker = null;
+            if (week > 1) {
+                try {
+                    const prevRes = await retryFetch(`https://api.sleeper.app/v1/league/${season.leagueID}/matchups/${week - 1}`);
+                    const prevEntries = await prevRes.json();
+                    for (const e of entries) {
+                        const prev = prevEntries.find((x) => x.roster_id === e.roster_id);
+                        if (!prev?.starters?.length) continue;
+                        if ([...prev.starters].sort().join() === [...(e.starters || [])].sort().join()) continue;
+                        const standPat = prev.starters.reduce((t2, pid) => t2 + ((e.players || []).includes(pid) ? e.players_points?.[pid] || 0 : 0), 0);
+                        const actual = (e.starters_points || []).reduce((t2, v) => t2 + (v || 0), 0);
+                        if (actual <= 0) continue;
+                        const delta = Math.round((actual - standPat) * 10) / 10;
+                        const rec = { name: teamName(e.roster_id, year), delta, actual: Math.round(actual * 10) / 10, standPat: Math.round(standPat * 10) / 10 };
+                        if (delta > 0 && (!bestTinker || delta > bestTinker.delta)) bestTinker = rec;
+                        if (delta < 0 && (!worstTinker || delta < worstTinker.delta)) worstTinker = rec;
+                    }
+                } catch { /* no prev week - cards just don't render */ }
+            }
             const played = teams.filter((t) => t.pts > 0);
             if (!played.length) { recap = null; loading = false; return; }
 
@@ -191,7 +225,7 @@
             const baked = (await getCommentary()).recaps?.[`${year}-${week}`];
 
             recap = {
-                year, week, top, toilet, benchKing, blowout, heartbreak,
+                year, week, top, toilet, benchKing, blowout, heartbreak, bestTinker, worstTinker,
                 lines: {
                     bench: benchLost
                         ? `left ${round(benchKing.bench)} on the bench in a game they lost — ${baked?.bench || pickLine(BENCH_LINES, seed)}`
@@ -199,6 +233,8 @@
                     toilet: baked?.toilet || pickLine(TOILET_LINES, seed + 2),
                     blowout: baked?.blowout || pickLine(BLOWOUT_LINES, seed + 3),
                     heartbreak: baked?.heartbreak || pickLine(HEARTBREAK_LINES, seed + 4),
+                    tinker: bestTinker ? `lineup changes gained +${round(bestTinker.delta)} (scored ${round(bestTinker.actual)}; last week's lineup scores ${round(bestTinker.standPat)}) — ${baked?.tinker || pickLine(TINKER_LINES, seed + 5)}` : null,
+                    leftAlone: worstTinker ? `tinkered away ${round(Math.abs(worstTinker.delta))} — last week's lineup scores ${round(worstTinker.standPat)}, they managed ${round(worstTinker.actual)} — ${baked?.leftAlone || pickLine(LEFTALONE_LINES, seed + 6)}` : null,
                 },
             };
         } catch (err) {
@@ -221,6 +257,8 @@
             r.blowout ? `🔨 Beatdown: ${r.blowout.winner.name} flattened ${r.blowout.loser.name} by ${round(r.blowout.margin)} — ${r.lines.blowout}` : null,
             r.heartbreak ? `💔 Heartbreak: ${r.heartbreak.loser.name} fell to ${r.heartbreak.winner.name} by ${round(r.heartbreak.margin)} — ${r.lines.heartbreak}` : null,
             `🪑 Bench Warmer: ${r.benchKing.name} ${r.lines.bench}`,
+            r.lines.tinker ? `🔧 Tinkerer: ${r.bestTinker.name} ${r.lines.tinker}` : null,
+            r.lines.leftAlone ? `🪛 Should've left it alone: ${r.worstTinker.name} ${r.lines.leftAlone}` : null,
             `— act-dienasty.vercel.app`,
         ].filter(Boolean).join('\n');
         navigator.clipboard?.writeText(text).then(() => {
@@ -397,6 +435,24 @@
                 <span class="detail">{recap.benchKing.name} {recap.lines.bench}.</span>
             </span>
         </div>
+        {#if recap.lines.tinker}
+        <div class="card">
+            <span class="emoji">🔧</span>
+            <span class="cardBody">
+                <span class="title">Tinkerer of the Week</span>
+                <span class="detail">{recap.bestTinker.name} {recap.lines.tinker}.</span>
+            </span>
+        </div>
+        {/if}
+        {#if recap.lines.leftAlone}
+        <div class="card">
+            <span class="emoji">🪛</span>
+            <span class="cardBody">
+                <span class="title">Should've Left It Alone</span>
+                <span class="detail">{recap.worstTinker.name} {recap.lines.leftAlone}.</span>
+            </span>
+        </div>
+        {/if}
     </div>
     <div class="copyBar">
         <button class="copyBtn" onclick={copyText}>📋 Copy for the group chat</button>

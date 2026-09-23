@@ -39,7 +39,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { classifyTrade } from "../src/lib/utils/helperFunctions/tradeClassification.js";
+import { classifyTrade, valueForPick } from "../src/lib/utils/helperFunctions/tradeClassification.js";
 import { classifyWaiver } from "../src/lib/utils/helperFunctions/waiverHeadlines.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -209,7 +209,9 @@ if (existsSync(RIVALRY_PATH)) {
         if (!w) return; // null = not played yet
         const week = ix + 1;
         const key = `${season.year}-${week}`;
-        if (!existing.recaps[key]) {
+        // ctxV 2 = bench phrase written knowing the win/loss context, plus
+        // tinker keys; older bakes of the current season regenerate once
+        if (!existing.recaps[key] || existing.recaps[key].ctxV !== 2) {
           newRecapWeeks.push({ year: season.year, week, key });
         }
       });
@@ -229,14 +231,25 @@ if (existsSync(RIVALRY_PATH)) {
   }
 }
 
+// trade re-evaluations refresh once per completed week (poll runs in
+// between see the same week and skip)
+existing.tradeNow ||= {};
+const nflState = await get("https://api.sleeper.app/v1/state/nfl").catch(() => null);
+const completedWeek = nflState?.season_type === "regular" ? Math.max(Number(nflState.week) - 1, 0)
+  : nflState?.season_type === "post" ? 18 : 0;
+const staleTradeNow = completedWeek >= 1
+  ? Object.keys(existing.tradeMeta || {}).filter((id) => existing.tradeNow[id]?.week !== completedWeek)
+  : [];
+
 if (
   !newTrades.length &&
   !newWaivers.length &&
   !newRecapWeeks.length &&
-  !predictionWeekInfo
+  !predictionWeekInfo &&
+  !staleTradeNow.length
 ) {
   console.log(
-    "No new transactions, finished weeks, or upcoming-week predictions since last bake - nothing to generate.",
+    "No new transactions, finished weeks, upcoming-week predictions, or stale trade re-evals since last bake - nothing to generate.",
   );
   process.exit(0);
 }
@@ -342,6 +355,13 @@ for (const { t, classified } of gradeableTrades) {
     // today's values is nonsense, so a future GM Report Card needs the
     // numbers as they stood when the trade happened
     if (classified?.totals && t.rosters?.length >= 2) {
+      const raw0 = allTransactions.find((x) => x.transaction_id === t.id);
+      const assetsAtTrade = raw0 ? t.rosters.map((rid) => ({
+        players: Object.entries(raw0.adds || {}).filter(([pid, owner]) => owner === rid && raw0.drops?.[pid] != null)
+          .map(([pid]) => ({ pid, value: fcValues.players[pid] ?? null })),
+        picks: (raw0.draft_picks || []).filter((pk) => pk.owner_id === rid)
+          .map((pk) => ({ season: pk.season, round: pk.round, value: valueForPick(fcValues.picks, pk.season, pk.round) })),
+      })) : null;
       existing.tradeMeta[t.id] = {
         at: t.status_updated || Date.now(),
         rosters: t.rosters, // every side, in move order
@@ -349,6 +369,7 @@ for (const { t, classified } of gradeableTrades) {
         gapPct: classified.gapPct,
         tier: classified.tier,
         winnerRoster: t.rosters[classified.winnerIx] ?? null,
+        assets: assetsAtTrade, // per-asset values frozen at trade time
       };
     }
     recentTradeLines.push(line);
@@ -382,8 +403,10 @@ for (const { t, classified } of classifiedWaivers) {
 // widest margins) so the AI is reacting to the real week, not guessing. ---
 
 const RECAP_SYSTEM = `You write short, dry, deadpan flavor lines for a fantasy football dynasty league's weekly "Tuesday Roundup" recap. You'll get stats for one specific week and must reply with ONLY a JSON object (no markdown fences, no preamble) with exactly these keys, each a short phrase (not a full sentence, no trailing period) that could follow a dash after a stat, e.g. "left 42.1 points riding the pine — {your bench phrase}":
-{"bench": "...", "toilet": "...", "blowout": "...", "heartbreak": "..."}
-- bench: reacts to a team leaving a lot of points on the bench (worse if they also lost with the bench points sitting right there)
+{"bench": "...", "toilet": "...", "blowout": "...", "heartbreak": "...", "tinker": "...", "leftAlone": "..."}
+- bench: reacts to a team leaving points on the bench. The stats say whether they WON or LOST that game - the phrase MUST fit that result. If they won anyway, never imply the outcome could have changed; mock the wasted points instead. If they lost by less than the bench total, twist the knife
+- tinker: reacts to a team whose lineup changes GAINED points versus simply re-submitting last week's lineup - tinkering vindicated
+- leftAlone: reacts to a team whose lineup changes LOST points versus last week's lineup - they outsmarted themselves
 - toilet: reacts to the lowest score of the week
 - blowout: reacts to the week's widest margin of victory
 - heartbreak: reacts to the week's closest margin of victory
@@ -490,19 +513,36 @@ for (const { year, week, key } of newRecapWeeks) {
     if (!heartbreak || margin < heartbreak.margin) heartbreak = { margin };
   }
 
-  const benchLost = Object.values(pairs).some(
-    (p) =>
-      p.length == 2 &&
-      p.includes(benchKing) &&
-      benchKing.pts < p.find((x) => x != benchKing).pts &&
-      benchKing.bench > Math.abs(p[0].pts - p[1].pts),
-  );
+  const benchPair = Object.values(pairs).find((p) => p.length == 2 && p.includes(benchKing));
+  const benchWon = benchPair ? benchKing.pts > benchPair.find((x) => x != benchKing).pts : null;
+  const benchLost = benchPair && !benchWon && benchKing.bench > Math.abs(benchPair[0].pts - benchPair[1].pts);
+
+  // stand-pat counterfactual: what if each team had re-submitted LAST
+  // week's starters? (a departed/unrostered starter scores 0 - you can't
+  // start what you dropped). Only lineups that actually changed count.
+  let bestTinker = null, worstTinker = null;
+  if (week > 1) {
+    const prevEntries = await get(`https://api.sleeper.app/v1/league/${leagueID}/matchups/${week - 1}`).catch(() => []);
+    for (const e of entries) {
+      const prev = prevEntries.find((x) => x.roster_id === e.roster_id);
+      if (!prev?.starters?.length) continue;
+      const changed = [...prev.starters].sort().join() !== [...(e.starters || [])].sort().join();
+      if (!changed) continue;
+      const standPat = prev.starters.reduce((t, pid) => t + ((e.players || []).includes(pid) ? e.players_points?.[pid] || 0 : 0), 0);
+      const actual = (e.starters_points || []).reduce((t, v) => t + (v || 0), 0);
+      const delta = Math.round((actual - standPat) * 10) / 10;
+      if (delta > 0 && (!bestTinker || delta > bestTinker.delta)) bestTinker = { delta, actual, standPat };
+      if (delta < 0 && (!worstTinker || delta < worstTinker.delta)) worstTinker = { delta, actual, standPat };
+    }
+  }
 
   const stats = [
-    `Bench Warmer: ${benchKing.bench.toFixed(1)} points left on the bench${benchLost ? " in a game they LOST" : ""}.`,
+    `Bench Warmer: ${benchKing.bench.toFixed(1)} points left on the bench in a game they ${benchWon ? "WON anyway" : benchLost ? "LOST by less than that" : "LOST"}.`,
     `Toilet Bowl: lowest score of the week was ${toilet.pts.toFixed(1)} points.`,
     blowout ? `Blowout: widest margin of victory this week was ${blowout.margin.toFixed(1)} points.` : null,
     heartbreak ? `Heartbreak: closest margin of victory this week was ${heartbreak.margin.toFixed(1)} points.` : null,
+    bestTinker ? `Tinkerer: one team's lineup changes GAINED ${bestTinker.delta.toFixed(1)} points versus re-submitting last week's lineup.` : `Tinkerer: no lineup changes gained points this week - reply "tinker" with a phrase anyway, generic.`,
+    worstTinker ? `Overthinker: one team's lineup changes COST ${Math.abs(worstTinker.delta).toFixed(1)} points versus standing pat with last week's lineup.` : `Overthinker: nobody tinkered themselves out of points this week - reply "leftAlone" with a generic phrase anyway.`,
   ].filter(Boolean).join("\n");
 
   const result = await askClaudeJSON(
@@ -510,8 +550,8 @@ for (const { year, week, key } of newRecapWeeks) {
     `${year} Week ${week} stats:\n${stats}${avoidBlock(recentRecapLines)}`,
   );
   if (result && result.bench && result.toilet) {
-    existing.recaps[key] = result;
-    recentRecapLines.push(result.bench, result.toilet, result.blowout, result.heartbreak);
+    existing.recaps[key] = { ...result, ctxV: 2 };
+    recentRecapLines.push(...[result.bench, result.toilet, result.blowout, result.heartbreak, result.tinker, result.leftAlone].filter(Boolean));
   }
 }
 
@@ -614,6 +654,103 @@ if (predictionWeekInfo) {
 }
 
 mkdirSync(join(root, "static/data"), { recursive: true });
+
+// ── "where it stands now": weekly present-tense re-grade of past trades ──
+// The original verdict stays frozen; this block is OVERWRITTEN each
+// completed week with how the deal is actually playing out - points the
+// moved players scored for their new teams, injuries, whether they're even
+// still rostered, and what the picks price at today. Picks can't score
+// until a draft, so they're tracked by calculator value (vs their frozen
+// at-trade value when we have it).
+if (staleTradeNow.length) {
+  console.log(`${staleTradeNow.length} trade re-eval(s) for completed week ${completedWeek}`);
+  if (!fcValues) {
+    const raw = await get("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=0.5").catch(() => []);
+    const players = {}; const picks = [];
+    for (const entry of raw) {
+      if (entry.player?.position === "PICK") picks.push({ name: entry.player.name, value: entry.value });
+      else if (entry.player?.sleeperId) players[entry.player.sleeperId] = entry.value;
+    }
+    fcValues = { players, picks };
+  }
+  const allPlayers = await get("https://api.sleeper.app/v1/players/nfl").catch(() => ({}));
+  const curRosters = await get(`https://api.sleeper.app/v1/league/${leagueID}/rosters`).catch(() => []);
+  const onRosterNow = {}; // pid -> roster_id
+  for (const r of curRosters) for (const pid of r.players || []) onRosterNow[pid] = r.roster_id;
+  const leagueUsers = await get(`https://api.sleeper.app/v1/league/${leagueID}/users`).catch(() => []);
+  const rosterNames = {};
+  for (const r of curRosters) {
+    const u = leagueUsers.find((x) => x.user_id === r.owner_id);
+    rosterNames[r.roster_id] = u?.metadata?.team_name || u?.display_name || `Roster ${r.roster_id}`;
+  }
+  const teamNameOf = (rid) => rosterNames[rid] || `Roster ${rid}`;
+  const matchupCache = {};
+  const matchupsFor = async (w) => (matchupCache[w] ||= await get(`https://api.sleeper.app/v1/league/${leagueID}/matchups/${w}`).catch(() => []));
+
+  const TRADE_NOW_SYSTEM = `You write a one-to-two sentence present-tense re-assessment of a past fantasy football dynasty trade, given how it is ACTUALLY playing out. Dry, deadpan, honest - credit aging like fine wine or curdling as the stats warrant. Use the real team names given. Max 35 words. Reply with ONLY the line, no quotes, no preamble.`;
+
+  for (const id of staleTradeNow) {
+    const meta = existing.tradeMeta[id];
+    const raw = allTransactions.find((x) => x.transaction_id === id);
+    if (!meta || !raw) continue;
+    const tradeWeek = Math.max(Number(raw.leg) || 1, 1);
+    const sides = [];
+    for (const rid of meta.rosters) {
+      const gotPlayers = Object.entries(raw.adds || {})
+        .filter(([pid, owner]) => owner === rid && raw.drops?.[pid] != null)
+        .map(([pid]) => pid);
+      const gotPicks = (raw.draft_picks || []).filter((pk) => pk.owner_id === rid);
+      const faab = (raw.waiver_budget || []).filter((wb) => wb.receiver === rid).reduce((a, b) => a + b.amount, 0);
+      const players = [];
+      for (const pid of gotPlayers) {
+        let pts = 0; let started = 0; let weeksOn = 0;
+        for (let w = tradeWeek; w <= completedWeek; w++) {
+          const entry = (await matchupsFor(w)).find((m) => m.roster_id === rid);
+          if (!entry || !(entry.players || []).includes(pid)) continue;
+          weeksOn++;
+          pts += entry.players_points?.[pid] || 0;
+          if ((entry.starters || []).includes(pid)) started++;
+        }
+        const pl = allPlayers[pid];
+        players.push({
+          pid,
+          name: pl ? `${pl.first_name} ${pl.last_name}` : `#${pid}`,
+          pts: Math.round(pts * 10) / 10,
+          started, weeksOn,
+          status: pl?.injury_status || (pl?.status === "Injured Reserve" ? "IR" : null),
+          stillOn: onRosterNow[pid] === rid,
+          valueNow: fcValues.players[pid] ?? null,
+        });
+      }
+      const atAssets = meta.assets?.[meta.rosters.indexOf(rid)];
+      const picks = gotPicks.map((pk) => {
+        // a pick whose draft already happened isn't an asset anymore - it
+        // conveyed into a player at that draft
+        const conveyed = Number(pk.season) <= Number(nflState?.season || 0);
+        const valueNow = conveyed ? null : valueForPick(fcValues.picks, pk.season, pk.round);
+        const atTrade = atAssets?.picks?.find((x) => x.season === pk.season && x.round === pk.round)?.value ?? null;
+        return { label: `${pk.season} R${pk.round}`, conveyed, valueNow, valueAtTrade: conveyed ? null : atTrade };
+      });
+      sides.push({
+        rosterID: rid,
+        pts: Math.round(players.reduce((a, b) => a + b.pts, 0) * 10) / 10,
+        players, picks, faab: faab || undefined,
+      });
+    }
+    // one AI line per trade; stats digest keeps it grounded in what happened
+    const digestLines = sides.map((sd) => {
+      const pl = sd.players.map((x) => `${x.name} ${x.pts} pts in ${x.weeksOn} wks (started ${x.started})${x.status ? `, ${x.status}` : ""}${x.stillOn ? "" : ", NO LONGER ON ROSTER"}`).join("; ") || "no players";
+      const pk = sd.picks.map((x) => x.conveyed ? `${x.label} (already conveyed at that draft)` : `${x.label} now ~${x.valueNow}${x.valueAtTrade ? ` (was ${x.valueAtTrade} at trade)` : ""}`).join("; ");
+      return `${teamNameOf(sd.rosterID).trim()} got: ${pl}${pk ? ` | picks: ${pk}` : ""}${sd.faab ? ` | $${sd.faab} FAAB` : ""}`;
+    }).join("\n");
+    const line = API_KEY ? await askClaude(
+      TRADE_NOW_SYSTEM,
+      `Original call at trade time: tier "${meta.tier}", value winner ${teamNameOf(meta.winnerRoster).trim()}.\nThrough week ${completedWeek}, here is what each side's haul has actually done:\n${digestLines}\n\nWrite the present-tense re-assessment.`,
+    ) : null;
+    existing.tradeNow[id] = { week: completedWeek, at: Date.now(), sides, line: line || null };
+  }
+}
+
 writeFileSync(OUT_PATH, JSON.stringify(existing));
 console.log(
   `wrote static/data/commentary.json (${Object.keys(existing.trades).length} trades, ${Object.keys(existing.waivers).length} waivers, ${Object.keys(existing.recaps).length} recap weeks, ${Object.keys(existing.predictions).length} prediction weeks total)`,

@@ -1,4 +1,5 @@
 <script>
+    let openWhy = null; // rosterID whose note is pinned open (tap on mobile)
 	import TrendChart from '$lib/TrendChart.svelte';
     import LinearProgress from '@smui/linear-progress';
 
@@ -28,6 +29,7 @@
     const barFor = (pct) => pct >= 75 ? '#00ceb8' : pct >= 40 ? '#0082c3' : pct >= 15 ? '#ffae58' : '#ff2a6d';
 </script>
 
+<svelte:window on:click={() => openWhy = null} />
 <svelte:head>
     <title>Playoff Odds | League Page</title>
 </svelte:head>
@@ -39,6 +41,7 @@
             {data.simulations.toLocaleString()} simulated seasons, {data.remainingWeeks} week{data.remainingWeeks == 1 ? '' : 's'} remaining,
             top {data.playoffTeams} make the playoffs.
         </p>
+        {#if data.injuryModel}<p class="modelNote">Hover or tap a ▲▼ for why the odds moved. {data.injuryModel}</p>{/if}
     {/if}
 
     {#if loading}
@@ -57,9 +60,11 @@
                             <span class="name">{team.name}</span>
                             <span class="pctWrap">
                                 {#if delta(team) !== null && delta(team) !== 0}
-                                    <span class="delta" class:up={delta(team) > 0} class:down={delta(team) < 0}>
+                                    <span class="whyWrap" class:open={openWhy === team.rosterID} on:click|stopPropagation><button type="button" aria-label="Why the odds moved" title={team.why || ''} on:click={() => openWhy = openWhy === team.rosterID ? null : team.rosterID}><span class="delta" class:up={delta(team) > 0} class:down={delta(team) < 0}>
                                         {delta(team) > 0 ? '▲' : '▼'}{Math.abs(delta(team))}
-                                    </span>
+                                    </span></button>{#if team.why}<span class="why" role="tooltip">{team.why}</span>{/if}</span>
+                                {:else if team.why}
+                                    <span class="whyWrap" class:open={openWhy === team.rosterID} on:click|stopPropagation><button type="button" aria-label="Why the odds held" title={team.why} on:click={() => openWhy = openWhy === team.rosterID ? null : team.rosterID}><span class="delta flat">·</span></button><span class="why" role="tooltip">{team.why}</span></span>
                                 {/if}
                                 <span class="pct" style="color: {colorFor(team.playoffPct)}">{team.playoffPct}%</span>
                             </span>
@@ -161,6 +166,18 @@
         padding: 1px 6px;
         border-radius: 10px;
     }
+    .delta.flat { color: var(--muted); background: var(--eee); }
+    /* movement explanation: hover on desktop, tap (focus) on mobile */
+    .whyWrap { position: relative; display: inline-block; }
+    .whyWrap > button { font: inherit; cursor: help; border: 0; background: none; padding: 0; }
+    .whyWrap > button > span { display: inline-block; }
+    .why { display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: 300px; max-width: 78vw;
+        padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--fff); color: var(--ink);
+        font-size: 0.8em; font-weight: 500; line-height: 1.5; text-align: left; box-shadow: 0 8px 24px rgba(0,0,0,0.18); white-space: normal; }
+    .whyWrap:hover .why, .whyWrap.open .why { display: block; }
+    .why b { font-weight: 700; }
+    @media (max-width: 640px) { .why { position: fixed; left: 12px; right: 12px; top: auto; bottom: 16px; width: auto; max-width: none; box-shadow: 0 10px 30px rgba(0,0,0,0.35); } }
+
     .delta.up { color: #16a34a; background: color-mix(in srgb, #16a34a 15%, transparent); }
     .delta.down { color: #dc2626; background: color-mix(in srgb, #dc2626 15%, transparent); }
     .record {
@@ -202,6 +219,7 @@
         font-size: 0.7em;
         margin-top: 24px;
     }
+    .modelNote { text-align: center; color: var(--muted); font-size: 0.78em; max-width: 620px; margin: 0 auto 18px; line-height: 1.5; }
 </style>
 
 <TrendChart metric="playoffPct" title="Playoff odds over time" subtitle="Each team's playoff probability from every bake's 3,000-season simulation." />

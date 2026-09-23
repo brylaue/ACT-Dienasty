@@ -9,6 +9,7 @@
 	let error = $state(false);
 	let ltm = $state(null);
 	let view = $state('rankings');
+	let openWhy = $state(null); // rosterID whose movement note is pinned open (tap on mobile)
 	let open = $state({});
 	let axis = $state('proj'); // heatmap position axis: proj | value
 	const posColor = { QB: '#7c3aed', RB: '#16a34a', WR: '#2563eb', TE: '#d97706' };
@@ -101,6 +102,7 @@
 	});
 </script>
 
+<svelte:window onclick={() => openWhy = null} />
 <svelte:head>
 	<title>Power Rankings | ACT, or DIE.</title>
 </svelte:head>
@@ -130,6 +132,17 @@
 	.who { min-width: 0; }
 	.name { font-weight: 700; font-size: 1.02em; line-height: 1.2; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 	.move { font-size: 0.74em; font-weight: 700; padding: 1px 6px; border-radius: 999px; }
+	/* movement explanation: hover on desktop, tap (focus) on mobile */
+	.whyWrap { position: relative; display: inline-block; }
+	.whyWrap > button { font: inherit; cursor: help; border: 0; background: none; padding: 0; }
+	.whyWrap > button > span { display: inline-block; }
+	.why { display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: 300px; max-width: 78vw;
+		padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--fff); color: var(--ink);
+		font-size: 0.8em; font-weight: 500; line-height: 1.5; text-align: left; box-shadow: 0 8px 24px rgba(0,0,0,0.18); white-space: normal; }
+	.whyWrap:hover .why, .whyWrap.open .why { display: block; }
+	.why b { font-weight: 700; }
+	@media (max-width: 640px) { .why { position: fixed; left: 12px; right: 12px; top: auto; bottom: 16px; width: auto; max-width: none; box-shadow: 0 10px 30px rgba(0,0,0,0.35); } }
+
 	.move.up { color: #16a34a; background: color-mix(in srgb, #16a34a 15%, transparent); } .move.down { color: #dc2626; background: color-mix(in srgb, #dc2626 15%, transparent); } .move.flat { color: var(--muted); background: var(--eee); }
 	.sub { color: var(--muted); font-size: 0.84em; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
 	.sub b { color: var(--ink); font-weight: 600; }
@@ -281,7 +294,7 @@
 					<div class="who">
 						<div class="name">
 							{t.name.trim()}
-							{#if mv != null}<span class="move" class:up={mv > 0} class:down={mv < 0} class:flat={mv === 0}>{mv > 0 ? '▲' + mv : mv < 0 ? '▼' + Math.abs(mv) : '—'}</span>{/if}
+							{#if mv != null}<span class="whyWrap" class:open={openWhy === t.rosterID} onclick={(e) => e.stopPropagation()} role="presentation"><button type="button" aria-label="Why this moved" title={t.why || ''} onclick={() => openWhy = openWhy === t.rosterID ? null : t.rosterID}><span class="move" class:up={mv > 0} class:down={mv < 0} class:flat={mv === 0}>{mv > 0 ? '▲' + mv : mv < 0 ? '▼' + Math.abs(mv) : '—'}</span></button>{#if t.why}<span class="why" role="tooltip">{t.why}</span>{/if}</span>{/if}
 						</div>
 						<div class="sub">
 							{#if t.owner}<span>{t.owner}</span>{/if}

@@ -22,6 +22,19 @@
             ([values, commentary]) => analyzeTrade(transaction, values, teamNames, commentary)
         )
         : Promise.resolve(null);
+
+    // weekly present-tense re-grade, baked by the bot (overwritten each
+    // completed week) - the original verdict above stays frozen
+    const nowPromise = gradeable
+        ? getCommentary().then((c) => c?.tradeNow?.[transaction.id] || null)
+        : Promise.resolve(null);
+    const nameFor = (rid) => getTeamFromTeamManagers(leagueTeamManagers, rid, transaction.season).name;
+    const pctDelta = (now, then) => {
+        if (!now || !then) return null;
+        const d = Math.round(((now - then) / then) * 100);
+        return d === 0 ? null : (d > 0 ? '+' : '') + d + '%';
+    };
+    const statusTag = (st) => st === 'Questionable' ? 'Q' : st === 'Doubtful' ? 'D' : st === 'Out' ? 'OUT' : st === 'IR' ? 'IR' : st;
 </script>
 
 <style>
@@ -92,6 +105,60 @@
         color: var(--g999);
         margin-top: 0.4em;
     }
+    .tradeNow {
+        margin: 0.7em 1em 0;
+        padding: 0.6em 0 0.8em;
+        border-top: 1px dashed var(--line);
+    }
+    .tnHeader {
+        display: flex;
+        align-items: center;
+        gap: 0.45em;
+        font-size: 0.68em;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--g999);
+        margin-bottom: 0.45em;
+    }
+    .tnDot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: #10b981;
+        animation: tnPulse 2.2s ease-in-out infinite;
+    }
+    @keyframes tnPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .tnSide {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 10px;
+        align-items: baseline;
+        font-size: 0.82em;
+        margin: 4px 0;
+    }
+    .tnTeam { font-weight: 700; }
+    .tnPts { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .tnAssets { flex-basis: 100%; color: var(--ink); opacity: 0.85; line-height: 1.5; }
+    .tag {
+        font-style: normal;
+        font-size: 0.78em;
+        font-weight: 700;
+        padding: 0 4px;
+        border-radius: 4px;
+        margin-left: 3px;
+        vertical-align: 1px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+    }
+    .tag.warn { color: #d97706; border-color: color-mix(in srgb, #d97706 40%, var(--line)); }
+    .tag.gone { color: #dc2626; border-color: color-mix(in srgb, #dc2626 40%, var(--line)); }
+    .tag.up { color: #16a34a; border-color: color-mix(in srgb, #16a34a 40%, var(--line)); }
+    .tag.down { color: #dc2626; border-color: color-mix(in srgb, #dc2626 40%, var(--line)); }
+    .tnLine {
+        margin: 0.5em 0 0;
+        font-size: 0.84em;
+        font-style: italic;
+        color: var(--ink);
+        opacity: 0.9;
+    }
 </style>
 
 {#if gradeable}
@@ -119,5 +186,26 @@
         {/if}
     {:catch}
         <!-- values unavailable: show nothing, the trade still renders normally -->
+    {/await}
+    {#await nowPromise then now}
+        {#if now}
+            <div class="tradeNow">
+                <div class="tnHeader"><span class="tnDot"></span>Where it stands — through Wk {now.week}</div>
+                {#each now.sides as side}
+                    <div class="tnSide">
+                        <span class="tnTeam">{nameFor(side.rosterID)}</span>
+                        {#if side.players.length}<span class="tnPts">{side.pts} pts from the haul</span>{/if}
+                        <span class="tnAssets">
+                            {#each side.players as pl, i}{i > 0 ? ' · ' : ''}{pl.name} {pl.pts}{#if pl.status}<em class="tag warn">{statusTag(pl.status)}</em>{/if}{#if !pl.stillOn}<em class="tag gone">gone</em>{/if}{/each}
+                            {#each side.picks as pk, i}{(side.players.length || i > 0) ? ' · ' : ''}{pk.label}{#if pk.conveyed} <em class="tag">conveyed</em>{:else} ~{(pk.valueNow / 1000).toFixed(1)}k{#if pctDelta(pk.valueNow, pk.valueAtTrade)}<em class="tag" class:up={pk.valueNow > pk.valueAtTrade} class:down={pk.valueNow < pk.valueAtTrade}>{pctDelta(pk.valueNow, pk.valueAtTrade)}</em>{/if}{/if}{/each}
+                            {#if side.faab}{(side.players.length || side.picks.length) ? ' · ' : ''}${side.faab} FAAB{/if}
+                        </span>
+                    </div>
+                {/each}
+                {#if now.line}
+                    <p class="tnLine">{now.line}</p>
+                {/if}
+            </div>
+        {/if}
     {/await}
 {/if}
