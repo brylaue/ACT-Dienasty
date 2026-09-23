@@ -1,0 +1,29 @@
+name: CI
+
+# Every upload gets checked: the site must build, and the Parlay Builder's
+# parser + week-scenario tests must pass. A red X here means don't trust
+# that upload until it's fixed.
+on:
+  push:
+    branches: [master]
+    paths: ["src/**", "scripts/**", "static/data/parlay-managers.json", "package.json", "package-lock.json", ".github/workflows/ci.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Site builds
+        run: npm run build
+      - name: Parlay Builder tests
+        run: npm test
