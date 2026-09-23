@@ -60,11 +60,11 @@
                             <span class="name">{team.name}</span>
                             <span class="pctWrap">
                                 {#if delta(team) !== null && delta(team) !== 0}
-                                    <span class="whyWrap" class:open={openWhy === team.rosterID} on:click|stopPropagation><button type="button" aria-label="Why the odds moved" title={team.why || ''} on:click={() => openWhy = openWhy === team.rosterID ? null : team.rosterID}><span class="delta" class:up={delta(team) > 0} class:down={delta(team) < 0}>
+                                    <span class="whyWrap" class:open={openWhy === team.rosterID} on:click|stopPropagation role="presentation"><button type="button" aria-label="Why the odds moved" title={team.why || ''} on:click={() => openWhy = openWhy === team.rosterID ? null : team.rosterID}><span class="delta" class:up={delta(team) > 0} class:down={delta(team) < 0}>
                                         {delta(team) > 0 ? '▲' : '▼'}{Math.abs(delta(team))}
                                     </span></button>{#if team.why}<span class="why" role="tooltip">{team.why}</span>{/if}</span>
                                 {:else if team.why}
-                                    <span class="whyWrap" class:open={openWhy === team.rosterID} on:click|stopPropagation><button type="button" aria-label="Why the odds held" title={team.why} on:click={() => openWhy = openWhy === team.rosterID ? null : team.rosterID}><span class="delta flat">·</span></button><span class="why" role="tooltip">{team.why}</span></span>
+                                    <span class="whyWrap" class:open={openWhy === team.rosterID} on:click|stopPropagation role="presentation"><button type="button" aria-label="Why the odds held" title={team.why} on:click={() => openWhy = openWhy === team.rosterID ? null : team.rosterID}><span class="delta flat">·</span></button><span class="why" role="tooltip">{team.why}</span></span>
                                 {/if}
                                 <span class="pct" style="color: {colorFor(team.playoffPct)}">{team.playoffPct}%</span>
                             </span>
@@ -175,7 +175,6 @@
         padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--fff); color: var(--ink);
         font-size: 0.8em; font-weight: 500; line-height: 1.5; text-align: left; box-shadow: 0 8px 24px rgba(0,0,0,0.18); white-space: normal; }
     .whyWrap:hover .why, .whyWrap.open .why { display: block; }
-    .why b { font-weight: 700; }
     @media (max-width: 640px) { .why { position: fixed; left: 12px; right: 12px; top: auto; bottom: 16px; width: auto; max-width: none; box-shadow: 0 10px 30px rgba(0,0,0,0.35); } }
 
     .delta.up { color: #16a34a; background: color-mix(in srgb, #16a34a 15%, transparent); }

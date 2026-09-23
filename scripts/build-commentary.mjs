@@ -41,6 +41,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyTrade, valueForPick } from "../src/lib/utils/helperFunctions/tradeClassification.js";
 import { classifyWaiver } from "../src/lib/utils/helperFunctions/waiverHeadlines.js";
+import { sleeperPlayers } from "./lib/sleeperPlayers.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_PATH = join(root, "static/data/commentary.json");
@@ -673,7 +674,7 @@ if (staleTradeNow.length) {
     }
     fcValues = { players, picks };
   }
-  const allPlayers = await get("https://api.sleeper.app/v1/players/nfl").catch(() => ({}));
+  const allPlayers = await sleeperPlayers(get).catch(() => ({}));
   const curRosters = await get(`https://api.sleeper.app/v1/league/${leagueID}/rosters`).catch(() => []);
   const onRosterNow = {}; // pid -> roster_id
   for (const r of curRosters) for (const pid of r.players || []) onRosterNow[pid] = r.roster_id;

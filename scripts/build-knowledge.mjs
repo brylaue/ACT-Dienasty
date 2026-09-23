@@ -14,6 +14,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { taxiClaimCost } from "../src/lib/server/taxiCost.js";
+import { sleeperPlayers } from "./lib/sleeperPlayers.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -225,7 +226,7 @@ for (const r of curRosters) {
 }
 
 const allRosteredIds = [...new Set(curRosters.flatMap((r) => r.players || []))];
-const allPlayers = await get("https://api.sleeper.app/v1/players/nfl");
+const allPlayers = await sleeperPlayers(get);
 
 // draft context is needed to price taxi claims, so it's resolved before
 // the roster section is shaped

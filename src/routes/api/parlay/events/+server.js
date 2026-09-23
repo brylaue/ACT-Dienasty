@@ -16,7 +16,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "$env/dynamic/private";
 import { leagueID } from "$lib/utils/leagueInfo";
 import managers from "../../../../../static/data/parlay-managers.json";
-import { collectLegs, isBoard, isLockedBoard, isOpener, parseBoardHeader, renderBoard } from "$lib/server/parlayCore.js";
+import { boardUnchanged, collectLegs, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, shouldRefreshForEvent } from "$lib/server/parlayCore.js";
 
 const CHANNEL = () => env.PARLAY_CHANNEL_ID || "C09EEV8M32S";
 
@@ -55,7 +55,7 @@ const mondayTs = () => {
   return String(Math.floor((Date.UTC(et.getFullYear(), et.getMonth(), et.getDate()) + offset) / 1000));
 };
 
-const refreshBoard = async () => {
+const refreshBoard = async (selfUserId) => {
   const channel = CHANNEL();
   const [rosters, users] = await Promise.all([
     fetch(`https://api.sleeper.app/v1/league/${leagueID}/rosters`).then((r) => r.json()),
@@ -89,11 +89,14 @@ const refreshBoard = async () => {
     for (const m of d.messages || []) if (m.ts !== ts) replies.push(m);
   }
   const legs = collectLegs({ messages, replies, allTeams, teamOfUser });
-  for (const v of Object.values(legs)) {
-    await slack("reactions.add", { channel, timestamp: v.ts, name: "white_check_mark" }).catch(() => {});
-  }
+  // ✅ = "this is the leg that counts": add where missing, drop from replaced legs
+  const plan = reactionPlan({ messages, replies, legs, selfUserId });
+  for (const ts of plan.add) await slack("reactions.add", { channel, timestamp: ts, name: "white_check_mark" }).catch(() => {});
+  for (const ts of plan.remove) await slack("reactions.remove", { channel, timestamp: ts, name: "white_check_mark" }).catch(() => {});
   const header = parseBoardHeader(board.text) || { week: 0, placerName: null, deadlineLabel: "" };
-  await slack("chat.update", { channel, ts: board.ts, text: renderBoard({ legs, allTeams, ...header, locked: false }) });
+  const next = renderBoard({ legs, allTeams, ...header, locked: false });
+  if (boardUnchanged(board.text, next)) return `board already current (${Object.keys(legs).length}/${allTeams.length})`;
+  await slack("chat.update", { channel, ts: board.ts, text: next });
   return `board refreshed: ${Object.keys(legs).length}/${allTeams.length}`;
 };
 
@@ -106,11 +109,12 @@ export async function POST(event) {
   // Slack's one-time URL verification handshake
   if (body.type === "url_verification") return json({ challenge: body.challenge });
 
-  const ev = body.event || {};
-  const relevant = body.type === "event_callback" && ev.type === "message" && ev.channel === CHANNEL()
-    && !ev.bot_id && !["channel_join", "channel_leave", "message_deleted"].includes(ev.subtype || "");
+  // only human posts/edits/deletes - never the bot's own board edits, which
+  // Slack echoes back as message_changed events (that would loop forever)
+  const selfUserId = body.authorizations?.[0]?.user_id;
+  const relevant = body.type === "event_callback" && shouldRefreshForEvent(body.event, CHANNEL(), selfUserId);
   if (relevant && env.SLACK_BOT_TOKEN) {
-    const work = refreshBoard().then((r) => console.log(`parlay events: ${r}`)).catch((e) => console.error(`parlay events: ${e.message}`));
+    const work = refreshBoard(selfUserId).then((r) => console.log(`parlay events: ${r}`)).catch((e) => console.error(`parlay events: ${e.message}`));
     try { event.platform?.context?.waitUntil?.(work); } catch { /* best effort */ }
     if (!event.platform?.context?.waitUntil) await work; // local dev: no background runtime
   }

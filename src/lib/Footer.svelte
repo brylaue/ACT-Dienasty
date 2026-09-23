@@ -1,5 +1,4 @@
 <script>
-	import { goto } from '$app/navigation';
     import { managers } from '$lib/utils/helper';
 	import { tabs } from '$lib/utils/tabs';
 	import { enableBlog } from '$lib/utils/leagueInfo';
@@ -60,6 +59,7 @@
 	.navLink {
 		display: inline-block;
 		cursor: pointer;
+		text-decoration: none;
 		padding: 6px 10px;
 		color: var(--muted);
 		font-weight: 500;
@@ -89,15 +89,15 @@
 		<ul>
 			{#each tabs as tab}
 				{#if !tab.nest && (tab.label != 'Blog' || enableBlog)}
-					<li><div class="navLink" onclick={() => goto(tab.dest)}>{tab.label}</div></li>
+					<li><a class="navLink" href={tab.dest}>{tab.label}</a></li>
 				{:else}
 					{#each tab.children as child}
                         <!-- Shouldn't show Managers tab unless managers has been populated -->
 				        {#if child.label != "Managers" || managers.length > 0}
 							{#if child.label == "Go to Sleeper"}
-								<li><div class="navLink" onclick={() => window.location = child.dest}>{child.label}</div></li>
+								<li><a class="navLink" href={child.dest}>{child.label}</a></li>
 							{:else}
-                            	<li><div class="navLink" onclick={() => goto(child.dest)}>{child.label}</div></li>
+                            	<li><a class="navLink" href={child.dest}>{child.label}</a></li>
 							{/if}
                         {/if}
 					{/each}

@@ -18,6 +18,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { sleeperPlayers } from "./lib/sleeperPlayers.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -79,7 +80,7 @@ const neededPlayerIds = onBlock
   .filter((id) => !id.includes(",")); // "roster,season,round" ids are picks
 let playerNames = {};
 if (neededPlayerIds.length) {
-  const allPlayers = await get("https://api.sleeper.app/v1/players/nfl");
+  const allPlayers = await sleeperPlayers(get);
   for (const id of neededPlayerIds) {
     const pl = allPlayers[id];
     if (pl) {

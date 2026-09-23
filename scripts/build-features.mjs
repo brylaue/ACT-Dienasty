@@ -19,6 +19,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { sleeperPlayers } from "./lib/sleeperPlayers.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -303,7 +304,7 @@ for (const e of projRaw || []) {
 // give hard floors (IR/PUP = 4 games); "Out" is week-to-week unless the
 // report names a span; Doubtful/Questionable are a fraction of ONE week.
 // ---------------------------------------------------------------
-const playersBlob = await get("https://api.sleeper.app/v1/players/nfl").catch(() => ({}));
+const playersBlob = await sleeperPlayers(get).catch(() => ({}));
 const gamesOutFor = (pl) => {
   const st = pl?.injury_status || (pl?.status === "Injured Reserve" ? "IR" : pl?.status === "PUP" ? "PUP" : null);
   if (!st) return { status: null, gamesOut: 0 };

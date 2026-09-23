@@ -1,9 +1,9 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	// metric: 'rank' (power rank, bake points only) | 'valueRank' (roster-value
 	// rank, every point incl. backfill) | 'value' | 'playoffPct'
 	let { metric: initialMetric = 'valueRank', metricOptions = null, title = 'Trends', subtitle = '' } = $props();
-	let metric = $state(initialMetric);
+	let metric = $state(untrack(() => initialMetric)); // starting value only; the toggle owns it after
 
 	let ledger = $state(null);
 	let period = $state('season');
@@ -208,7 +208,7 @@
 					<line class="hoverLine" x1={xs[hover]} x2={xs[hover]} y1={PT} y2={H - PB} />
 				{/if}
 				{#each teamIDs as rid, k}
-					<path class="line" class:on={focus === rid} d={path(rid)} stroke={PALETTE[k % PALETTE.length]} onclick={() => focus = focus === rid ? null : rid} role="button" tabindex="-1" />
+					<path class="line" class:on={focus === rid} d={path(rid)} stroke={PALETTE[k % PALETTE.length]} onclick={() => focus = focus === rid ? null : rid} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (focus = focus === rid ? null : rid)} role="button" tabindex="-1" />
 					{#each points as p, i}
 						{#if p.teams[rid]?.[metric] != null}
 							<circle class="dot" class:on={focus === rid || hover === i} cx={xs[i]} cy={y(p.teams[rid][metric])} r={hover === i ? 3.6 : 2.4} fill={PALETTE[k % PALETTE.length]} />

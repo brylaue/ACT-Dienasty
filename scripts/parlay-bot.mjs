@@ -34,7 +34,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { collectLegs, renderBoard as renderBoardCore, isOpener, isBoard, isLockedBoard } from "../src/lib/server/parlayCore.js";
+import { boardUnchanged, collectLegs, isOpener, reactionPlan, renderBoard as renderBoardCore, weekFlags } from "../src/lib/server/parlayCore.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MODE = process.argv[2];
@@ -46,15 +46,16 @@ if (!["tick", "open", "nag", "compile"].includes(MODE)) {
   process.exit(1);
 }
 const DRY = process.argv.includes("--dry"); // print messages instead of posting
+if (DRY) console.log(`DRY RUN - Slack is stubbed; legs come from ${process.env.PARLAY_TEST_FIXTURE ? "the test fixture" : "built-in sample data"}, NOT your channel.`);
 if (!TOKEN && !DRY) {
   console.log("SLACK_BOT_TOKEN not set - add it as a repo Actions secret to enable the Parlay Builder bot.");
   process.exit(0);
 }
 
 // ── time helpers (everything in Eastern) ──────────────────────────────
-const FORCE = process.argv.includes("--force"); // manual runs: skip the posted-already checks
-const etNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-const etOffsetMs = Date.now() - Date.UTC(etNow.getFullYear(), etNow.getMonth(), etNow.getDate(), etNow.getHours(), etNow.getMinutes(), etNow.getSeconds());
+const NOW = Number(process.env.PARLAY_TEST_NOW) || Date.now(); // test-only clock override
+const etNow = new Date(new Date(NOW).toLocaleString("en-US", { timeZone: "America/New_York" }));
+const etOffsetMs = NOW - Date.UTC(etNow.getFullYear(), etNow.getMonth(), etNow.getDate(), etNow.getHours(), etNow.getMinutes(), etNow.getSeconds());
 const epochFromET = (y, m, d, h, min = 0) => Date.UTC(y, m, d, h, min) + etOffsetMs; // ET wall time → epoch ms
 const etLabel = (ms) => new Date(ms).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "long", hour: "numeric", minute: "2-digit" }).replace(":00", "") + " ET";
 
@@ -100,6 +101,7 @@ const seasonOver = nflWeek >= playoffStart;
 
 // ── the week's real deadline: 2h before the earliest kickoff, capped at Thu 6pm ET ──
 const monday = new Date(etNow); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7)); monday.setHours(0, 0, 0, 0);
+const mondayEpochMs = epochFromET(monday.getFullYear(), monday.getMonth(), monday.getDate(), 0); // Monday 00:00 ET, as epoch
 const thursday6 = epochFromET(monday.getFullYear(), monday.getMonth(), monday.getDate() + 3, 18);
 // kickoff times come from Sleeper itself (its GraphQL "scores" query, the
 // same unauthenticated endpoint the tradeblock sync uses) - start_time is
@@ -112,13 +114,13 @@ try {
     body: JSON.stringify({ query: `query { scores(sport: "nfl", season_type: "regular", season: "${state.season}", week: ${nflWeek}) { start_time status } }` }),
   });
   const d = await r.json();
-  const times = (d.data?.scores || []).map((g) => Number(g.start_time)).filter((x) => x > Date.now() - 6 * 3600e3);
+  const times = (d.data?.scores || []).map((g) => Number(g.start_time)).filter((x) => x > NOW - 6 * 3600e3);
   if (times.length) earliestKick = Math.min(...times);
 } catch { /* fall through to ESPN */ }
 if (!earliestKick) {
   try {
     const sb = await get(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=${nflWeek}`);
-    const dates = (sb.events || []).map((e) => Date.parse(e.date)).filter((x) => x > Date.now() - 6 * 3600e3);
+    const dates = (sb.events || []).map((e) => Date.parse(e.date)).filter((x) => x > NOW - 6 * 3600e3);
     if (dates.length) earliestKick = Math.min(...dates);
   } catch { /* neither source - standard deadline applies */ }
 }
@@ -168,8 +170,9 @@ const slack = async (method, payload) => {
 const slackGet = async (method, params) => {
   if (DRY) {
     if (method === "conversations.list") return { channels: [{ id: "DRY", name: CHANNEL_NAME }] };
-    if (method === "conversations.history") return { messages: DRY_HISTORY, has_more: false, response_metadata: {} };
-    if (method === "conversations.replies") return { messages: DRY_REPLIES, has_more: false, response_metadata: {} };
+    const fx = process.env.PARLAY_TEST_FIXTURE ? JSON.parse(readFileSync(process.env.PARLAY_TEST_FIXTURE, "utf8")) : null; // test-only
+    if (method === "conversations.history") return { messages: fx?.messages || DRY_HISTORY, has_more: false, response_metadata: {} };
+    if (method === "conversations.replies") return { messages: fx?.replies || DRY_REPLIES, has_more: false, response_metadata: {} };
   }
   const qs = new URLSearchParams(params).toString();
   const r = await fetch(`https://slack.com/api/${method}?${qs}`, { headers: { authorization: `Bearer ${TOKEN}` } });
@@ -207,10 +210,12 @@ if (!channelID) {
 }
 if (!channelID) { console.error(`channel #${CHANNEL_NAME} not found. Check the exact channel name, and that the bot was invited (/invite @Parlay Builder).`); process.exit(1); }
 
-// legs submitted since Monday 00:00 ET this week (shared parser in
-// src/lib/server/parlayCore.js - the instant events endpoint uses the same)
-const readLegs = async () => {
-  const oldest = String(Math.floor(monday.getTime() / 1000));
+// this week's channel (+ opener thread replies), read once per run and
+// shared by every step below
+let weekCache = null;
+const loadWeek = async () => {
+  if (weekCache) return weekCache;
+  const oldest = String(Math.floor(mondayEpochMs / 1000));
   const messages = []; const openers = [];
   for (let cursor = ""; ;) {
     const d = await slackGet("conversations.history", { channel: channelID, oldest, limit: 200, cursor });
@@ -227,41 +232,31 @@ const readLegs = async () => {
       if (!cursor || !d.has_more) break;
     }
   }
+  return (weekCache = { messages, replies });
+};
+
+// legs this week (shared parser in src/lib/server/parlayCore.js - the
+// instant events endpoint uses the same). ✅ marks the leg that counts:
+// added where missing, removed from legs a newer post replaced.
+const selfUserId = DRY ? null : (await slack("auth.test", {}).catch(() => null))?.user_id || null;
+const readLegs = async () => {
+  const { messages, replies } = await loadWeek();
   const teamOfUser = (uid) => (userTeam[uid] != null ? teamName(Number(userTeam[uid])) : null);
   const legs = collectLegs({ messages, replies, allTeams, teamOfUser });
-  // acknowledge every registered leg with a ✅ (needs reactions:write; a
-  // missing scope just logs a hint)
+  const plan = reactionPlan({ messages, replies, legs, selfUserId });
   let reactHint = false;
-  for (const v of Object.values(legs)) {
-    try { await slack("reactions.add", { channel: channelID, timestamp: v.ts, name: "white_check_mark" }); }
-    catch (err) { const m = String(err.message); if (/already_reacted/.test(m)) continue; if (/missing_scope|not_allowed/.test(m)) reactHint = true; }
-  }
+  const react = async (method, ts) => {
+    try { await slack(method, { channel: channelID, timestamp: ts, name: "white_check_mark" }); }
+    catch (err) { if (/missing_scope|not_allowed/.test(String(err.message))) reactHint = true; }
+  };
+  for (const ts of plan.add) await react("reactions.add", ts);
+  for (const ts of plan.remove) await react("reactions.remove", ts);
   if (reactHint) console.log("Can't ✅ legs: add the reactions:write scope to the Slack app and reinstall it.");
   return Object.fromEntries(Object.entries(legs).map(([t, v]) => [t, v.leg]));
 };
 
 // ── what has the bot already posted this week? (dedupe for tick) ──────
-const postedThisWeek = async () => {
-  const oldest = String(Math.floor(monday.getTime() / 1000));
-  const flags = { opener: false, nag: false, slip: false, signoff: false, boardTs: null };
-  for (let cursor = ""; ;) {
-    const d = await slackGet("conversations.history", { channel: channelID, oldest, limit: 200, cursor });
-    for (const m of d.messages || []) {
-      if (!m.bot_id) continue;
-      const t = m.text || "";
-      if (isOpener(t)) flags.opener = true;
-      if (/legs in\.\*|All \d+ legs are in/.test(t)) flags.nag = true;
-      // only a slip posted at the real deadline counts as a lock - an early
-      // manual compile (or a test) just becomes the live board again
-      if (isLockedBoard(t) && Number(m.ts) * 1000 >= deadline - 30 * 60e3) flags.slip = true;
-      if (isBoard(t) && !flags.boardTs) flags.boardTs = m.ts; // newest wins
-      if (/wrap on the Parlay Builder/.test(t)) flags.signoff = true;
-    }
-    cursor = d.response_metadata?.next_cursor;
-    if (!cursor || !d.has_more) break;
-  }
-  return flags;
-};
+const postedThisWeek = async () => weekFlags((await loadWeek()).messages, deadline);
 
 // ── the live board: a pinned message the bot edits as legs land ──────────
 const renderBoard = (legs, locked) => renderBoardCore({
@@ -269,16 +264,25 @@ const renderBoard = (legs, locked) => renderBoardCore({
   kickoffLabel: etLabel(earliestKick || thursday6 + 2 * 3600e3), locked,
 });
 let boardTs = null;
+let boardText = null;
+const adoptBoard = async (flags) => {
+  boardTs = flags.board?.ts || null;
+  boardText = flags.board?.text || null;
+  // one pinned board per week: unpin leftovers (early manual runs, reposts)
+  for (const ts of flags.staleBoards) await slack("pins.remove", { channel: channelID, timestamp: ts }).catch(() => {});
+};
 const updateBoard = async (legs, locked = false) => {
   const text = renderBoard(legs, locked);
+  if (boardTs && boardText && boardUnchanged(boardText, text)) return false; // nothing new
   if (boardTs) {
     await slack("chat.update", { channel: channelID, ts: boardTs, text });
+    boardText = text;
   } else {
     const res = await slack("chat.postMessage", { channel: channelID, text });
     boardTs = res.ts;
     await slack("pins.add", { channel: channelID, timestamp: boardTs }).catch(() => {});
   }
-  return boardTs;
+  return true;
 };
 
 const postOpener = async () => {
@@ -325,9 +329,9 @@ const postSignoff = async () => {
 
 // ── modes ─────────────────────────────────────────────────────────────────
 if (MODE === "tick") {
-  const flags = FORCE ? { opener: false, nag: false, slip: false, signoff: false, boardTs: null } : await postedThisWeek();
-  boardTs = flags.boardTs;
-  const now = Date.now();
+  const flags = await postedThisWeek();
+  await adoptBoard(flags);
+  const now = NOW;
   const tuesday10 = epochFromET(monday.getFullYear(), monday.getMonth(), monday.getDate() + 1, 10);
   if (seasonOver) {
     if (nflWeek === playoffStart && now >= tuesday10 && !flags.signoff) await postSignoff(); else console.log("season over - nothing to do");
@@ -340,18 +344,18 @@ if (MODE === "tick") {
     await postOpener();
   } else if (!flags.slip && flags.opener) {
     const legs = await readLegs();          // ✅ new legs, refresh the pinned board
-    await updateBoard(legs, false);
-    console.log(`board refreshed: ${Object.keys(legs).length}/${allTeams.length} legs (deadline ${deadlineLabel})`);
+    const changed = await updateBoard(legs, false);
+    console.log(`board ${changed ? "refreshed" : "already current"}: ${Object.keys(legs).length}/${allTeams.length} legs (deadline ${deadlineLabel})`);
   } else {
     console.log(`nothing due (deadline ${deadlineLabel}; opener ${flags.opener}, nag ${flags.nag}, slip ${flags.slip})`);
   }
 } else if (MODE === "open") {
-  boardTs = (await postedThisWeek()).boardTs;
+  await adoptBoard(await postedThisWeek());
   if (seasonOver) { if (nflWeek === playoffStart) await postSignoff(); else console.log("season over"); } else await postOpener();
 } else if (MODE === "nag") {
-  boardTs = (await postedThisWeek()).boardTs;
+  await adoptBoard(await postedThisWeek());
   await postNag();
 } else if (MODE === "compile") {
-  boardTs = (await postedThisWeek()).boardTs;
+  await adoptBoard(await postedThisWeek());
   await postSlip();
 }

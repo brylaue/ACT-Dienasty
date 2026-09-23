@@ -14,6 +14,22 @@ import { toolDefinitions, runTool } from '$lib/server/oracleTools';
 // best-effort per-instance rate limit (serverless instances are
 // ephemeral, so this is a speed bump, not a wall)
 const hits = new Map();
+
+const staticText = new Map();
+const readStatic = async (fetchFn, path) => {
+    if (!staticText.has(path)) {
+        staticText.set(path, fetchFn(path).then((r) => (r.ok ? r.text() : null)).catch(() => null));
+    }
+    const text = await staticText.get(path);
+    if (text == null) { staticText.delete(path); return null; }
+    try { return JSON.parse(text); } catch { staticText.delete(path); return null; }
+};
+// "2026-10" must sort after "2026-9": compare season, then week, as numbers
+const latestWeekKey = (keys) => keys
+    .map((k) => ({ k, y: Number(String(k).split('-')[0]), w: Number(String(k).split('-')[1]) }))
+    .filter((x) => Number.isFinite(x.y) && Number.isFinite(x.w))
+    .sort((a, b) => a.y - b.y || a.w - b.w)
+    .pop()?.k;
 const allow = (ip) => {
     const now = Date.now();
     const arr = (hits.get(ip) || []).filter((t) => now - t < 60_000);
@@ -56,11 +72,17 @@ export async function POST(event) {
         return json({ error: 'empty', message: 'Ask an actual question.' }, { status: 400 });
     }
 
-    const kRes = await event.fetch('/data/knowledge.json');
-    if (!kRes.ok) {
+    // all static inputs in parallel (and from the per-instance cache when warm)
+    const [knowledgeObj, faq, compPicks, commentary, conditions] = await Promise.all([
+        readStatic(event.fetch, '/data/knowledge.json'),
+        readStatic(event.fetch, '/data/oracle-faq.json'),
+        readStatic(event.fetch, '/data/comp-picks.json'),
+        readStatic(event.fetch, '/data/commentary.json'),
+        readStatic(event.fetch, '/data/pick-conditions.json'),
+    ]);
+    if (!knowledgeObj) {
         return json({ error: 'nodata', message: 'Knowledge pack missing.' }, { status: 500 });
     }
-    const knowledgeObj = await kRes.json();
 
     // roster/taxi/pick questions deserve LIVE data, not last Tuesday's -
     // rebuild that section from Sleeper right now; fall back to the bake
@@ -81,25 +103,15 @@ export async function POST(event) {
     delete knowledgeObj.rosters;
     // learned rulings: curated from past questions the Oracle handled
     // imperfectly - part of the cached static block, so learning is free
-    try {
-        const faqRes = await event.fetch('/data/oracle-faq.json');
-        if (faqRes.ok) knowledgeObj.learnedRulings = (await faqRes.json()).rulings;
-    } catch { /* no FAQ, no problem */ }
+    // (assigned in this exact order so the cached prompt block is unchanged)
+    if (faq) knowledgeObj.learnedRulings = faq.rulings;
     // pick protections and trade conditions Sleeper cannot represent
-    try {
-        const compRes = await event.fetch('/data/comp-picks.json');
-        if (compRes.ok) knowledgeObj.compPickHistory = await compRes.json();
-    } catch { /* strip absent */ }
+    if (compPicks) knowledgeObj.compPickHistory = compPicks;
     // the Oracle's own weekly matchup predictions (baked into commentary.json)
     // - it should never claim it has no forecast when /predictions shows one
-    try {
-        const cRes = await event.fetch('/data/commentary.json');
-        if (cRes.ok) { const c = await cRes.json(); const keys = Object.keys(c.predictions || {}).sort(); const latest = keys[keys.length - 1]; if (latest) knowledgeObj.oracleWeeklyPredictions = { note: `The Oracle's published matchup predictions (${latest.replace('-', ' week ')}) from the site's Predictions page.`, predictions: c.predictions[latest] }; }
-    } catch { /* none baked yet */ }
-    try {
-        const condRes = await event.fetch('/data/pick-conditions.json');
-        if (condRes.ok) knowledgeObj.pickConditions = (await condRes.json()).conditions;
-    } catch { /* none recorded */ }
+    const latest = latestWeekKey(Object.keys(commentary?.predictions || {}));
+    if (latest) knowledgeObj.oracleWeeklyPredictions = { note: `The Oracle's published matchup predictions (${latest.replace('-', ' week ')}) from the site's Predictions page.`, predictions: commentary.predictions[latest] };
+    if (conditions) knowledgeObj.pickConditions = conditions.conditions;
     const staticKnowledge = JSON.stringify(knowledgeObj);
     const dynamicContext =
         `Current rosters (${rosterFreshness}):\n` + JSON.stringify(liveRosterSection) +

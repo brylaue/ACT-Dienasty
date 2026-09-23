@@ -140,7 +140,6 @@
 		padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--fff); color: var(--ink);
 		font-size: 0.8em; font-weight: 500; line-height: 1.5; text-align: left; box-shadow: 0 8px 24px rgba(0,0,0,0.18); white-space: normal; }
 	.whyWrap:hover .why, .whyWrap.open .why { display: block; }
-	.why b { font-weight: 700; }
 	@media (max-width: 640px) { .why { position: fixed; left: 12px; right: 12px; top: auto; bottom: 16px; width: auto; max-width: none; box-shadow: 0 10px 30px rgba(0,0,0,0.35); } }
 
 	.move.up { color: #16a34a; background: color-mix(in srgb, #16a34a 15%, transparent); } .move.down { color: #dc2626; background: color-mix(in srgb, #dc2626 15%, transparent); } .move.flat { color: var(--muted); background: var(--eee); }
