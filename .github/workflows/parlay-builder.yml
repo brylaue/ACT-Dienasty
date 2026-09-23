@@ -12,17 +12,18 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "tick | open | nag | compile"
+        description: "tick (safe: does only what's due) | open | nag | compile (post that step now)"
         required: true
         default: "tick"
-      force:
-        description: "skip the ET-hour gate (for testing)"
-        required: false
-        default: "true"
       channel:
         description: "channel name override (test in a private channel first)"
         required: false
         default: "weeklyparlaybuilder"
+
+# one run at a time - a delayed tick and the next one can't both post
+concurrency:
+  group: parlay-builder
+  cancel-in-progress: false
 
 jobs:
   parlay:
@@ -37,7 +38,6 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "mode=${{ github.event.inputs.mode }}" >> "$GITHUB_OUTPUT"
-            if [ "${{ github.event.inputs.force }}" = "true" ]; then echo "force=--force" >> "$GITHUB_OUTPUT"; fi
           else
             echo "mode=tick" >> "$GITHUB_OUTPUT"
           fi
@@ -45,4 +45,4 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           PARLAY_CHANNEL: ${{ github.event.inputs.channel || 'weeklyparlaybuilder' }}
-        run: node scripts/parlay-bot.mjs ${{ steps.mode.outputs.mode }} ${{ steps.mode.outputs.force }}
+        run: node scripts/parlay-bot.mjs ${{ steps.mode.outputs.mode }}

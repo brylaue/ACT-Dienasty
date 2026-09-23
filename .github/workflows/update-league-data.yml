@@ -18,6 +18,12 @@ on:
 permissions:
   contents: write
 
+# bakes queue instead of overlapping (cron + catch-up + Update-now button):
+# two at once both append the trends ledger and the second push conflicts
+concurrency:
+  group: league-data
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
