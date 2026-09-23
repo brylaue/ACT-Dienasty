@@ -5,6 +5,7 @@
 */
 
 export const cleanLeg = (t) => String(t || "")
+  .replace(/\s*\*?sent using\*?.*$/i, "")   // client signatures ("*Sent using* Claude")
   .replace(/^[\s🎯🎰:\-–—]+/u, "")
   .replace(/^(?:i'?ll take|i'?ll go|i got|i'?m taking|give me|gimme|let'?s do|let'?s go|my leg is|my leg:|leg:)\s+/i, "")
   .replace(/\s+/g, " ").trim();
