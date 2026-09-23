@@ -302,9 +302,15 @@ const postNag = async () => {
   if (!missing.length) {
     await slack("chat.postMessage", { channel: channelID, text: `✅ All ${allTeams.length} legs are in for week ${nflWeek}. Slip drops ${deadlineLabel}.` });
   } else {
+    // @mention every manager of a missing team (co-owners too): notifies
+    // them even if they've muted the channel, and the tap lands them right
+    // where they post the leg
+    const usersByTeam = {};
+    for (const [uid, rid] of Object.entries(userTeam)) (usersByTeam[teamName(Number(rid))] ||= []).push(uid);
+    const lines = missing.map((t) => `• *${t}* ${(usersByTeam[t] || []).map((u) => `<@${u}>`).join(" ")}${placer && placer.name === t ? " _(you're placing it - get yours in too)_" : ""}`.trimEnd());
     await slack("chat.postMessage", {
       channel: channelID,
-      text: `⏰ *${Object.keys(legs).length}/${allTeams.length} legs in.* Still missing: ${missing.map((t) => `*${t}*`).join(", ")}.\nDeadline is *${deadlineLabel}* - after that the placer chooses for you, and history says they will not be kind.`,
+      text: `⏰ *${Object.keys(legs).length}/${allTeams.length} legs in* - locks *${deadlineLabel}*. Still missing:\n${lines.join("\n")}\nJust post your bet here. After the deadline the placer chooses for you, and history says they will not be kind.`,
     });
   }
   await updateBoard(legs, false);
