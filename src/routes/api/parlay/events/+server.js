@@ -133,7 +133,7 @@ const loadRecord = async (ctx) => {
       repliesByTs[m.ts] = (d.messages || []).filter((r) => r.ts !== m.ts);
     }
   }
-  return seasonRecord({ messages, teamOfUser: ctx.teamOfUser, repliesByTs });
+  return seasonRecord({ messages, teamOfUser: ctx.teamOfUser, repliesByTs, seed: managers.seedResults?.[String(new Date().getFullYear())] || {} });
 };
 
 const refreshBoard = async (selfUserId, ctx) => {

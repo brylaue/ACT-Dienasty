@@ -181,7 +181,7 @@ export const parlayResultFromText = (text) => {
 // opener; the latest verdict from a known manager inside that window -
 // a reply in the notice's thread, or a short top-level post - is the result.
 // repliesFor(ts) → thread replies for that notice.
-export const seasonRecord = ({ messages, teamOfUser, repliesByTs = {} }) => {
+export const seasonRecord = ({ messages, teamOfUser, repliesByTs = {}, seed = {} }) => {
   const asc = [...messages].sort((a, b) => Number(a.ts) - Number(b.ts));
   const locks = asc.filter((m) => m.bot_id && /Week (\d+) legs are locked/i.test(m.text || "")).map((m) => ({ week: Number((m.text || "").match(/Week (\d+) legs are locked/i)[1]), ts: Number(m.ts), raw: m.ts }));
   const openerTs = asc.filter((m) => m.bot_id && isOpener(m.text)).map((m) => Number(m.ts));
@@ -196,6 +196,11 @@ export const seasonRecord = ({ messages, teamOfUser, repliesByTs = {} }) => {
     for (const m of candidates) { const r = parlayResultFromText(m.text); if (r) result = r; }
     byWeek.push({ week: lock.week, result });
   }
+  // weeks the bot didn't witness (before it existed) come from the curated seed
+  for (const [wk, result] of Object.entries(seed || {})) {
+    if (!byWeek.some((w) => w.week === Number(wk)) && ["hit", "miss"].includes(result)) byWeek.push({ week: Number(wk), result, seeded: true });
+  }
+  byWeek.sort((a, b) => a.week - b.week);
   const wins = byWeek.filter((w) => w.result === "hit").length, losses = byWeek.filter((w) => w.result === "miss").length;
   return { wins, losses, byWeek };
 };

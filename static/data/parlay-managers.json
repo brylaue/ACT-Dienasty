@@ -19,5 +19,11 @@
     "U019492QG30": 12,
     "USJRGMXK6": 12,
     "USK9TCDC5": 9
+  },
+  "seedResults": {
+    "note": "Parlay results from before the bot existed (season \u2192 week \u2192 hit|miss). The bot merges these into the season record.",
+    "2026": {
+      "1": "miss"
+    }
   }
 }

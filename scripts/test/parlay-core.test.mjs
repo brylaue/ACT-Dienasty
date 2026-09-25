@@ -150,5 +150,11 @@ t("seasonRecord: thread verdict + short post, decoy ignored, window closes at ne
   t("lock notice is detected as the lock by weekFlags", () => core.weekFlags([{ bot_id: "B1", user: SELF, ts: "1790287500", text: n }], 1790287200000).slip);
 }
 
+t("seasonRecord: seeded pre-bot weeks count, channel results win when both exist", () => {
+  const B = { bot_id: "B1", user: SELF };
+  const r = core.seasonRecord({ messages: [{ ...B, ts: "400", text: ":lock: *Week 3 legs are locked* - 7/12 in." }, { ts: "410", user: "UTB8NMCLQ", text: "Bet busted" }], teamOfUser, seed: { 1: "miss", 3: "hit" } });
+  return r.wins === 0 && r.losses === 2 && r.byWeek.map((w) => `${w.week}:${w.result}${w.seeded ? "*" : ""}`).join() === "1:miss*,3:miss";
+});
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

@@ -61,8 +61,8 @@ const etLabel = (ms) => new Date(ms).toLocaleString("en-US", { timeZone: "Americ
 
 // ── league context ────────────────────────────────────────────────────────
 const leagueInfo = readFileSync(join(root, "src/lib/utils/leagueInfo.js"), "utf8");
-let userTeam = {};
-try { userTeam = JSON.parse(readFileSync(join(root, "static/data/parlay-managers.json"), "utf8")).users || {}; } catch { /* map optional */ }
+let userTeam = {}, seedResults = {};
+try { const cfg = JSON.parse(readFileSync(join(root, "static/data/parlay-managers.json"), "utf8")); userTeam = cfg.users || {}; seedResults = cfg.seedResults || {}; } catch { /* map optional */ }
 const LEAGUE_ID_FROM_CONFIG = leagueInfo.match(/leagueID\s*=\s*["']([0-9]+)["']/)[1];
 const get = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(`${r.status} ${url}`); return r.json(); };
 
@@ -276,7 +276,7 @@ const readSeasonRecord = async () => {
     }
   }
   const teamOfUser = (uid) => (userTeam[uid] != null ? teamName(Number(userTeam[uid])) : null);
-  return seasonRecordCore({ messages, teamOfUser, repliesByTs });
+  return seasonRecordCore({ messages, teamOfUser, repliesByTs, seed: seedResults[String(state.season)] || {} });
 };
 const recordLine = (rec) => {
   if (!rec.byWeek.length) return "";
