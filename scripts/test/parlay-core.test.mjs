@@ -92,7 +92,7 @@ t("plan: add ✅ only where missing; remove from superseded leg", () => {
 }
 
 // ── season record ──
-for (const [txt, want] of [["Hit!", "hit"], ["🎰 miss", "miss"], ["we won", "hit"], ["Parlay cashed baby", "hit"], ["it busted", "miss"], ["L", "miss"], ["hit me up on my main line", null], ["no chance", null], ["Cashed in!", "hit"]]) t(`result: ${txt}`, () => core.parlayResultFromText(txt) === want);
+for (const [txt, want] of [["Hit!", "hit"], ["🎰 miss", "miss"], ["we won", "hit"], ["Parlay cashed baby", "hit"], ["it busted", "miss"], ["L", "miss"], ["hit me up on my main line", null], ["no chance", null], ["Cashed in!", "hit"], ["Bet busted", "miss"], ["Bet is in to win $978", null], ["our bet hit", "hit"], ["Good process bad result", null], ["If my fannin td happens this week…", null]]) t(`result: ${txt}`, () => core.parlayResultFromText(txt) === want);
 t("seasonRecord: thread verdict + short post, decoy ignored, window closes at next opener", () => {
   const B = { bot_id: "B1", user: SELF };
   const msgs = [
@@ -136,6 +136,18 @@ t("seasonRecord: thread verdict + short post, decoy ignored, window closes at ne
   t("parlay question is NOT a league question", () => !core.isLeagueQuestion("hey parlay builder can I change my parlay leg?") && !core.isLeagueQuestion("parlay builder who's placing the bet"));
   t("random question is NOT a league question (→ banter)", () => !core.isLeagueQuestion("parlay builder what's the capital of Peru?"));
   t("Oracle answer → Slack mrkdwn, capped", () => { const o = core.oracleForSlack("## Champions\n**Title Chase** won in 2023.\n- two titles"); return /^🔮 \*The Oracle:\* /.test(o) && /\*Title Chase\*/.test(o) && !/\*\*/.test(o) && !/##/.test(o) && core.oracleForSlack("x".repeat(900)).length < 720; });
+}
+
+// ── deadline token + lock notice ──
+{
+  const b = core.renderBoard({ legs, allTeams, week: 3, placerName: "Dirty Birds", deadlineLabel: "Thursday 6 PM ET", deadlineEpochMs: 1790287200000, locked: false });
+  const h = core.parseBoardHeader(b.replace("📋", ":clipboard:"));
+  t("board header carries the deadline epoch (Slack date token) and round-trips", () => h.deadlineEpochMs === 1790287200000 && h.deadlineLabel === "Thursday 6 PM ET");
+  t("old header (no token) still parses", () => core.parseBoardHeader(":clipboard: *WEEK 3 BOARD — 5/12 legs* · Placer: *Dirty Birds* · locks *Thursday 6 PM ET*").deadlineEpochMs === null);
+  t("unchanged-check tolerates the token", () => core.boardUnchanged(b.replace("📋", ":clipboard:"), b));
+  const n = core.renderLockNotice({ legs, allTeams, week: 3, placerName: "Dirty Birds", placerMentions: ["U0650HX32KV", "U08J2BJARLL"], kickoffLabel: "Thursday 8:15 PM ET" });
+  t("lock notice IS the slip: legs listed, placer @mentioned, hit/miss ask", () => /legs are locked/.test(n) && /<@U0650HX32KV> <@U08J2BJARLL>/.test(n) && /• \*Immigrants\* — Davante Adams anytime TD/.test(n) && /\*hit\* or \*miss\*/.test(n));
+  t("lock notice is detected as the lock by weekFlags", () => core.weekFlags([{ bot_id: "B1", user: SELF, ts: "1790287500", text: n }], 1790287200000).slip);
 }
 
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);

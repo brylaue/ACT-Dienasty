@@ -16,7 +16,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "$env/dynamic/private";
 import { leagueID } from "$lib/utils/leagueInfo";
 import managers from "../../../../../static/data/parlay-managers.json";
-import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, isLeagueQuestion, oracleForSlack, collectLegs, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "$lib/server/parlayCore.js";
+import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, isLeagueQuestion, oracleForSlack, renderLockNotice, collectLegs, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "$lib/server/parlayCore.js";
 
 export const config = { maxDuration: 60 }; // an Oracle hand-off can take 10-20s
 
@@ -76,12 +76,13 @@ const loadWeek = async () => {
 
   // this week's channel history (+ opener/board thread replies) and the board
   const oldest = mondayTs();
-  const messages = []; let board = null; const threads = [];
+  const messages = []; let board = null; const threads = []; let lockNotice = false;
   for (let cursor = ""; ;) {
     const d = await slackGet("conversations.history", { channel, oldest, limit: 200, cursor });
     for (const m of d.messages || []) {
       messages.push(m);
       if (m.bot_id && isBoard(m.text) && !board) board = m; // newest first
+      if (m.bot_id && /legs are locked/i.test(m.text || "")) lockNotice = true;
       if ((isOpener(m.text) || (m.bot_id && isBoard(m.text))) && m.reply_count) threads.push(m.ts);
     }
     cursor = d.response_metadata?.next_cursor;
@@ -94,7 +95,25 @@ const loadWeek = async () => {
   }
   const legs = collectLegs({ messages, replies, allTeams, teamOfUser });
   const header = board ? parseBoardHeader(board.text) : null;
-  return { channel, allTeams, teamOfUser, usersByTeam, messages, replies, board, header, legs };
+  return { channel, allTeams, teamOfUser, usersByTeam, messages, replies, board, header, legs, lockNotice };
+};
+
+// the cron locks at the deadline, but GitHub sometimes runs it late. The
+// board carries the deadline; if it has passed and the week isn't locked,
+// lock it from here - whatever message just arrived was the trigger.
+const lockIfDue = async (ctx) => {
+  const { board, header, legs, allTeams, channel } = ctx;
+  if (!board || !header?.deadlineEpochMs || isLockedBoard(board.text) || ctx.lockNotice) return null;
+  if (Date.now() < header.deadlineEpochMs) return null;
+  const week = header.week, placerName = header.placerName;
+  await slack("chat.update", { channel, ts: board.ts, text: renderBoard({ legs, allTeams, week, placerName, deadlineLabel: header.deadlineLabel, deadlineEpochMs: header.deadlineEpochMs, locked: true }) });
+  await slack("chat.postMessage", { channel, text: renderLockNotice({ legs, allTeams, week, placerName, placerMentions: placerName ? ctx.usersByTeam[placerName] || [] : [] }) });
+  try {
+    const link = (await slackGet("chat.getPermalink", { channel, message_ts: board.ts })).permalink;
+    const mine = ((await slackGet("bookmarks.list", { channel_id: channel })).bookmarks || []).find((b) => /^(?:📋|🔒|:clipboard:|:lock:)/.test(b.title || ""));
+    if (mine) await slack("bookmarks.edit", { channel_id: channel, bookmark_id: mine.id, title: `🔒 Week ${week} slip`, link });
+  } catch { /* bookmark scopes optional */ }
+  return `locked via event (${Object.keys(legs).length}/${allTeams.length})`;
 };
 
 // season parlay record (only fetched when someone asks for it)
@@ -196,7 +215,9 @@ export async function POST(event) {
     const talking = !ev.subtype && addressedToBot(ev.text, selfUserId); // "@Parlay Builder …" or "hey parlay builder …"
     const work = (async () => {
       const ctx = await loadWeek();
-      const results = [await refreshBoard(selfUserId, ctx)];       // a leg (addressed or not) lands on the board first
+      const results = [];
+      const locked = await lockIfDue(ctx);                         // deadline passed and cron hasn't locked? lock now
+      results.push(locked || await refreshBoard(selfUserId, ctx)); // otherwise a leg (addressed or not) lands on the board
       if (talking) results.push(await respond(ev, selfUserId, ctx, new URL(event.request.url).origin));
       return results.join(" · ");
     })().then((r) => console.log(`parlay events: ${r}`)).catch((e) => console.error(`parlay events: ${e.message}`));

@@ -34,7 +34,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { boardUnchanged, collectLegs, isBoard, isOpener, reactionPlan, renderBoard as renderBoardCore, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
+import { boardUnchanged, collectLegs, isBoard, isOpener, reactionPlan, renderBoard as renderBoardCore, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MODE = process.argv[2];
@@ -170,6 +170,8 @@ const slack = async (method, payload) => {
 const slackGet = async (method, params) => {
   if (DRY) {
     if (method === "conversations.list") return { channels: [{ id: "DRY", name: CHANNEL_NAME }] };
+    if (method === "bookmarks.list") return { bookmarks: [] };
+    if (method === "chat.getPermalink") return { permalink: "https://slack.example/dry" };
     const fx = process.env.PARLAY_TEST_FIXTURE ? JSON.parse(readFileSync(process.env.PARLAY_TEST_FIXTURE, "utf8")) : null; // test-only
     if (method === "conversations.history") return { messages: fx?.messages || DRY_HISTORY, has_more: false, response_metadata: {} };
     if (method === "conversations.replies") return { messages: Array.isArray(fx?.replies) ? fx.replies : (fx?.replies?.[params.ts] || (fx ? [] : DRY_REPLIES)), has_more: false, response_metadata: {} };
@@ -288,7 +290,7 @@ const postedThisWeek = async () => weekFlags((await loadWeek()).messages, deadli
 
 // ── the live board: a pinned message the bot edits as legs land ──────────
 const renderBoard = (legs, locked) => renderBoardCore({
-  legs, allTeams, week: nflWeek, placerName: placer?.name || null, deadlineLabel,
+  legs, allTeams, week: nflWeek, placerName: placer?.name || null, deadlineLabel, deadlineEpochMs: deadline,
   kickoffLabel: etLabel(earliestKick || thursday6 + 2 * 3600e3), locked,
 });
 let boardTs = null;
@@ -298,6 +300,21 @@ const adoptBoard = async (flags) => {
   boardText = flags.board?.text || null;
   // one pinned board per week: unpin leftovers (early manual runs, reposts)
   for (const ts of flags.staleBoards) await slack("pins.remove", { channel: channelID, timestamp: ts }).catch(() => {});
+};
+// a bookmark at the top of the channel (desktop + mobile) that always points
+// at the current board / slip. Needs bookmarks:read + bookmarks:write; if
+// the app lacks them we just log once and carry on.
+let bookmarkHint = false;
+const syncBookmark = async (title) => {
+  if (!boardTs) return;
+  try {
+    const link = (await slackGet("chat.getPermalink", { channel: channelID, message_ts: boardTs })).permalink;
+    const mine = ((await slackGet("bookmarks.list", { channel_id: channelID })).bookmarks || []).find((b) => /^(?:📋|🔒|:clipboard:|:lock:)/.test(b.title || ""));
+    if (mine) await slack("bookmarks.edit", { channel_id: channelID, bookmark_id: mine.id, title, link });
+    else await slack("bookmarks.add", { channel_id: channelID, type: "link", title, link, emoji: ":slot_machine:" });
+  } catch (err) {
+    if (/missing_scope|not_allowed/.test(String(err.message)) && !bookmarkHint) { bookmarkHint = true; console.log("Can't manage the channel bookmark: add bookmarks:read + bookmarks:write to the Slack app and reinstall it."); }
+  }
 };
 const updateBoard = async (legs, locked = false) => {
   const text = renderBoard(legs, locked);
@@ -310,6 +327,7 @@ const updateBoard = async (legs, locked = false) => {
     boardTs = res.ts;
     await slack("pins.add", { channel: channelID, timestamp: boardTs }).catch(() => {});
   }
+  await syncBookmark(locked ? `🔒 Week ${nflWeek} slip` : `📋 Week ${nflWeek} board`);
   return true;
 };
 
@@ -350,10 +368,11 @@ const postSlip = async () => {
   const inCount = Object.keys(legs).length;
   const missing = allTeams.filter((t) => !legs[t]);
   await updateBoard(legs, true); // the pinned board becomes the final slip
-  const placerLine = placer ? `*${placer.name}*, you're up` : "placer TBD";
+  const usersByTeam = {};
+  for (const [uid, rid] of Object.entries(userTeam)) (usersByTeam[teamName(Number(rid))] ||= []).push(uid);
   await slack("chat.postMessage", {
     channel: channelID,
-    text: `🔒 *Week ${nflWeek} legs are locked* - ${inCount}/${allTeams.length} in. The pinned slip is final; ${placerLine}.${missing.length ? ` Placer picks for: ${missing.join(", ")}.` : ""}\n_Once it settles, reply here with *hit* or *miss* - the bot keeps the season record._`,
+    text: renderLockNotice({ legs: Object.fromEntries(Object.entries(legs).map(([t, l]) => [t, { leg: l }])), allTeams, week: nflWeek, placerName: placer?.name || null, placerMentions: placer ? usersByTeam[placer.name] || [] : [], kickoffLabel: etLabel(earliestKick || thursday6 + 2 * 3600e3) }),
   });
   console.log(`locked ${inCount}/${allTeams.length} legs for week ${nflWeek}`);
 };

@@ -15,7 +15,8 @@ Deploys happen automatically on every commit to `master`.
 | `SLACK_SIGNING_SECRET` | — | yes | verifies Slack's webhook requests (`/api/parlay/events`) |
 
 Slack app "Parlay Builder" (api.slack.com/apps). Bot scopes: `chat:write`,
-`channels:read`, `channels:history`, `pins:write`, `reactions:write`. Event
+`channels:read`, `channels:history`, `pins:write`, `reactions:write`,
+`bookmarks:read`, `bookmarks:write`. Event
 Subscriptions → Request URL `https://act-dienasty.vercel.app/api/parlay/events`,
 bot event `message.channels`. If the channel ever becomes private, add
 `groups:read` + `groups:history` and reinstall. Adding any scope requires
@@ -46,9 +47,13 @@ bot computes everything in Eastern time itself.
   works from anyone (on-behalf entries). Latest post per team wins; the ✅ marks
   the leg that counts.
 - **24 h before the deadline**: nag naming and @mentioning the missing teams.
-- **Deadline**: board becomes the final 🔒 slip; a lock notice pings the placer.
-  Reply to that notice with **hit** / **miss** once it settles — that's the
-  season record.
+- **Deadline**: board becomes the final 🔒 slip; the lock notice *is* the slip
+  (full leg list) and @mentions the placer. Reply to that notice with **hit** /
+  **miss** once it settles — that's the season record. The channel bookmark
+  ("📋 Week N board" → "🔒 Week N slip") always links to the current message
+  (needs `bookmarks:read` + `bookmarks:write`). The board's deadline is a Slack
+  date token, so it shows in each viewer's timezone — and the webhook uses it
+  to lock the week itself if the cron is late.
 - **Talk to it**: `@Parlay Builder …` or "hey parlay builder, …" in the
   channel. It answers in a thread: *who's missing?*, *status*, *deadline?*,
   *who's placing?*, *record?*, *my leg?*, *help*. "hey parlay builder, Vikings

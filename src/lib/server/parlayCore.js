@@ -65,7 +65,8 @@ export const isLockedBoard = (text) => /WEEK \d+ SLIP/.test(text || "");
   Board text. header = { week, placerName|null, deadlineLabel, kickoffLabel }.
   locked=false → the live 📋 board; locked=true → the final 🔒 slip.
 */
-export const renderBoard = ({ legs, allTeams, week, placerName, deadlineLabel, kickoffLabel, locked }) => {
+export const deadlineToken = (deadlineEpochMs, label) => deadlineEpochMs ? `<!date^${Math.floor(deadlineEpochMs / 1000)}^{date_short_pretty} at {time}|${label}>` : label;
+export const renderBoard = ({ legs, allTeams, week, placerName, deadlineLabel, deadlineEpochMs = null, kickoffLabel, locked }) => {
   const inCount = Object.keys(legs).length;
   const missing = allTeams.filter((t) => !legs[t]);
   const line = allTeams.filter((t) => legs[t]).map((t) => legs[t].leg ?? legs[t]).join("  •  ");
@@ -74,15 +75,26 @@ export const renderBoard = ({ legs, allTeams, week, placerName, deadlineLabel, k
   if (locked) {
     return `🔒 *WEEK ${week} SLIP — ${inCount}/${allTeams.length} legs* · ${placerLine}\n${line || "(no legs submitted - somehow, this league found a new low)"}\n\n${rows}${missing.length ? `\n\nMissing (placer picks these): ${missing.join(", ")}` : ""}\n_Placer: copy the top line into the book and reply here with the slip screenshot before kickoff${kickoffLabel ? ` (${kickoffLabel})` : ""}._`;
   }
-  return `📋 *WEEK ${week} BOARD — ${inCount}/${allTeams.length} legs* · ${placerLine} · locks *${deadlineLabel}*\n${line || "_(legs appear here as they land - just post your bet in the channel)_"}${rows ? `\n\n${rows}` : ""}${missing.length ? `\n\nStill needed: ${missing.join(", ")}` : "\n\n✅ All legs in."}`;
+  return `📋 *WEEK ${week} BOARD — ${inCount}/${allTeams.length} legs* · ${placerLine} · locks *${deadlineToken(deadlineEpochMs, deadlineLabel)}*\n${line || "_(legs appear here as they land - just post your bet in the channel)_"}${rows ? `\n\n${rows}` : ""}${missing.length ? `\n\nStill needed: ${missing.join(", ")}` : "\n\n✅ All legs in."}`;
 };
 
 // the live board's header line carries week/placer/deadline; the events
 // endpoint reuses it verbatim so it doesn't need to recompute any of that
 export const parseBoardHeader = (text) => {
-  const m = String(text || "").match(/WEEK (\d+) (?:BOARD|SLIP)[^\n]*?Placer: (?:\*([^*]+)\*|TBD)(?:[^\n]*?locks \*([^*]+)\*)?/);
+  const m = String(text || "").match(/WEEK (\d+) (?:BOARD|SLIP)[^\n]*?Placer: (?:\*([^*]+)\*|TBD)(?:[^\n]*?locks \*([^*\n]+)\*)?/);
   if (!m) return null;
-  return { week: Number(m[1]), placerName: m[2] || null, deadlineLabel: m[3] || "" };
+  const raw = m[3] || "";
+  const tok = raw.match(/^<!date\^(\d+)\^[^|]*\|([^>]+)>$/); // Slack date token → epoch + fallback label
+  return { week: Number(m[1]), placerName: m[2] || null, deadlineLabel: tok ? tok[2] : raw, deadlineEpochMs: tok ? Number(tok[1]) * 1000 : null };
+};
+
+// the lock notice IS the slip: the placer shouldn't have to find the pin
+export const renderLockNotice = ({ legs, allTeams, week, placerName, placerMentions = [], kickoffLabel }) => {
+  const inCount = Object.keys(legs).length;
+  const missing = allTeams.filter((t) => !legs[t]);
+  const rows = allTeams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legs[t].leg ?? legs[t]}`).join("\n");
+  const who = placerMentions.length ? `${placerMentions.map((u) => `<@${u}>`).join(" ")} (*${placerName}*)` : placerName ? `*${placerName}*` : "placer TBD";
+  return `🔒 *Week ${week} legs are locked* — ${inCount}/${allTeams.length} in. ${who}, you're up${kickoffLabel ? ` - kickoff ${kickoffLabel}` : ""}.\n${rows || "_(no legs)_"}${missing.length ? `\n_Placer picks for: ${missing.join(", ")}._` : ""}\n_Reply here with *hit* or *miss* once it settles - the bot keeps the season record. The pinned board and the 🔒 bookmark up top have this too._`;
 };
 
 // ── Slack event filtering ─────────────────────────────────────────────────
@@ -157,7 +169,7 @@ export const weekFlags = (messages, deadlineMs) => {
 // we / that"), so "hit me up on my main line" isn't a win.
 export const parlayResultFromText = (text) => {
   const t = String(text || "").replace(/^[\s🎰🎉😭👎✅❌:]+/u, "").replace(/:(?:white_check_mark|x|tada|money_with_wings|sob)+:/gi, "").trim();
-  const lead = /^(?:the\s+)?(?:parlay|slip|it|we|that|ticket)?\s*/i;
+  const lead = /^(?:the\s+|our\s+|my\s+)?(?:parlay|slip|it|we|that|ticket|bet|this one|that one)?\s*/i;
   const rest = t.replace(lead, "");
   if (/^(?:hit|hits|cashed|cash(?:ed)?(?:\s+in)?|won|winner|paid(?:\s+out)?)\b(?!\s+me\b)/i.test(rest)) return "hit";
   if (/^(?:miss(?:ed)?|lost|loss|bust(?:ed)?|dead|didn'?t\s+hit|no\s+good|whiff(?:ed)?|L)\b/i.test(rest)) return "miss";

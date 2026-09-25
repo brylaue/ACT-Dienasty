@@ -34,7 +34,9 @@ out = run("tick", "2026-09-24T06:42:00Z", "week3-nagged.json"); // Thu 2:42am ET
 check("after the nag: no repeat nag (the bug that posted 4 nags)", out, ["board already current"], ["legs in*", "Still missing", "chat.postMessage"]);
 
 out = run("tick", "2026-09-24T22:05:00Z", "week3-tuesday.json"); // Thu 6:05pm ET, live board still up
-check("Thu 6pm: board edited into the slip + lock notice", out, ["chat.update", "WEEK 3 SLIP — 5/12 legs", "legs are locked", "Dirty Birds"], ["WEEK 3 BOARD"]);
+check("Thu 6pm: board → slip; lock notice carries the full slip, @mentions the placer, updates the bookmark", out, ["chat.update", "WEEK 3 SLIP — 5/12 legs", "legs are locked", "<@U0650HX32KV>", "• *Immigrants* — Davante Adams anytime TD", "bookmarks.add", "Week 3 slip"], ["WEEK 3 BOARD"]);
+out = run("tick", "2026-09-23T14:00:00Z", "week3-board-reply.json"); // any tick with a live board
+check("board header carries the deadline as a Slack date token", out, ["<!date^", "|Thursday 6 PM ET>"]);
 
 out = run("tick", "2026-09-24T22:22:00Z", "week3-locked.json"); // Thu 6:22pm ET, already locked
 check("Thu after lock: nothing due (no re-lock)", out, ["nothing due", "slip true"], ["legs are locked", "chat.update"]);
@@ -49,7 +51,7 @@ out = run("open", "2026-09-23T14:00:00Z", "season-record.json");
 check("opener carries the season parlay record from prior lock threads", out, ["Season parlay record: *1-1*", "last week HIT"]);
 
 out = run("tick", "2026-09-24T22:05:00Z", "week3-tuesday.json");
-check("lock notice asks for the hit/miss verdict", out, ["reply here with *hit* or *miss*"]);
+check("lock notice asks for the hit/miss verdict", out, ["Reply here with *hit* or *miss*"]);
 
 console.log(`parlay-bot scenarios: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);
