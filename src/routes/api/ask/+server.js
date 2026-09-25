@@ -112,10 +112,25 @@ export async function POST(event) {
     const latest = latestWeekKey(Object.keys(commentary?.predictions || {}));
     if (latest) knowledgeObj.oracleWeeklyPredictions = { note: `The Oracle's published matchup predictions (${latest.replace('-', ' week ')}) from the site's Predictions page.`, predictions: commentary.predictions[latest] };
     if (conditions) knowledgeObj.pickConditions = conditions.conditions;
-    const staticKnowledge = JSON.stringify(knowledgeObj);
+    // Token diet: the full constitution (~14K tokens) and the Slack vault
+    // (~4K) only go into the prompt when the question is about rules or
+    // about what people said. Otherwise the model can fetch either with the
+    // site_file tool. knowledgeObj itself stays complete for the tools.
+    const wantsRules = /bylaw|constitution|\brules?\b|allowed|legal|penalt|dues|payout|prize|fee|deadline|window|taxi|\bir\b|injured reserve|roster (?:limit|size|max|spot)|keeper|scoring|veto|commish|commissioner|tank|collusion|waiver|faab|draft (?:order|lottery|rule)|toilet bowl|comp(?:ensatory)? pick|1\.13|eligib|process|cost|claim|how (?:do|does) .* work/i.test(question);
+    const wantsSlack = /slack|\bsaid\b|\bsays?\b|message|chat|quote|vault|texted|posted|complain|argu|announce|promise/i.test(question);
+    const promptKnowledge = { ...knowledgeObj };
+    if (!wantsRules) promptKnowledge.constitution = '(full constitution text not loaded for this question - if a rule is at issue, call site_file with name "constitution" and a query)';
+    if (!wantsSlack) promptKnowledge.slack = '(Slack vault not loaded for this question - call site_file with name "slack_vault" and a query for what managers said)';
+    const staticKnowledge = JSON.stringify(promptKnowledge);
     const dynamicContext =
         `Current rosters (${rosterFreshness}):\n` + JSON.stringify(liveRosterSection) +
         (team ? `\n\nThe person asking says they manage the team "${team}". When relevant, personalize the answer with their roster, their picks, and what things cost THEM - but never reveal anything that isn't in the league data.` : '');
+
+    // the bake's post-deploy canary only needs to know the endpoint loads its
+    // data; answering it with the model cost a full question per bake
+    if (/^canary\b/i.test(question)) {
+        return json({ ok: true, mode: 'canary', staticTokens: Math.round(staticKnowledge.length / 4), rosters: Array.isArray(liveRosterSection) ? liveRosterSection.length : undefined });
+    }
 
     const leagueIDForTools = knowledgeObj.leagueID || '1312159501335416832';
     // conversation context: prior turns from this visitor's thread, so
@@ -191,7 +206,7 @@ const callClaude = (key, messages, leagueID, finalRound, staticKnowledge, dynami
             ...(finalRound ? {} : { tools: toolDefinitions(leagueID) }),
             system: [
                 { type: 'text', text: SYSTEM_INSTRUCTIONS + '\n\nLeague data:\n' + staticKnowledge, cache_control: { type: 'ephemeral' } },
-                { type: 'text', text: dynamicContext },
+                { type: 'text', text: dynamicContext, cache_control: { type: 'ephemeral' } },
             ],
             messages,
         }),
@@ -209,7 +224,7 @@ const SYSTEM_INSTRUCTIONS =
                 'summarized - e.g. if you said a trade involved a 2024 R1, `sleeper_get` the league drafts for that ' +
                 'season and name the exact pick and player it became.\n' +
                 'BY-LAWS FIRST: for ANY question touching rules, eligibility, processes, costs, deadlines, or what is ' +
-                'allowed, consult the structured `bylaws` and `taxiClaimProcess` sections (and the constitution text) ' +
+                'allowed, consult the structured `bylaws` and `taxiClaimProcess` sections and the constitution text (fetch it with site_file name \"constitution\" plus a query when it is not in the data) ' +
                 'BEFORE reasoning, and ground your answer in the specific rule. If the by-laws are silent, say so and ' +
                 'point to the executive committee - never fill gaps with generic fantasy-football conventions. ' +
                 'If Sleeper data and the constitution conflict (e.g. the trade deadline), THE CONSTITUTION GOVERNS. ' +

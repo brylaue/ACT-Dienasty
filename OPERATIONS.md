@@ -74,6 +74,17 @@ Local dry runs never touch Slack:
 `node scripts/parlay-bot.mjs tick --dry` (fixture data, clearly labelled).
 Test hooks: `PARLAY_TEST_NOW=<epoch ms>`, `PARLAY_TEST_FIXTURE=<json>`.
 
+## Token budget (Claude API)
+
+Everything defaults to Haiku; `ANTHROPIC_MODEL` (Vercel env + GitHub secret)
+overrides it everywhere — leave it unset or on Haiku unless you want to pay
+for a bigger model. The Oracle is the only heavy caller: its cached league
+block is ~16K tokens for a normal question, ~33K when the question is about
+rules (the full constitution is loaded only then), and the roster block is
+cached across a question's rounds. The bake's post-deploy canary is a health
+check that never calls the model. Bake/poll scripts only call the model for
+new items (a dozen small calls a week).
+
 ## Tests
 
 `npm test` → `scripts/test/` (parser unit tests + full-week scenarios replayed

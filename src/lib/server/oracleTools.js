@@ -98,10 +98,15 @@ export const toolDefinitions = (leagueID) => [
     description:
       "The site's current analysis files: 'power_rankings' (this week's ranks, records, roster values, AI blurbs), " +
       "'playoff_odds' (simulated playoff/title/top-pick odds per team), 'record_watch' (all-time top-5 lists: " +
-      "highs, blowouts, closest games), 'tradeblock' (players/picks currently on the block with interest counts).",
+      "highs, blowouts, closest games), 'tradeblock' (players/picks currently on the block with interest counts), " +
+      "'constitution' (the constitution's full text - pass a query like 'taxi claim' for the matching sections), " +
+      "'slack_vault' (what managers said in the league Slack - pass a query for a name or topic).",
     input_schema: {
       type: 'object',
-      properties: { name: { type: 'string', enum: ['power_rankings', 'playoff_odds', 'record_watch', 'tradeblock'] } },
+      properties: {
+        name: { type: 'string', enum: ['power_rankings', 'playoff_odds', 'record_watch', 'tradeblock', 'constitution', 'slack_vault'] },
+        query: { type: 'string', description: 'for constitution / slack_vault: words to search for (returns matching sections or messages)' },
+      },
       required: ['name'],
     },
   },
@@ -394,6 +399,21 @@ export async function runTool({ name, input, leagueID, knowledge, fetchFn }) {
       record_watch: '/data/record-watch.json',
       tradeblock: '/data/tradeblock.json',
     };
+    // sections kept out of the prompt for token economy, served on demand
+    const q = String(input?.query || '').toLowerCase().split(/\W+/).filter((w) => w.length > 2);
+    const hit = (t) => !q.length || q.some((w) => String(t).toLowerCase().includes(w));
+    if (input?.name === 'constitution') {
+      // sections look like "[3.2.5 Compensatory pick] text..." - split on the headings
+      const score = (t) => q.reduce((n, w) => n + (String(t).toLowerCase().split(w).length - 1), 0);
+      const ranked = String(knowledge?.constitution || '').split(/(?=\[\d+(?:\.\d+)*\s[^\]]*\])/).filter(hit).sort((a, b) => score(b) - score(a));
+      const out = ranked.join('\n\n');
+      return out.length > 14000 ? { note: 'truncated - narrow the query', sections: out.slice(0, 14000) } : { sections: out || '(no matching sections)' };
+    }
+    if (input?.name === 'slack_vault') {
+      const msgs = (knowledge?.slack || []).filter((m) => hit(JSON.stringify(m)));
+      const keep = JSON.stringify(msgs.slice(-60)).length > 14000 ? msgs.slice(-25) : msgs.slice(-60);
+      return { matched: msgs.length, messages: keep };
+    }
     const path = files[input?.name];
     if (!path) return { error: 'unknown file' };
     const res = await timed(fetchFn(path));
