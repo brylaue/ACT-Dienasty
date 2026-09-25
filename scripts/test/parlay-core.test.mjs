@@ -85,6 +85,10 @@ t("plan: add ✅ only where missing; remove from superseded leg", () => {
   t("flags: early manual SLIP (Tuesday, unedited) is NOT a lock", () => { const f = core.weekFlags([B({ ts: tue(2), text: ":lock: *WEEK 3 SLIP — 0/12 legs*", pinned_to: [CH] })], DL); return !f.slip && f.board.ts === tue(2); });
   t("flags: older pinned boards listed for unpinning", () => { const f = core.weekFlags([B({ ts: tue(4), text: ":clipboard: *WEEK 3 BOARD — 5/12 legs*", pinned_to: [CH] }), B({ ts: tue(3), text: ":lock: *WEEK 3 SLIP — 3/12 legs*", pinned_to: [CH] }), B({ ts: tue(2), text: ":lock: *WEEK 3 SLIP — 0/12 legs*", pinned_to: [CH] }), B({ ts: tue(1), text: ":lock: *WEEK 3 SLIP — 0/12 legs*" })], DL); return f.board.ts === tue(4) && f.staleBoards.join() === [tue(3), tue(2)].join(); });
   t("flags: human messages ignored", () => !core.weekFlags([{ ts: tue(5), user: "U1", text: "Week 3 Parlay Builder is OPEN lol" }], DL).opener);
+  t("flags: the @mention-style nag counts as posted (the repeat-nag bug)", () => core.weekFlags([B({ ts: tue(20), text: ":alarm_clock: *7/12 legs in* - locks *Thursday 6 PM ET*. Still missing:\n• *Silver Bullets* <@USYEVTKC2>" })], DL).nag);
+  t("flags: the old-style nag still counts", () => core.weekFlags([B({ ts: tue(20), text: ":alarm_clock: *5/12 legs in.* Still missing: *Crab Boilers*" })], DL).nag);
+  t("flags: the all-in nag counts", () => core.weekFlags([B({ ts: tue(20), text: ":white_check_mark: All 12 legs are in for week 3." })], DL).nag);
+  t("flags: a board is not a nag", () => !core.weekFlags([B({ ts: tue(20), text: ":clipboard: *WEEK 3 BOARD — 7/12 legs* · locks *Thursday 6 PM ET*\n\nStill needed: C-Men" })], DL).nag);
 }
 
 // ── season record ──
@@ -100,6 +104,39 @@ t("seasonRecord: thread verdict + short post, decoy ignored, window closes at ne
   const r = core.seasonRecord({ messages: msgs, teamOfUser, repliesByTs: { "300": [{ ts: "320", user: "US7R5B3C3", text: "Hit! $629 baby" }] } });
   return r.wins === 1 && r.losses === 1 && r.byWeek.map((w) => `${w.week}:${w.result}`).join() === "1:miss,2:hit,3:null";
 });
+
+// ── talking to the bot ──
+{
+  const ctx = { legs: { Immigrants: { leg: "Davante Adams anytime TD" }, "The Maniacs": { leg: "Buffalo to cover" } }, allTeams: ["Immigrants", "The Maniacs", "Crab Boilers"], week: 3, placerName: "Dirty Birds", deadlineLabel: "Thursday 6 PM ET", record: { wins: 1, losses: 1, byWeek: [{ week: 1, result: "miss" }, { week: 2, result: "hit" }] }, usersByTeam: { "Crab Boilers": ["USJRGKTDJ"] }, askerTeam: "Immigrants" };
+  const A = (t) => core.answerParlayQuestion(t, ctx).text;
+  t("addressed: @mention", () => core.addressedToBot("<@U0C3B7QEC9M> status", SELF));
+  t("addressed: 'hey parlay builder, who's missing?'", () => core.addressedToBot("hey parlay builder, who's missing?", SELF));
+  t("addressed: 'yo parlay bot when do legs lock?'", () => core.addressedToBot("yo parlay bot when do legs lock?", SELF));
+  t("not addressed: a gripe", () => !core.addressedToBot("parlay builder is annoying", SELF));
+  t("not addressed: mentioned mid-sentence", () => !core.addressedToBot("the parlay builder thing is cool", SELF));
+  t("not addressed: a normal leg", () => !core.addressedToBot("Vikings ML", SELF));
+  t("answer: missing lists teams with mentions", () => /Crab Boilers\* <@USJRGKTDJ>/.test(A("hey parlay builder who's missing?")));
+  t("answer: status has count, placer, deadline, record", () => /2\/3 legs in/.test(A("<@U0C3B7QEC9M> status")) && /Dirty Birds/.test(A("<@U0C3B7QEC9M> status")) && /season 1-1/.test(A("<@U0C3B7QEC9M> status")));
+  t("answer: deadline", () => /lock \*Thursday 6 PM ET\*/.test(A("parlay builder when is it due")));
+  t("answer: placer", () => /Dirty Birds\* is placing/.test(A("parlay builder who is placing")));
+  t("answer: record", () => /\*1-1\*/.test(A("hey parlay builder whats our record")));
+  t("answer: my leg", () => /Davante Adams anytime TD/.test(A("<@U0C3B7QEC9M> my leg?")));
+  t("answer: addressed leg is logged", () => { const a = core.answerParlayQuestion("hey parlay builder, Vikings ML", ctx); return a.leg === "Vikings ML" && /Got it/.test(a.text); });
+  t("answer: unknown question → help, not a guess", () => /Not sure/.test(A("hey parlay builder what time is it on mars?")));
+  t("answer: before the opener", () => /hasn't opened yet/.test(core.answerParlayQuestion("parlay builder who's missing?", { ...ctx, week: null }).text));
+  t("cleanLeg strips the address", () => core.cleanLeg("hey parlay builder, Vikings ML") === "Vikings ML");
+  const T = "Hey parlay builder, what if I end up changing my pick? Did your \"god\" / creator account for that?";
+  t("Tim's question: change → latest-wins rule, not his current pick", () => core.addressedToBot(T, SELF) && /latest\* post is the one that counts/.test(A(T)) && /He thought of that/.test(A(T)));
+  t("'does the bot register a change?' (not addressed, but asked) → answers", () => core.addressedToBot("does the bot register a change in someone's bet?", SELF) && /latest/.test(A("does the bot register a change in someone's bet?")));
+  t("'what if I forget?' → placer-picks rule", () => /placer picks it for you/.test(A("parlay builder what if I forget to post?")));
+  t("'how do I report a hit?' → hit/miss rule", () => /reply \*hit\* or \*miss\*/.test(A("hey parlay builder how do I report if it hit?")));
+  t("'how does this work' → full rules", () => /How the Parlay Builder works/.test(A("<@U0C3B7QEC9M> how does this work")));
+  t("banter that mentions the bot without a question → ignored", () => !core.addressedToBot("Slack bot came to my wedding", SELF));
+  t("league question → Oracle hand-off", () => core.isLeagueQuestion("hey parlay builder who won the 2023 championship?") && core.isLeagueQuestion("<@U0C3B7QEC9M> what do the bylaws say about taxi claims?"));
+  t("parlay question is NOT a league question", () => !core.isLeagueQuestion("hey parlay builder can I change my parlay leg?") && !core.isLeagueQuestion("parlay builder who's placing the bet"));
+  t("random question is NOT a league question (→ banter)", () => !core.isLeagueQuestion("parlay builder what's the capital of Peru?"));
+  t("Oracle answer → Slack mrkdwn, capped", () => { const o = core.oracleForSlack("## Champions\n**Title Chase** won in 2023.\n- two titles"); return /^🔮 \*The Oracle:\* /.test(o) && /\*Title Chase\*/.test(o) && !/\*\*/.test(o) && !/##/.test(o) && core.oracleForSlack("x".repeat(900)).length < 720; });
+}
 
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

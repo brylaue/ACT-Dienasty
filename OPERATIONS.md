@@ -49,6 +49,16 @@ bot computes everything in Eastern time itself.
 - **Deadline**: board becomes the final 🔒 slip; a lock notice pings the placer.
   Reply to that notice with **hit** / **miss** once it settles — that's the
   season record.
+- **Talk to it**: `@Parlay Builder …` or "hey parlay builder, …" in the
+  channel. It answers in a thread: *who's missing?*, *status*, *deadline?*,
+  *who's placing?*, *record?*, *my leg?*, *help*. "hey parlay builder, Vikings
+  ML" logs the leg. It also explains its own rules ("can I change my pick?",
+  "what if I forget?", "how do I report a hit?", "how does this work?").
+  League questions (history, bylaws, trades, drafts…) are handed to The
+  Oracle on the site and the answer posted in the thread; anything else gets
+  a short deadpan quip via Claude (rules-only, no facts/picks/personal info).
+  A gripe that merely mentions it gets no reply; a question that mentions
+  "the bot" does. Oracle hand-offs count against `/api/ask`'s rate limit.
 - Stops at the league's playoff week (one sign-off), resumes next September.
 
 Manual runs: Actions → *Parlay Builder bot* → Run workflow → `tick` (safe, does

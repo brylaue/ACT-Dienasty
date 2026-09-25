@@ -30,6 +30,9 @@ check("Tue: nothing to post, stale pins removed, board current", out, ["pins.rem
 out = run("tick", "2026-09-23T22:05:00Z", "week3-tuesday.json"); // Wed 6:05pm ET = 24h before deadline
 check("Wed: nag with @mentions for the 7 missing teams", out, ["5/12 legs in", "<@USJRGKTDJ>", "<@US6FUMPRQ>", "<@USK9TCDC5>", "you're placing it"], ["WEEK 3 SLIP"]);
 
+out = run("tick", "2026-09-24T06:42:00Z", "week3-nagged.json"); // Thu 2:42am ET, nag already posted last night
+check("after the nag: no repeat nag (the bug that posted 4 nags)", out, ["board already current"], ["legs in*", "Still missing", "chat.postMessage"]);
+
 out = run("tick", "2026-09-24T22:05:00Z", "week3-tuesday.json"); // Thu 6:05pm ET, live board still up
 check("Thu 6pm: board edited into the slip + lock notice", out, ["chat.update", "WEEK 3 SLIP — 5/12 legs", "legs are locked", "Dirty Birds"], ["WEEK 3 BOARD"]);
 
