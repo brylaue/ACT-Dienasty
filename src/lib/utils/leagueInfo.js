@@ -186,7 +186,7 @@ export const managers = [
     "rival": {
       "name": "?",
       "link": null,
-      "image": "/managers/question.jpg",
+      "image": "/managers/question.svg",
     },
     "favoritePlayer": null,
     "valuePosition": null,
@@ -410,7 +410,7 @@ export const managers = [
     "rival": {
       "name": "?",
       "link": null,
-      "image": "/managers/question.jpg",
+      "image": "/managers/question.svg",
     },
     "favoritePlayer": null,
     "valuePosition": null,

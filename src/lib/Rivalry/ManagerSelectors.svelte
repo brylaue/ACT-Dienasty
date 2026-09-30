@@ -46,8 +46,9 @@
         appearance: none !important;
         -webkit-appearance: none !important;
         -moz-appearance: none !important;
-        background-image: url(/dropdown.png);
+        background-image: url(/dropdown.svg);
         background-repeat: no-repeat;
+        background-size: 18px 18px;
         text-align: center;
         color: var(--g000);
     }

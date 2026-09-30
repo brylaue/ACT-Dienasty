@@ -2,6 +2,8 @@
 	import Matchup from "$lib/Matchups/Matchup.svelte";
 	import TradeTransaction from "$lib/Transactions/TradeTransaction.svelte";
 	import { getLeagueTransactions, getRivalryMatchups, loadPlayers, round } from "$lib/utils/helper";
+	import { getAvatarFromTeamManagers, getTeamNameFromTeamManagers } from "$lib/utils/helperFunctions/universalFunctions";
+	import RivalryCrest from "./RivalryCrest.svelte";
 	import LinearProgress from '@smui/linear-progress';
 	import { onMount } from "svelte";
 	import ComparissonBar from "./ComparissonBar.svelte";
@@ -34,6 +36,10 @@
     }
 
     $: analyzeRivalry(teamOne, teamTwo);
+    // the crest shows the chosen teams' own avatars and names
+    const crestTeam = (rosterID) => (rosterID ? { name: getTeamNameFromTeamManagers(leagueTeamManagers, rosterID), avatar: getAvatarFromTeamManagers(leagueTeamManagers, rosterID) } : null);
+    $: crestOne = crestTeam(teamOne);
+    $: crestTwo = crestTeam(teamTwo);
 
     let selected = 0;
 
@@ -126,17 +132,9 @@
         font-style: italic;
         padding: 1em 0;
     }
-    .rivalryBackdrop {
-        display: block;
-        width: min(920px, 90vw);
-        margin: 0 auto 2.5em;
-        filter: drop-shadow(0 25px 45px rgba(7, 9, 30, 0.45));
-        opacity: 0.95;
-        transition: transform 240ms ease, opacity 240ms ease;
-    }
-    .rivalryBackdrop:hover {
-        opacity: 1;
-        transform: scale(1.01);
+    .crestWrap {
+        width: min(960px, 92vw);
+        margin: 0 auto 2.2em;
     }
     @media (max-width: 650px) {
         h3 {
@@ -160,23 +158,15 @@
 </div>
 
 {#if loading }
-    {#if teamOne && teamTwo }
-        <div class="loading">
-            <p>Analyzing rivalry...</p>
-            <br />
-            <LinearProgress indeterminate />
-        </div>
-    {:else}
-        <div class="center">
-            <img
-                class="rivalryBackdrop"
-                src="/rivalry-titans.svg"
-                alt="stylized Greek titans colliding over a fantasy gridiron"
-            />
-        </div>
-    {/if}
+    <div class="crestWrap">
+        <RivalryCrest one={crestOne} two={crestTwo} loading={!!(teamOne && teamTwo)} />
+        {#if teamOne && teamTwo}<div class="loading"><LinearProgress indeterminate /></div>{/if}
+    </div>
 {:else if rivalry}
     {#if rivalry.matchups.length > 0 }
+        <div class="crestWrap">
+            <RivalryCrest one={crestOne} two={crestTwo} record={{ one: rivalry.wins.one, two: rivalry.wins.two }} />
+        </div>
         <div class="scoreBoard">
             <h3>Head to Head</h3>
             <!-- wins -->

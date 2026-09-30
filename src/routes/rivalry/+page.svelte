@@ -24,14 +24,10 @@
 		content: "";
 		position: absolute;
 		inset: 0;
-		background-image: linear-gradient(135deg, rgba(2, 8, 20, 0.65), rgba(12, 32, 57, 0.85)), url('/rivalry-titans.svg');
-		background-size: cover;
-		background-position: center top;
-		background-repeat: no-repeat;
-		opacity: 0.35;
+		/* a quiet wash instead of the old full-page artwork - the crest is the art */
+		background-image: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%);
 		z-index: -1;
 		pointer-events: none;
-		filter: saturate(1.1);
 	}
 	.loading {
 		display: block;

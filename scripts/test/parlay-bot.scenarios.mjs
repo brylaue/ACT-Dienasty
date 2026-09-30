@@ -13,7 +13,8 @@ let pass = 0, fail = 0;
 
 const run = (mode, when, fixture) => {
   const r = spawnSync("node", [join(root, "scripts/parlay-bot.mjs"), mode, "--dry"], {
-    env: { ...process.env, PARLAY_TEST_NOW: at(when), PARLAY_TEST_FIXTURE: fx(fixture) }, encoding: "utf8", timeout: 90000,
+    // the fixtures are Week 3 of 2026: pin the week so the suite doesn't drift as the season advances
+    env: { ...process.env, PARLAY_TEST_NOW: at(when), PARLAY_TEST_FIXTURE: fx(fixture), PARLAY_TEST_WEEK: "3" }, encoding: "utf8", timeout: 90000,
   });
   return (r.stdout || "") + (r.stderr || "");
 };

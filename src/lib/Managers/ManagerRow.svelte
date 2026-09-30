@@ -262,7 +262,7 @@
                 </div>
             {:else}
                 <div class="infoIcon question">
-                    <img class="infoImg" src="/managers/question.jpg" alt="favorite team"/>
+                    <img class="infoImg" src="/managers/question.svg" alt="favorite team"/>
                 </div>
             {/if}
         </div>
@@ -288,7 +288,7 @@
                 {/if}
             {:else}
                 <div class="infoIcon question">
-                    <img class="infoImg" src="/managers/question.jpg" alt="favorite team"/>
+                    <img class="infoImg" src="/managers/question.svg" alt="favorite team"/>
                 </div>
             {/if}
         </div>
@@ -304,7 +304,7 @@
                     </div>
                 {:else}
                     <div class="infoIcon question">
-                        <img class="infoImg" src="/managers/question.jpg" alt="favorite team"/>
+                        <img class="infoImg" src="/managers/question.svg" alt="favorite team"/>
                     </div>
                 {/if}
             </div>
