@@ -1,4 +1,4 @@
-import contentful from "contentful-management";
+import { createClient } from "contentful-management";
 import { json, error } from "@sveltejs/kit";
 
 import { getLeagueTeamManagers } from "$lib/utils/helper";
@@ -6,7 +6,7 @@ import { getLeagueTeamManagers } from "$lib/utils/helper";
 const lang = "en-US";
 
 export async function POST({ request, params }) {
-  const client = contentful.createClient({
+  const client = createClient({
     // This is the access token for this space. Normally you get the token in the Contentful web app
     accessToken: import.meta.env.VITE_CONTENTFUL_ACCESS_TOKEN,
   });

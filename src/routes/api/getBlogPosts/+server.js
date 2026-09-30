@@ -1,4 +1,4 @@
-import contentful from "contentful";
+import { createClient } from "contentful";
 import { json, error } from "@sveltejs/kit";
 
 export async function GET() {
@@ -8,7 +8,7 @@ export async function GET() {
       "Missing VITE_CONTENTFUL_CLIENT_ACCESS_TOKEN (added dependency in v2.0), go to https://github.com/nmelhado/league-page/blob/master/TRAINING_WHEELS.md#iii-add-a-blog for directions to add it",
     );
   }
-  const client = contentful.createClient({
+  const client = createClient({
     // This is the space ID. A space is like a project folder in Contentful terms
     space: import.meta.env.VITE_CONTENTFUL_SPACE,
     // This is the access token for this space. Normally you get both ID and the token in the Contentful web app
