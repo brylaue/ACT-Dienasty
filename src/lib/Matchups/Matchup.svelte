@@ -1,6 +1,21 @@
 <script>
     import {round} from '$lib/utils/helper'
 	import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+    import { loadTeamRanks } from '$lib/utils/helperFunctions/teamRanks';
+    import { onMount } from 'svelte';
+
+    // standings position + power rank under each name - current season only
+    // (the bake describes this season; past seasons keep the plain header)
+    let ranks = {};
+    onMount(async () => {
+        // the matchups page is always the current season (year is undefined
+        // there); a component given an explicit past year stays plain
+        if (year && leagueTeamManagers?.currentSeason && String(year) !== String(leagueTeamManagers.currentSeason)) return;
+        ranks = (await loadTeamRanks()).byRoster || {};
+    });
+    const rankLine = (r) => (r ? `#${r.seed} · ${r.record}${r.pr ? ` · PR ${r.pr}` : ''}` : null);
+    $: homeRank = rankLine(ranks[home?.roster_id]); // reactive on `ranks` (legacy component)
+    $: awayRank = rankLine(ranks[away?.roster_id]);
 
     export let matchup, players, active, ix, displayWeek, expandOverride=false, matchupWeek, leagueTeamManagers, year;
 
@@ -185,6 +200,15 @@
         word-break: break-word;
         color: #fff;
         font-style: italic;
+    }
+    .ranks {
+        margin-top: 3px;
+        font-size: 0.68em;
+        font-style: normal;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: rgba(255, 255, 255, 0.82);
+        font-variant-numeric: tabular-nums;
     }
 
 	.avatar {
@@ -485,13 +509,13 @@
     <div class="header" onclick={() => expandClose()} bind:this={el} >
         <div class="opponent home{winning == "home" ? " homeGlow" : ""}">
             <img class="avatar" src={home.manager.avatar} alt="home team avatar" />
-            <div class="name">{home.manager.name}</div>
+            <div class="name">{home.manager.name}{#if homeRank}<div class="ranks">{homeRank}</div>{/if}</div>
             <div class="totalPoints totalPointsR">{round(homePointsTotal)}<div class="totalProjection">{round(homeProjectionTotal)}</div></div>
         </div>
         <img class="divider" src="/{winning}Divider.jpg" alt="divider" />
         <div class="opponent away{winning == "away" ? " awayGlow" : ""}">
             <div class="totalPoints totalPointsL">{round(awayPointsTotal)}<div class="totalProjection">{round(awayProjectionTotal)}</div></div>
-            <div class="name" >{away.manager.name}</div>
+            <div class="name" >{away.manager.name}{#if awayRank}<div class="ranks">{awayRank}</div>{/if}</div>
             <img class="avatar" src={away.manager.avatar} alt="away team avatar" />
         </div>
     </div>

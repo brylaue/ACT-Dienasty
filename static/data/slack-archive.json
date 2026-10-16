@@ -1,7 +1,7 @@
 {
- "generated": "2026-09-09T14:58:58Z",
+ "generated": "2026-10-13T11:22:31Z",
  "workspace": "actdienasty.slack.com",
- "coverage": "general through 2026-09-03; taxi-squad-claims through 2026-07-29; trade channels + weeklyparlaybuilder empty within Slack's 90-day retention as of 2026-09-09. Contact info redacted at write time.",
+ "coverage": "general through 2026-10-11; weeklyparlaybuilder through 2026-10-11; taxi-squad-claims through 2026-07-29; trade channels",
  "channels": [
   {
    "name": "general",
@@ -839,6 +839,271 @@
      "ts": "1788446833.000081",
      "name": "Bryan Laue",
      "text": "vote for @Tim Armstrong"
+    },
+    {
+     "ts": "1789000024.887539",
+     "name": "Aaron",
+     "text": "Happy NFL kickoff friends!"
+    },
+    {
+     "ts": "1789000199.642269",
+     "name": "Lee",
+     "text": "(I hate that it's on a Wednesday tbh)"
+    },
+    {
+     "ts": "1789000233.666179",
+     "name": "Reed Cooper",
+     "text": "Wish there was football every day that ends in Y"
+    },
+    {
+     "ts": "1789004424.000979",
+     "name": "Lee",
+     "text": "Mike Tomlin's nose to mustache hair connection is INSANE"
+    },
+    {
+     "ts": "1789004453.292419",
+     "name": "Lee",
+     "text": "It looks like his hair starts inside of his nose"
+    },
+    {
+     "ts": "1789004461.301669",
+     "name": "Aaron",
+     "text": "Spent too long living in a dump"
+    },
+    {
+     "ts": "1789004521.299679",
+     "name": "cyres cooper",
+     "text": "You know he's a big Minecraft guy"
+    },
+    {
+     "ts": "1789004769.387779",
+     "name": "Bryan Laue",
+     "text": "Idk if I've ever seen the top of his head before"
+    },
+    {
+     "ts": "1789004800.874779",
+     "name": "Aaron",
+     "text": "Lot of people say that about my shins"
+    },
+    {
+     "ts": "1789004807.421969",
+     "name": "Bryan Laue",
+     "text": "True"
+    },
+    {
+     "ts": "1789004815.084189",
+     "name": "Bryan Laue",
+     "text": "#hiddengems"
+    },
+    {
+     "ts": "1789004822.430889",
+     "name": "Bryan Laue",
+     "text": "#midwestcalves"
+    },
+    {
+     "ts": "1789004869.228049",
+     "name": "Bryan Laue",
+     "text": "calves (giphy)"
+    },
+    {
+     "ts": "1789010687.878669",
+     "name": "Lee",
+     "text": "Oh my god lol"
+    },
+    {
+     "ts": "1789011505.622529",
+     "name": "Aaron",
+     "text": "There might not have been a conceivable worse case scenario for the Maniacs tonight"
+    },
+    {
+     "ts": "1789261115.166919",
+     "name": "Aaron",
+     "text": "Who's watching the bucks - longhorn tonight?"
+    },
+    {
+     "ts": "1789261176.861439",
+     "name": "Tim Armstrong",
+     "text": "I'm watching Jeremiah and preying Ben and I beat out our projections"
+    },
+    {
+     "ts": "1789261196.126749",
+     "name": "Tim Armstrong",
+     "text": "Should be praying but preying works too"
+    },
+    {
+     "ts": "1789261218.400179",
+     "name": "Aaron",
+     "text": "It's a gift to watch him"
+    },
+    {
+     "ts": "1789261240.662619",
+     "name": "Tim Armstrong",
+     "text": "He's no Malachi but he's pretty good"
+    },
+    {
+     "ts": "1789261288.326809",
+     "name": "Aaron",
+     "text": "I'm framing this message and bringing it to the draft for the next 10 years"
+    },
+    {
+     "ts": "1789261428.880389",
+     "name": "Tim Armstrong",
+     "text": "Malachi ceiling is Ty Hilton but better.\nJeremiah ceiling is Lawton Treadwell.\nWho would you rather have?"
+    },
+    {
+     "ts": "1789261447.766299",
+     "name": "Tim Armstrong",
+     "text": "Wait, not the right recipient of my question"
+    },
+    {
+     "ts": "1789261457.772039",
+     "name": "Tim Armstrong",
+     "text": "The jury pool is tainted"
+    },
+    {
+     "ts": "1789262046.374339",
+     "name": "Aaron",
+     "text": "Jeremiah smith may mathematically finish as thebest WR prospect ever"
+    },
+    {
+     "ts": "1789322352.199439",
+     "name": "Lee",
+     "text": "Damn I missed out on the Coker celebration"
+    },
+    {
+     "ts": "1789322365.998799",
+     "name": "Tim Armstrong",
+     "text": "Did somebody say coke?"
+    },
+    {
+     "ts": "1789322388.961159",
+     "name": "Lee",
+     "text": "Reed tried to get me to draft him in another league and I didn't smh"
+    },
+    {
+     "ts": "1789322392.447039",
+     "name": "Reed Cooper",
+     "text": "Dude I tried to tell you!"
+    },
+    {
+     "ts": "1789322433.933239",
+     "name": "cyres cooper",
+     "text": "Changing our team to the young Coke heads"
+    },
+    {
+     "ts": "1789322451.779309",
+     "name": "Tim Armstrong",
+     "text": "In the big league Reed :eyes: (photo)"
+    },
+    {
+     "ts": "1789322461.019219",
+     "name": "Tim Armstrong",
+     "text": "Seems I found my new flex"
+    },
+    {
+     "ts": "1789327318.015589",
+     "name": "Lee",
+     "text": "The Browns are hilariously inept"
+    },
+    {
+     "ts": "1789957278.162689",
+     "name": "Aaron",
+     "text": "Shane Steichen planning for the chiefs in prime time\n\nWe have to make Treadwell a feature of our passing game"
+    },
+    {
+     "ts": "1789957287.566319",
+     "name": "Aaron",
+     "text": "COY"
+    },
+    {
+     "ts": "1790127252.083819",
+     "name": "Bryan Laue",
+     "text": "parlay builder slackbot is working now. should remind everyone 24hrs before the week kickoff, and then again has a deadline 2 hours before kickoff. it'll share the whole slip from everyone posting into the channel for lowest scoring team to place the bet, that way they don't have to find all the legs"
+    },
+    {
+     "ts": "1790696195.053009",
+     "name": "Bryan Laue",
+     "text": "Way too early playoff outlook: act-dienasty.vercel.app/playoff-odds"
+    },
+    {
+     "ts": "1790696251.381059",
+     "name": "Bryan Laue",
+     "text": "SUNDAY SHAME - 2026 Week 3\nTop score: Title Chase (152.58)\nToilet of the Week: Risky Business (75.88) - season's basement just got lower\nBeatdown: TDs in Your Face flattened Risky Business by 65.40 - mercy rule should've kicked in by halftime\nHeartbreak: We Have The Meats fell to Dirty Birds by 3.72 - coin flip would've been kinder\nBench Warmer: We Have The Meats left 61.40 on the bench in a game they lost - victory laps don't need the spare tire\nTinkerer: TDs in Your Face lineup changes gained +62.20 (scored 141.30; last week's lineup scores 79.10) - mad scientist finally cracked the formula\nShould've left it alone: We Have The Meats tinkered away 32.20 - last week's lineup scores 108.20, they managed 76.00 - too clever by exactly three points\n- act-dienasty.vercel.app"
+    },
+    {
+     "ts": "1791665420.451489",
+     "name": "Aaron",
+     "text": "Where's Marv going?"
+    },
+    {
+     "ts": "1791672813.235119",
+     "name": "cyres cooper",
+     "text": "To the moon"
+    },
+    {
+     "ts": "1791676588.872339",
+     "name": "Aaron",
+     "text": "Man struggling to separate gets traded to the moon. No corner is able to cover him"
+    },
+    {
+     "ts": "1791676834.827819",
+     "name": "Bryan Laue",
+     "text": "Browns..."
+    },
+    {
+     "ts": "1791676864.030149",
+     "name": "Aaron",
+     "text": "I hope not."
+    },
+    {
+     "ts": "1791676889.121849",
+     "name": "Aaron",
+     "text": "I don't think we are a good fit for a player who has struggled this much and is being accused of being unmotivated"
+    },
+    {
+     "ts": "1791676925.075059",
+     "name": "Bryan Laue",
+     "text": "I think it's a switcheroo on Juedy"
+    },
+    {
+     "ts": "1791677034.912229",
+     "name": "Aaron",
+     "text": "That would be incredible! I would be overjoyed. That description above applies to both of them :joy: full transparency I did submit an offer for Marv today"
+    },
+    {
+     "ts": "1791748377.045969",
+     "name": "Tim Armstrong",
+     "text": "Oh browns"
+    },
+    {
+     "ts": "1791748393.372219",
+     "name": "Lee",
+     "text": "Insane"
+    },
+    {
+     "ts": "1791748406.367069",
+     "name": "Bryan Laue",
+     "text": "Browns do browns things..."
+    },
+    {
+     "ts": "1791748427.014929",
+     "name": "Bryan Laue",
+     "text": "But admittedly, no way I could catch that slippery ball"
+    },
+    {
+     "ts": "1791748492.017289",
+     "name": "Tim Armstrong",
+     "text": "Massage time :massage:"
+    },
+    {
+     "ts": "1791748503.203119",
+     "name": "Bryan Laue",
+     "text": "Welp..."
+    },
+    {
+     "ts": "1791764449.085899",
+     "name": "Aaron",
+     "text": "Ah yes it all comes down to Tyler Huntley just like I thought :joy:"
     }
    ]
   },
@@ -874,7 +1139,349 @@
   },
   {
    "name": "weeklyparlaybuilder",
-   "messages": []
+   "messages": [
+    {
+     "ts": "1790111368.248099",
+     "name": "Benjamin Stephens",
+     "text": "Alright send over your bets. Looks like it me again."
+    },
+    {
+     "ts": "1790111468.877229",
+     "name": "cyres cooper",
+     "text": "Vikings ML"
+    },
+    {
+     "ts": "1790111516.320319",
+     "name": "Bryan Laue",
+     "text": "Sorry guys - I'll try get this cranked out this evening. Been a whirlwind."
+    },
+    {
+     "ts": "1790111548.694759",
+     "name": "Bryan Laue",
+     "text": "I'll take Davante Adams anytime TD"
+    },
+    {
+     "ts": "1790112098.589989",
+     "name": "Aaron",
+     "text": "Garrett Wilson Anytime TD - free money"
+    },
+    {
+     "ts": "1790112133.095529",
+     "name": "Aaron",
+     "text": "@Benjamin Stephens is all over it! Guy knows the by laws like the back of his hand"
+    },
+    {
+     "ts": "1790118997.187219",
+     "name": "Benjamin Stephens",
+     "text": "I will never let @Tim Armstrong execute me"
+    },
+    {
+     "ts": "1790119070.667449",
+     "name": "Lee",
+     "text": "Bryan I don't even have time to do my real work lol, you're good"
+    },
+    {
+     "ts": "1790127219.933449",
+     "name": "David Bortz",
+     "text": "Derrick Henry anytime td"
+    },
+    {
+     "ts": "1790128164.322359",
+     "name": "Lee",
+     "text": "Buffalo to cover against the Chargers"
+    },
+    {
+     "ts": "1790129735.158609",
+     "name": "Parlay Builder",
+     "text": "WEEK 3 SLIP - 7/12 legs - Placer: Dirty Birds\nThe Maniacs - Buffalo to cover against the Chargers\nTitle Chase - Garrett Wilson anytime TD\nImmigrants - Davante Adams anytime TD\nCrab Boilers - Fannin anytime td\nswillke - Drake London anytime td\nThe 5th Rounders - Derrick Henry anytime td\nRisky Business - Vikings ML\nMissing (placer picks these): Silver Bullets, We Have The Meats, TDs in Your Face, Dirty Birds, C-Men"
+    },
+    {
+     "ts": "1790205032.337899",
+     "name": "Tim Armstrong",
+     "text": "Fannin anytime td"
+    },
+    {
+     "ts": "1790205111.755099",
+     "name": "Tim Armstrong",
+     "text": "Hey parlay builder, what if I end up changing my pick? Did your \"god\" / creator account for that?"
+    },
+    {
+     "ts": "1790205130.953109",
+     "name": "Bryan Laue",
+     "text": "It won't respond to you, but yes it should..."
+    },
+    {
+     "ts": "1790205170.570619",
+     "name": "Tim Armstrong",
+     "text": "You'll never win the AI aka SI race if you don't let it talk to me like slack bot"
+    },
+    {
+     "ts": "1790205177.527289",
+     "name": "Tim Armstrong",
+     "text": "Slack bot came to my wedding"
+    },
+    {
+     "ts": "1790205198.840069",
+     "name": "Bryan Laue",
+     "text": "Average Intelligence = Bryan"
+    },
+    {
+     "ts": "1790205205.505889",
+     "name": "Bryan Laue",
+     "text": "AI"
+    },
+    {
+     "ts": "1790218683.591959",
+     "name": "Steven Willke",
+     "text": "Drake London anytime td"
+    },
+    {
+     "ts": "1790287862.025699",
+     "name": "Benjamin Stephens",
+     "text": "Bet is in to win $978"
+    },
+    {
+     "ts": "1790288262.331309",
+     "name": "Tim Armstrong",
+     "text": "History says you are not kind"
+    },
+    {
+     "ts": "1790294163.159239",
+     "name": "Aaron",
+     "text": "This week... we win"
+    },
+    {
+     "ts": "1790294243.388249",
+     "name": "Bryan Laue",
+     "text": "I'm in the finger lakes now, so won't be updating/cleaning this bot up till Monday/Tuesday. Here's to winning this week!"
+    },
+    {
+     "ts": "1790332754.119299",
+     "name": "Benjamin Stephens",
+     "text": "Bet busted"
+    },
+    {
+     "ts": "1790343079.761869",
+     "name": "Aaron",
+     "text": "@Steven Willke *shakes head*"
+    },
+    {
+     "ts": "1790343133.861819",
+     "name": "Tim Armstrong",
+     "text": "Good process bad result"
+    },
+    {
+     "ts": "1790343149.103639",
+     "name": "Tim Armstrong",
+     "text": "If my fannin td happens this week...."
+    },
+    {
+     "ts": "1790353773.007069",
+     "name": "Bryan Laue",
+     "text": "wild to think that London goes for 194 yards, but no TD.."
+    },
+    {
+     "ts": "1790353800.367849",
+     "name": "Bryan Laue",
+     "text": "@Steven Willke thanks for busting the bet :stuck_out_tongue:"
+    },
+    {
+     "ts": "1790381019.004539",
+     "name": "Tim Armstrong",
+     "text": "This your post @Steven Willke ?"
+    },
+    {
+     "ts": "1790562511.272379",
+     "name": "Lee",
+     "text": "That's why they call him two-time Fannin"
+    },
+    {
+     "ts": "1790788564.659369",
+     "name": "Aaron",
+     "text": "Waller Anytime TD"
+    },
+    {
+     "ts": "1790794477.932149",
+     "name": "Bryan Laue",
+     "text": "Browns ML"
+    },
+    {
+     "ts": "1790806493.779049",
+     "name": "Benjamin Stephens",
+     "text": "Detroit to cover"
+    },
+    {
+     "ts": "1790806508.842439",
+     "name": "Tim Armstrong",
+     "text": "Fannin anytime td"
+    },
+    {
+     "ts": "1790898691.711009",
+     "name": "Parlay Builder",
+     "text": "Week 4 legs are locked - 4/12 in. Risky Business, you're up.\nTitle Chase - Waller Anytime TD\nImmigrants - Browns ML\nCrab Boilers - Fannin anytime td\nDirty Birds - Detroit to cover\nPlacer picks for: The Maniacs, swillke, Silver Bullets, We Have The Meats, The 5th Rounders, TDs in Your Face, Risky Business, C-Men."
+    },
+    {
+     "ts": "1790898865.378079",
+     "name": "David Bortz",
+     "text": "Jsn any time td"
+    },
+    {
+     "ts": "1790899198.277939",
+     "name": "cyres cooper",
+     "text": "Cardinals Money Line"
+    },
+    {
+     "ts": "1790899297.525209",
+     "name": "Lee",
+     "text": "Chicago to cover"
+    },
+    {
+     "ts": "1790899548.941339",
+     "name": "cyres cooper",
+     "text": "Last minute you guys want a 7 leg parlay or to wait till Sunday @here"
+    },
+    {
+     "ts": "1790899604.316289",
+     "name": "cyres cooper",
+     "text": "Since there's Browns ML, and Fannin TD ?"
+    },
+    {
+     "ts": "1790899722.372559",
+     "name": "Bryan Laue",
+     "text": "Just go"
+    },
+    {
+     "ts": "1790905145.933639",
+     "name": "Lee",
+     "text": "LETS GOOO"
+    },
+    {
+     "ts": "1790905155.187119",
+     "name": "Tim Armstrong",
+     "text": "They call him two time Fannin"
+    },
+    {
+     "ts": "1790905190.806949",
+     "name": "Benjamin Stephens",
+     "text": "Fannin!!!"
+    },
+    {
+     "ts": "1790905209.175359",
+     "name": "Bryan Laue",
+     "text": "I swear to god @cyres cooper you better have got the bet in!"
+    },
+    {
+     "ts": "1790905243.715269",
+     "name": "Benjamin Stephens",
+     "text": "Real quiet in Pittsburgh right now. (video)"
+    },
+    {
+     "ts": "1790905268.545909",
+     "name": "Bryan Laue",
+     "text": "Sorry to the steelers fans @Benjamin Stephens @Keith but this is just wild. What is this browns team?!"
+    },
+    {
+     "ts": "1790905335.935679",
+     "name": "Bryan Laue",
+     "text": "Love it!!!"
+    },
+    {
+     "ts": "1790905380.359329",
+     "name": "David Bortz",
+     "text": "I believed"
+    },
+    {
+     "ts": "1790905427.883739",
+     "name": "Bryan Laue",
+     "text": "So... way too early, but if this parlay hits do we keep it just for us that actually put a leg in? Punishment for not following the bylaws = no payout?"
+    },
+    {
+     "ts": "1790941652.950059",
+     "name": "Aaron",
+     "text": "Only those who participate get a cut. It's not a punishment, but you don't get money if you're not participating"
+    },
+    {
+     "ts": "1790941662.188029",
+     "name": "Aaron",
+     "text": "2/2 so far though :eyes:"
+    },
+    {
+     "ts": "1791321067.448269",
+     "name": "Bryan Laue",
+     "text": "fannin anytime td"
+    },
+    {
+     "ts": "1791464217.690929",
+     "name": "cyres cooper",
+     "text": "kyle monangai 50+ Rush Yards"
+    },
+    {
+     "ts": "1791482515.309859",
+     "name": "Lee",
+     "text": "Odunze anytime TD"
+    },
+    {
+     "ts": "1791506535.978759",
+     "name": "Parlay Builder",
+     "text": "Week 5 legs are locked - 3/12 in. Dirty Birds, you're up.\nThe Maniacs - Odunze anytime TD\nImmigrants - fannin anytime td\nRisky Business - kyle monangai 50+ Rush Yards\nPlacer picks for: Title Chase, Crab Boilers, swillke, Silver Bullets, We Have The Meats, The 5th Rounders, TDs in Your Face, Dirty Birds, C-Men."
+    },
+    {
+     "ts": "1791587987.387539",
+     "name": "Aaron",
+     "text": "Josh Allen anytime"
+    },
+    {
+     "ts": "1791588020.239169",
+     "name": "Tim Armstrong",
+     "text": "I don't think the risky business bet is good"
+    },
+    {
+     "ts": "1791588033.354269",
+     "name": "Tim Armstrong",
+     "text": "Parlay builder remove it"
+    },
+    {
+     "ts": "1791588215.379099",
+     "name": "Tim Armstrong",
+     "text": "Keon Coleman anytime td"
+    },
+    {
+     "ts": "1791588240.218979",
+     "name": "Aaron",
+     "text": "Welp it's over now"
+    },
+    {
+     "ts": "1791588339.728619",
+     "name": "Tim Armstrong",
+     "text": "Should I do Fannin 2+ tds?"
+    },
+    {
+     "ts": "1791590985.162329",
+     "name": "Bryan Laue",
+     "text": "Haha"
+    },
+    {
+     "ts": "1791591002.146599",
+     "name": "Bryan Laue",
+     "text": "Commish missed the bet. Good to know he didn't die bike riding in the desert"
+    },
+    {
+     "ts": "1791603636.062989",
+     "name": "Aaron",
+     "text": "I finally missed one, I did not die on the desert though. You and Jenelle both concerned about this"
+    },
+    {
+     "ts": "1791726519.812199",
+     "name": "Reed Cooper",
+     "text": "Sam Laporta 40+ yards"
+    },
+    {
+     "ts": "1791726525.733679",
+     "name": "Reed Cooper",
+     "text": "Since Kyle is out"
+    }
+   ],
+   "id": "C09EEV8M32S"
   }
  ]
 }

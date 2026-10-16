@@ -4,6 +4,7 @@
 	import { getNflState, leagueName, getAwards, getLeagueTeamManagers, homepageText, managers, gotoManager, enableBlog, waitForAll } from '$lib/utils/helper';
 	import { Transactions, PowerRankings, HomePost} from '$lib/components';
 	import { getAvatarFromTeamManagers, getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+    import { ranksFromPowerRankings } from '$lib/utils/helperFunctions/teamRanks';
 
     const nflState = getNflState();
     const podiumsData = getAwards();
@@ -68,6 +69,11 @@
         try { return getAvatarFromTeamManagers(ltm, rosterID, ltm.currentSeason); } catch { return null; }
     };
     const rankFor = (rosterID) => pr?.teams?.find((t) => t.rosterID === rosterID)?.rank || null;
+    // the chip on a matchup card is the team's STANDINGS position (the
+    // Standings page order), not the power rank - "#1" next to an 8-2 team
+    // read like first place. Power rank rides along in the tooltip.
+    const ranks = $derived(ranksFromPowerRankings(pr));
+    const seedFor = (rosterID) => ranks[rosterID] || null;
     const oddsTop = $derived(odds?.teams?.slice(0, 3) || []);
     const recordToBeat = $derived(recordWatch?.highs?.[0] || null);
 
@@ -147,6 +153,7 @@
                                 {#if avatarFor(t.rosterID)}<img class="mAvatar" src={avatarFor(t.rosterID)} alt="" />{:else}<span class="mAvatar"></span>{/if}
                                 <span class="mName">{nameFor(t.rosterID).trim()}</span>
                                 {#if scoreboard.started}<span class="mScore">{t.pts.toFixed(1)}</span>
+                                {:else if seedFor(t.rosterID)}<span class="mRec" title={`Standings #${seedFor(t.rosterID).seed} · ${seedFor(t.rosterID).record}${seedFor(t.rosterID).pr ? ` · power rank #${seedFor(t.rosterID).pr}` : ''}`}><span class="mRank">#{seedFor(t.rosterID).seed}</span><span class="mRecord">{seedFor(t.rosterID).record}</span></span>
                                 {:else if rankFor(t.rosterID)}<span class="mRank">#{rankFor(t.rosterID)}</span>{/if}
                             </div>
                         {/each}
@@ -539,6 +546,8 @@
         border-radius: 5px;
         padding: 2px 6px;
     }
+    .mRec { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; }
+    .mRecord { font-size: 0.78em; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
     .mScore { flex-shrink: 0; font-weight: 800; font-size: 1.05em; font-variant-numeric: tabular-nums; }
     .mRow.lead .mScore { color: var(--accent); }
     .mRow.trail { opacity: 0.65; }
