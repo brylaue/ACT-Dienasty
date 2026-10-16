@@ -16,7 +16,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "$env/dynamic/private";
 import { leagueID } from "$lib/utils/leagueInfo";
 import managers from "../../../../../static/data/parlay-managers.json";
-import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, isLeagueQuestion, oracleForSlack, renderLockNotice, collectLegs, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "$lib/server/parlayCore.js";
+import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, oracleForSlack, renderLateLeg, renderLockNotice, collectLegs, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "$lib/server/parlayCore.js";
 
 export const config = { maxDuration: 60 }; // an Oracle hand-off can take 10-20s
 
@@ -95,7 +95,17 @@ const loadWeek = async () => {
   }
   const legs = collectLegs({ messages, replies, allTeams, teamOfUser });
   const header = board ? parseBoardHeader(board.text) : null;
-  return { channel, allTeams, teamOfUser, usersByTeam, messages, replies, board, header, legs, lockNotice };
+  const locked = lockNotice || (board ? isLockedBoard(board.text) : false); // the week's slip is final
+  return { channel, allTeams, teamOfUser, usersByTeam, messages, replies, board, header, legs, lockNotice, locked };
+};
+
+// a bet posted after the lock: 🔒 it and say so in its thread, so silence
+// is never mistaken for "logged"
+const lateLegReply = async (ev, ctx) => {
+  const leg = cleanLeg(ev.text), team = ctx.teamOfUser(ev.user);
+  await slack("reactions.add", { channel: ctx.channel, timestamp: ev.ts, name: "lock" }).catch(() => {});
+  await slack("chat.postMessage", { channel: ctx.channel, thread_ts: ev.ts, text: renderLateLeg({ week: ctx.header?.week, team, placerName: ctx.header?.placerName, leg }) });
+  return `late leg (${team}) told it's locked`;
 };
 
 // the cron locks at the deadline, but GitHub sometimes runs it late. The
@@ -179,7 +189,7 @@ const respond = async (ev, selfUserId, ctx, origin) => {
   const record = /\b(record|season|tally|hit rate|standings|status|how (?:have|are) we)\b/i.test(ev.text || "") ? await loadRecord(ctx).catch(() => null) : null;
   const a = answerParlayQuestion(ev.text, {
     legs: ctx.legs, allTeams: ctx.allTeams, week: ctx.header?.week ?? null, placerName: ctx.header?.placerName ?? null,
-    deadlineLabel: ctx.header?.deadlineLabel ?? "", record, usersByTeam: ctx.usersByTeam, askerTeam: ctx.teamOfUser(ev.user),
+    deadlineLabel: ctx.header?.deadlineLabel ?? "", locked: ctx.locked, record, usersByTeam: ctx.usersByTeam, askerTeam: ctx.teamOfUser(ev.user),
   });
   let text = a.text, how = a.leg ? "answered (leg logged)" : "answered";
   if (/^Not sure what you're after/.test(text) && isLeagueQuestion(ev.text)) {
@@ -216,9 +226,11 @@ export async function POST(event) {
     const work = (async () => {
       const ctx = await loadWeek();
       const results = [];
-      const locked = await lockIfDue(ctx);                         // deadline passed and cron hasn't locked? lock now
-      results.push(locked || await refreshBoard(selfUserId, ctx)); // otherwise a leg (addressed or not) lands on the board
+      const lockedNow = await lockIfDue(ctx);                         // deadline passed and cron hasn't locked? lock now (this post made the slip)
+      if (lockedNow) ctx.locked = true;
+      results.push(lockedNow || await refreshBoard(selfUserId, ctx)); // otherwise a leg (addressed or not) lands on the board
       if (talking) results.push(await respond(ev, selfUserId, ctx, new URL(event.request.url).origin));
+      else if (!lockedNow && isLateLeg(ev, ctx)) results.push(await lateLegReply(ev, ctx)); // a bet after the lock: say so, don't go quiet
       return results.join(" · ");
     })().then((r) => console.log(`parlay events: ${r}`)).catch((e) => console.error(`parlay events: ${e.message}`));
     try { event.platform?.context?.waitUntil?.(work); } catch { /* best effort */ }

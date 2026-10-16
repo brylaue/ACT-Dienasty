@@ -53,7 +53,11 @@ bot computes everything in Eastern time itself.
   ("📋 Week N board" → "🔒 Week N slip") always links to the current message
   (needs `bookmarks:read` + `bookmarks:write`). The board's deadline is a Slack
   date token, so it shows in each viewer's timezone — and the webhook uses it
-  to lock the week itself if the cron is late.
+  to lock the week itself if the cron is late. A bet posted **after** the lock
+  gets a 🔒 reaction and a one-line thread reply ("too late - the placer picks
+  for you") instead of a ✅, so silence never reads as "logged". A bet that
+  lands between the deadline and a late cron lock *does* count — it is what
+  triggers the lock.
 - **Talk to it**: `@Parlay Builder …` or "hey parlay builder, …" in the
   channel. It answers in a thread: *who's missing?*, *status*, *deadline?*,
   *who's placing?*, *record?*, *my leg?*, *help*. "hey parlay builder, Vikings
@@ -87,9 +91,13 @@ new items (a dozen small calls a week).
 
 ## Tests
 
-`npm test` → `scripts/test/` (parser unit tests + full-week scenarios replayed
-from real channel fixtures). CI runs them on every upload. Add a fixture under
-`scripts/test/fixtures/` when a new situation bites.
+`npm test` → `scripts/test/`: parser unit tests, full-week scenarios replayed
+from real channel fixtures (cron bot, dry run), and `webhook.e2e.mjs`, which
+starts the *built* site with slack.com mocked (`mock-slack.mjs`) and posts
+signed Slack events at the real webhook — board edits, ✅/🔒 reactions, thread
+replies and the late-cron lock are all asserted. The e2e needs `npm run build`
+first (it skips locally without one; CI builds, then tests). Add a fixture
+under `scripts/test/fixtures/` when a new situation bites.
 
 ## Curated data (never overwritten by bakes)
 

@@ -136,6 +136,26 @@ t("seasonRecord: thread verdict + short post, decoy ignored, window closes at ne
   t("parlay question is NOT a league question", () => !core.isLeagueQuestion("hey parlay builder can I change my parlay leg?") && !core.isLeagueQuestion("parlay builder who's placing the bet"));
   t("random question is NOT a league question (→ banter)", () => !core.isLeagueQuestion("parlay builder what's the capital of Peru?"));
   t("Oracle answer → Slack mrkdwn, capped", () => { const o = core.oracleForSlack("## Champions\n**Title Chase** won in 2023.\n- two titles"); return /^🔮 \*The Oracle:\* /.test(o) && /\*Title Chase\*/.test(o) && !/\*\*/.test(o) && !/##/.test(o) && core.oracleForSlack("x".repeat(900)).length < 720; });
+
+  // after the lock (Lee, Thu 7:10pm: "Gimme Bijan TD" → silence, which read as "logged")
+  const L = { ...ctx, locked: true, deadlineLabel: "" }; // a SLIP header carries no deadline
+  const AL = (t) => core.answerParlayQuestion(t, L).text;
+  t("locked: addressed leg is NOT logged, told it's too late", () => { const a = core.answerParlayQuestion("hey parlay builder, Bijan TD", L); return a.leg === null && /Too late/.test(a.text) && /\*Dirty Birds\* picks for \*Immigrants\*/.test(a.text) && /"Bijan TD"/.test(a.text); });
+  t("locked: deadline question → locked, no empty bold", () => /Week 3 is locked/.test(AL("parlay builder when is it due")) && !/\*\*/.test(AL("parlay builder when is it due")));
+  t("locked: change → not this week", () => /Not this week/.test(AL("hey parlay builder can I change my pick?")));
+  t("locked: missing → placer picks", () => /Locked at 2\/3/.test(AL("parlay builder who's missing?")) && /picks for: \*Crab Boilers\*/.test(AL("parlay builder who's missing?")));
+  t("locked: status says locked", () => /🔒 locked/.test(AL("<@U0C3B7QEC9M> status")) && /Placer picks for: Crab Boilers/.test(AL("<@U0C3B7QEC9M> status")));
+  t("open week: nothing changes", () => { const a = core.answerParlayQuestion("hey parlay builder, Bijan TD", { ...ctx, locked: false }); return a.leg === "Bijan TD"; });
+  const lateCtx = { locked: true, teamOfUser: (u) => (u === "US0P6RDSR" ? "The Maniacs" : null) };
+  t("late leg: Lee's post after the lock", () => core.isLateLeg({ user: "US0P6RDSR", text: "Gimme Bijan TD", ts: "1" }, lateCtx));
+  t("late leg: 🎯 post after the lock", () => core.isLateLeg({ user: "US0P6RDSR", text: "🎯 Bills -3.5", ts: "1" }, lateCtx));
+  t("not late: week still open", () => !core.isLateLeg({ user: "US0P6RDSR", text: "Gimme Bijan TD", ts: "1" }, { ...lateCtx, locked: false }));
+  t("not late: thread reply (hit/miss reports live there)", () => !core.isLateLeg({ user: "US0P6RDSR", text: "Bijan TD", ts: "2", thread_ts: "1" }, lateCtx));
+  t("not late: a result report", () => !core.isLateLeg({ user: "US0P6RDSR", text: "Josh Allen TD hit", ts: "1" }, lateCtx) && !core.isLateLeg({ user: "US0P6RDSR", text: "parlay busted", ts: "1" }, lateCtx));
+  t("not late: chatter / unknown user / edits", () => !core.isLateLeg({ user: "US0P6RDSR", text: "lol we are cooked", ts: "1" }, lateCtx) && !core.isLateLeg({ user: "UNKNOWN", text: "Bijan TD", ts: "1" }, lateCtx) && !core.isLateLeg({ user: "US0P6RDSR", text: "Bijan TD", ts: "1", subtype: "message_changed" }, lateCtx));
+  const late = core.renderLateLeg({ week: 6, team: "The Maniacs", placerName: "Dirty Birds", leg: "Bijan TD" });
+  t("late reply: names placer + team, trips none of the bot's own detectors", () => /\*Dirty Birds\* picks for \*The Maniacs\*/.test(late) && !/legs are locked/i.test(late) && !core.isBoard(late) && !core.isOpener(late) && !core.weekFlags([{ bot_id: "B1", ts: "1", text: late }], 0).nag && !core.weekFlags([{ bot_id: "B1", ts: "1", text: late }], 0).slip);
+  t("late reply: no week → 'This week'", () => /This week is locked/.test(core.renderLateLeg({ week: null, team: null, placerName: null, leg: "x" })));
 }
 
 // ── deadline token + lock notice ──

@@ -97,6 +97,21 @@ export const renderLockNotice = ({ legs, allTeams, week, placerName, placerMenti
   return `🔒 *Week ${week} legs are locked* — ${inCount}/${allTeams.length} in. ${who}, you're up${kickoffLabel ? ` - kickoff ${kickoffLabel}` : ""}.\n${rows || "_(no legs)_"}${missing.length ? `\n_Placer picks for: ${missing.join(", ")}._` : ""}\n_Reply here with *hit* or *miss* once it settles - the bot keeps the season record. The pinned board and the 🔒 bookmark up top have this too._`;
 };
 
+// ── a leg that arrives after the lock ─────────────────────────────────────
+// Silence reads as "logged". A top-level bet-shaped post from a known manager
+// after the week is locked gets a 🔒 and a one-line thread reply instead.
+// Thread replies are left alone (that's where hit/miss reports live), and so
+// is anything that reads like a result ("Josh Allen TD hit").
+const RESULT_WORDS = /\b(hit|hits|cashed|cash|miss|missed|busted|bust|won|lost|loss|whiff(?:ed)?)\b/i;
+export const isLateLeg = (ev, { locked, teamOfUser }) => {
+  if (!locked || !ev || ev.subtype || ev.thread_ts || !ev.user || !teamOfUser?.(ev.user)) return false;
+  const text = ev.text || "";
+  if (RESULT_WORDS.test(text)) return false;
+  return /^\s*🎯/u.test(text) || looksLikeLeg(cleanLeg(text));
+};
+export const renderLateLeg = ({ week, team, placerName, leg }) =>
+  `🔒 Too late - Week ${week ?? ""} is locked and the slip is final. *${placerName || "The placer"}* picks for *${team || "your team"}* this week; "${leg}" lives on in the archive as what could have been.`.replace(/Week\s+is/, "This week is");
+
 // ── Slack event filtering ─────────────────────────────────────────────────
 // Refresh on new human posts, human edits and human deletes. NEVER on
 // anything the bot itself causes: its board edits arrive as message_changed
@@ -215,7 +230,7 @@ export const PARLAY_RULES = `How the Parlay Builder works:
 - Changing your mind: post the new bet - your team's LATEST post is the one that counts, and the ✅ moves to it. Editing your original message works too. Any number of changes until the lock.
 - The ✅ on a message means "this is the leg that counts". No ✅ = not registered (wrong wording, unknown account, or it read like chat).
 - Deadline: 2 hours before the week's first kickoff, never later than Thursday 6pm ET (Thanksgiving week is earlier). Legs lock then; the pinned board becomes the final slip.
-- Missed the deadline: the placer picks your leg for you, no appeals.
+- Missed the deadline: the placer picks your leg for you, no appeals. A bet posted after the lock gets a 🔒 instead of a ✅ and doesn't count.
 - Placer: the team with the lowest score the previous week places the bet and posts the slip screenshot.
 - Results: after it settles, reply "hit" or "miss" under the lock notice; the bot keeps the season record and shows it in each opener.
 - Cadence: opener Tuesday 10am ET, reminder 24h before the deadline (tagging whoever's missing), lock at the deadline. Runs regular season only.`;
@@ -257,15 +272,17 @@ export const answerParlayQuestion = (rawText, ctx) => {
   const inCount = Object.keys(legs).length, missing = teams.filter((t) => !legs[t]);
   const legOf = (t) => legs[t]?.leg ?? legs[t];
   const mention = (t) => (ctx.usersByTeam?.[t] || []).map((u) => `<@${u}>`).join(" ");
-  const open = ctx.week != null;
+  const open = ctx.week != null, locked = open && !!ctx.locked; // locked: the week's slip is final
   const notOpen = "This week's parlay hasn't opened yet - the opener posts Tuesday at 10am ET (Wednesday on kickoff week).";
+  const lockedLine = `Week ${ctx.week} is locked - the final slip is pinned up top (🔒 bookmark too).`;
   const legText = cleanLeg(q);
   if (!INTENT.help.test(q) && looksLikeLeg(legText) && !/\?/.test(q)) {
+    if (locked) return { text: renderLateLeg({ week: ctx.week, team: ctx.askerTeam, placerName: ctx.placerName, leg: legText }), leg: null };
     if (!ctx.askerTeam) return { text: "I don't know which team you are - ask Bryan to add you to the manager map, or post it as `🎯 LEG | Your Team | the leg`.", leg: null };
     return { text: `Got it - *${ctx.askerTeam}*: ${legText} ✅`, leg: legText };
   }
-  if (INTENT.change.test(q)) return { text: `${/creator|god|maker|bryan/i.test(q) ? "He thought of that. " : ""}Yes - just post the new bet. Your team's *latest* post is the one that counts and the ✅ moves to it; editing the original works too. Change it as often as you like until legs lock${open ? ` *${ctx.deadlineLabel}*` : ""}.`, leg: null };
-  if (INTENT.late.test(q)) return { text: `If your leg isn't in by the lock${open ? ` (*${ctx.deadlineLabel}*)` : ""}, the placer picks it for you - no appeals. Post it now and you can still change it later.`, leg: null };
+  if (INTENT.change.test(q)) return { text: locked ? `Not this week - ${lockedLine} Until the lock you can change it as often as you like; after it, the slip is what it is.` : `${/creator|god|maker|bryan/i.test(q) ? "He thought of that. " : ""}Yes - just post the new bet. Your team's *latest* post is the one that counts and the ✅ moves to it; editing the original works too. Change it as often as you like until legs lock${open ? ` *${ctx.deadlineLabel}*` : ""}.`, leg: null };
+  if (INTENT.late.test(q)) return { text: locked ? `${lockedLine} *${ctx.placerName || "The placer"}* picks for anyone who missed it - no appeals.` : `If your leg isn't in by the lock${open ? ` (*${ctx.deadlineLabel}*)` : ""}, the placer picks it for you - no appeals. Post it now and you can still change it later.`, leg: null };
   if (INTENT.report.test(q)) return { text: `After the parlay settles, reply *hit* or *miss* under the lock notice. I keep the season record and show it in every Tuesday opener.`, leg: null };
   if (INTENT.how.test(q) && !INTENT.mine.test(q)) return { text: PARLAY_RULES, leg: null };
   if (INTENT.help.test(q)) return { text: `Post your bet in the channel and I log it (e.g. "Vikings ML"). Ask me things like *who's missing?*, *status*, *deadline?*, *who's placing?*, *record?*, *my leg?*. Entering for someone else: \`🎯 LEG | Their Team | the leg\`.`, leg: null };
@@ -281,16 +298,17 @@ export const answerParlayQuestion = (rawText, ctx) => {
     return { text: `Season parlay record *${r.wins}-${r.losses}* (${weeks}).`, leg: null };
   }
   if (INTENT.placer.test(q)) return { text: open ? (ctx.placerName ? `*${ctx.placerName}* is placing the Week ${ctx.week} bet - last week's lowest score.` : `Placer isn't set for Week ${ctx.week} yet.`) : notOpen, leg: null };
-  if (INTENT.deadline.test(q) && !INTENT.missing.test(q)) return { text: open ? `Week ${ctx.week} legs lock *${ctx.deadlineLabel}*.` : notOpen, leg: null };
+  if (INTENT.deadline.test(q) && !INTENT.missing.test(q)) return { text: open ? (locked ? lockedLine : `Week ${ctx.week} legs lock *${ctx.deadlineLabel}*.`) : notOpen, leg: null };
   if (INTENT.missing.test(q)) {
     if (!open) return { text: notOpen, leg: null };
     if (!missing.length) return { text: `All ${teams.length} legs are in for Week ${ctx.week}. ✅`, leg: null };
+    if (locked) return { text: `Locked at ${inCount}/${teams.length}. *${ctx.placerName || "The placer"}* picks for: ${missing.map((t) => `*${t}*`).join(", ")}.`, leg: null };
     return { text: `Still missing (${missing.length}): ${missing.map((t) => `*${t}* ${mention(t)}`.trim()).join(", ")}. Locks *${ctx.deadlineLabel}*.`, leg: null };
   }
   if (INTENT.status.test(q)) {
     if (!open) return { text: notOpen, leg: null };
     const list = teams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legOf(t)}`).join("\n");
-    return { text: `Week ${ctx.week}: *${inCount}/${teams.length} legs in* · placer *${ctx.placerName || "TBD"}* · locks *${ctx.deadlineLabel}*${ctx.record?.byWeek?.length ? ` · season ${ctx.record.wins}-${ctx.record.losses}` : ""}\n${list || "_(no legs yet)_"}${missing.length ? `\nStill needed: ${missing.join(", ")}` : ""}`, leg: null };
+    return { text: `Week ${ctx.week}: *${inCount}/${teams.length} legs in* · placer *${ctx.placerName || "TBD"}* · ${locked ? "🔒 locked" : `locks *${ctx.deadlineLabel}*`}${ctx.record?.byWeek?.length ? ` · season ${ctx.record.wins}-${ctx.record.losses}` : ""}\n${list || "_(no legs yet)_"}${missing.length ? `\n${locked ? "Placer picks for" : "Still needed"}: ${missing.join(", ")}` : ""}`, leg: null };
   }
   return { text: `Not sure what you're after. Try *who's missing?*, *status*, *deadline?*, *who's placing?*, *record?* or *my leg?* - or just post your bet.`, leg: null };
 };
