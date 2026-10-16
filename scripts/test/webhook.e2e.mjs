@@ -48,7 +48,7 @@ const msg = (user, text, extra = {}) => ({ type: "event_callback", authorization
 let pass = 0, fail = 0;
 const t = async (name, fn) => { try { if (await fn()) pass++; else { fail++; console.log(`  FAIL ${name}`); } } catch (e) { fail++; console.log(`  FAIL ${name} → ${e.message}`); } };
 
-const server = spawn(process.execPath, [join(root, "node_modules", "vite", "bin", "vite.js"), "preview", "--port", String(PORT), "--strictPort"], { // vite directly (not npx) so kill() reaches it
+const server = spawn(process.execPath, [join(root, "node_modules", "vite", "bin", "vite.js"), "preview", "--host", "127.0.0.1", "--port", String(PORT), "--strictPort"], { // vite directly (not npx) so kill() reaches it; explicit host - bare "localhost" is ::1 on GitHub runners
   cwd: root, stdio: ["ignore", "pipe", "pipe"],
   env: { ...process.env, NODE_OPTIONS: `--import=${join(here, "mock-slack.mjs")}`, PARLAY_MOCK_STATE: STATE, PARLAY_MOCK_LOG: LOG, SLACK_SIGNING_SECRET: SECRET, SLACK_BOT_TOKEN: "xoxb-e2e", ANTHROPIC_API_KEY: "" },
 });
@@ -58,10 +58,10 @@ const exited = new Promise((r) => server.on("exit", r));
 const stop = async () => { try { server.kill("SIGTERM"); } catch { /* already gone */ } await Promise.race([exited, new Promise((r) => setTimeout(r, 3000))]); };
 
 try {
-  for (let i = 0; i < 60; i++) { // wait for the preview server
+  for (let i = 0; i < 120; i++) { // wait for the preview server (CI runners can be slow to boot it)
     try { if ((await fetch(`http://127.0.0.1:${PORT}/`)).ok) break; } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 500));
-    if (i === 59) throw new Error(`preview server never answered\n${serverLog}`);
+    if (i === 119) throw new Error(`preview server never answered\n${serverLog}`);
   }
 
   await t("handshake: url_verification echoes the challenge", async () => (await post({ type: "url_verification", challenge: "abc123" })).text.includes("abc123"));
