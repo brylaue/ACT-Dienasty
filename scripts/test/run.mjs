@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 let failed = 0;
-for (const f of ["parlay-core.test.mjs", "parlay-slate.test.mjs", "parlay-bot.scenarios.mjs", "webhook.e2e.mjs"]) { // e2e needs `npm run build` first (CI builds before testing)
+for (const f of ["parlay-core.test.mjs", "parlay-slate.test.mjs", "parlay-reopen.test.mjs", "parlay-bot.scenarios.mjs", "webhook.e2e.mjs"]) { // e2e needs `npm run build` first (CI builds before testing)
   console.log(`\n▶ ${f}`);
   const r = spawnSync("node", [join(here, f)], { stdio: "inherit", timeout: 300000 });
   if (r.status !== 0) failed++;

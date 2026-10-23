@@ -52,6 +52,16 @@ bot computes everything in Eastern time itself.
   is replaced by a ✅. Player → team uses ESPN's player search (the most
   prominent match wins when names collide); if that fails the leg is simply
   not validated.
+- **Reopening an early lock.** Before the 15-minute rule the bot locked at a fixed
+  6 PM. If a week *that old rule* locked turns out to have a later real cutoff (the
+  legs' first game is still ahead), the next cron tick or Slack event withdraws the
+  lock notice, restores the live board, removes the 🔒 marks and the bot's "too late"
+  replies, and announces the new lock time (@ing everyone whose post now counts).
+  Only a legacy slip qualifies — a slip the current code locked records its lock time
+  in its header, so a deleted post can never reopen a week that locked properly.
+  (`src/lib/server/parlayReopen.js`.) Thread replies under the board count as legs
+  only when they look like a bet or a short plain pick, so feedback about the bot
+  never lands on the slip.
 - **Odds.** Each leg on the board / slip / lock notice shows its **DraftKings**
   price when it is a spread, total or moneyline at the posted line (ESPN's
   scoreboard carries DraftKings' lines), plus an estimated combined parlay

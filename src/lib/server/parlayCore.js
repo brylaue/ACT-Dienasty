@@ -19,7 +19,11 @@ export const cleanLeg = (t) => String(t || "")
 // helper verbs that mark conversation ("that TD will lead us to glory",
 // "we're not betting to win $70" are chat, "Bills -3.5" is a bet).
 // Callers pass cleaned text, so "I'll take X anytime TD" → "X anytime TD".
-const CHATTER = /\b(you|your|you're|guys|lol|lmao|haha|thanks|thank|sorry|please|pls|send|bets|everyone|reminder|deadline|placed|submitted|bet is|slip|i|i'm|im|we|we're|us|our|me|my|he|she|they|them|it's|that's|will|would|should|could|can|can't|won't|is|was|are|were|been|feel|feels|think|hope|love|hate|glory)\b|\$\d/i;
+const CHATTER = /\b(you|your|you're|guys|lol|lmao|haha|thanks|thank|sorry|please|pls|send|bets|everyone|reminder|deadline|placed|submitted|bet is|slip|i|i'm|im|we|we're|us|our|me|my|he|she|they|them|it's|that's|will|would|should|could|can|can't|won't|is|was|are|were|been|feel|feels|think|hope|love|hate|glory|bot|parlay|improvement|suggestion|feature|bug|according|whichever)\b|\$\d/i;
+// a thread reply under the opener/board is a pick even without betting words
+// ("Chiefs", "Bills -3" is caught above) - but only when it is short and plain, so a
+// sentence of feedback or banter in the thread never lands on the slip
+export const isPlainPick = (t) => t.split(/\s+/).length <= 5 && t.length <= 40 && !/[?,;:!]/.test(t) && !CHATTER.test(t);
 export const looksLikeLeg = (t) => t.length <= 90 && !/\?/.test(t) && !CHATTER.test(t) && !/[.!]\s+[A-Z]/.test(t) && (
   /\b(ML|moneyline|anytime|any time|TD|TDs|touchdowns?|over|under|spread|ATS|covers?|to cover|to win|wins? by|win|first half|1st half|1H|2H|quarter|1Q|team total|total|alt|prop|to score|first TD|last TD|o\/u|[ou]\d+(\.\d+)?|yds|yards|rushing|receiving|passing|receptions|rec|completions|attempts|sacks?|INT|interceptions?|field goals?|FG|longest|assists?|rebounds?)\b/i.test(t)
   || /[+-]\d+(\.\d+)?\b/.test(t)          // a spread or a price: -3.5, +150
@@ -53,7 +57,7 @@ export const collectLegsDetailed = ({ messages, replies = [], allTeams, teamOfUs
     const team = teamOfUser(msg.user);
     if (!team) return;
     const leg = cleanLeg(text);
-    if (inThread || /^\s*🎯/u.test(text) || looksLikeLeg(leg)) consider(team, leg, msg.ts, msg);
+    if (/^\s*🎯/u.test(text) || looksLikeLeg(leg) || (inThread && isPlainPick(leg))) consider(team, leg, msg.ts, msg);
   };
   for (const m of messages) parse(m, false);
   for (const m of replies) parse(m, true);
@@ -122,6 +126,22 @@ export const renderLockNotice = ({ legs, allTeams, week, placerName, placerMenti
   const who = placerMentions.length ? `${placerMentions.map((u) => `<@${u}>`).join(" ")} (*${placerName}*)` : placerName ? `*${placerName}*` : "placer TBD";
   return `🔒 *Week ${week} legs are locked* — ${inCount}/${allTeams.length} in. ${who}, you're up${kickoffLabel ? ` - kickoff ${kickoffLabel}` : ""}.\n${rows || "_(no legs)_"}${missing.length ? `\n_Placer picks for: ${missing.join(", ")}._` : ""}${oddsFooter(legs, allTeams)}\n_Reply here with *hit* or *miss* once it settles - the bot keeps the season record. The pinned board and the 🔒 bookmark up top have this too._`;
 };
+
+// ── a lock that fired too early ───────────────────────────────────────────
+// Before the 15-minute rule shipped the bot locked at a fixed 6 PM. A week
+// locked that way is reopened once the legs say the real cutoff is later.
+// Only LEGACY slips qualify (their header carries no lock time); a slip the
+// current code locked always records the time it locked at, so a deleted
+// post can never reopen a week that was locked properly.
+export const lockNoticeOf = (messages) => (messages || []).find((m) => m.bot_id && /Week \d+ legs are locked/i.test(m.text || "")) || null; // newest first
+export const isStaleLock = ({ notice, header, lockMs, nowMs }) =>
+  !!notice && lockMs != null && header?.deadlineEpochMs == null && nowMs < lockMs && Number(notice.ts) * 1000 < lockMs - 60e3;
+export const renderReopened = ({ week, lockLabel, rescued = [] }) => {
+  const rows = rescued.map((r) => `• ${r.mention ? `${r.mention} ` : ""}*${r.team}* — ${r.leg}`).join("\n");
+  return `🔓 *Week ${week} is open again.* The lock fired early (the old fixed 6 PM rule); legs now lock *${lockLabel}* - 15 minutes before the first game that has a leg.${rows ? `\nThese posts count after all:\n${rows}` : ""}\nStill need to change or add one? Just post it before then.`;
+};
+// what the old lock notice becomes (must NOT contain the words that mark a real lock notice)
+export const renderRetractedNotice = ({ week, lockLabel }) => `🔓 _Week ${week} lock notice withdrawn - it went out early. Legs now lock ${lockLabel}._`;
 
 // ── a leg that arrives after the lock ─────────────────────────────────────
 // Silence reads as "logged". A top-level bet-shaped post from a known manager

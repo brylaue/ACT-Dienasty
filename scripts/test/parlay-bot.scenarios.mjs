@@ -87,5 +87,19 @@ const lateForTnf = fixtureWith("week3-tuesday.json", [{ ts: String(Date.parse("2
 out = run("tick", "2026-09-25T00:12:00Z", lateForTnf, { slate: true });
 check("a leg for a game inside its last 15 minutes is rejected", out, ["is within 15 minutes of kickoff", "can't be played"], ["Bears ML ("]);
 
+// ── a week the OLD fixed-6PM rule locked early (the Week 7 incident) ──
+// week3-locked.json is such a lock: its slip header has no lock time. With the slate, the legs' real cutoff is Sunday 12:45pm.
+out = run("tick", "2026-09-25T00:05:00Z", "week3-locked.json", { slate: true }); // Thu 8:05pm ET
+check("early legacy lock + real cutoff ahead → notice withdrawn, week announced as open again", out, ["lock notice withdrawn", "Week 3 is open again", "Sunday 12:45 PM ET", "reopened week 3"], ["WEEK 3 SLIP", "legs are locked"]);
+const reopened = JSON.parse(readFileSync(fx("week3-locked.json"), "utf8")); // …and what the channel looks like on the NEXT run
+for (const m of reopened.messages) if (/legs are locked/.test(m.text)) m.text = "🔓 _Week 3 lock notice withdrawn - it went out early. Legs now lock Sunday 12:45 PM ET._";
+const reopenedFile = join(tmp, "week3-reopened.json"); writeFileSync(reopenedFile, JSON.stringify(reopened));
+out = run("tick", "2026-09-25T00:20:00Z", reopenedFile, { slate: true });
+check("next tick: the pinned board is back to the live BOARD with the new lock time, no second announcement", out, ["chat.update", "WEEK 3 BOARD", "Sunday 12:45 PM ET"], ["WEEK 3 SLIP", "is open again", "legs are locked"]);
+out = run("tick", "2026-09-27T16:46:00Z", reopenedFile, { slate: true }); // Sun 12:46pm ET - the real lock
+check("…and it locks at the real cutoff, with a proper lock notice", out, ["WEEK 3 SLIP", "legs are locked"], ["is open again"]);
+out = run("tick", "2026-09-25T00:22:00Z", "week3-locked.json"); // no slate: lock time is the Thursday fallback - already passed
+check("a lock that really was due (cutoff already passed) is NOT reopened", out, ["nothing due"], ["open again", "withdrawn"]);
+
 console.log(`parlay-bot scenarios: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

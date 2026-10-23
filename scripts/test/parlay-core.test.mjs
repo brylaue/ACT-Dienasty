@@ -213,5 +213,32 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
   t("addressed 'Bills ML' on a bye week → invalid reply, not 'Got it'", () => { const a = core.answerParlayQuestion("hey parlay builder, Bills ML", { legs: {}, allTeams, week: 7, placerName: "X", deadlineLabel: "", askerTeam: "Immigrants", checkLeg: bye }); return a.leg === null && /can't be played/.test(a.text); });
 }
 
+// ── a thread reply is a pick only when it looks like one ──
+{
+  const lee = { ts: "10", user: "US0P6RDSR", text: "Recommended improvement to the bot, current odds according to whichever book on the parlay" };
+  const chiefs = { ts: "11", user: "US7R5B3C3", text: "Chiefs" };
+  const d = core.collectLegsDetailed({ messages: [], replies: [lee, chiefs], allTeams, teamOfUser });
+  t("thread: feedback about the bot is not a leg", () => !d.legs["The Maniacs"]);
+  t("thread: a short plain pick ('Chiefs') still counts", () => d.legs["The 5th Rounders"]?.leg === "Chiefs");
+  t("thread: banter with a question or comma is not a leg", () => !core.isPlainPick("what about the Bills, though") && !core.isPlainPick("Are we in?") && core.isPlainPick("Bills -3"));
+}
+
+// ── a lock the old fixed-6PM rule fired too early ──
+{
+  const notice = { ts: String(Date.parse("2026-10-22T22:48:08Z") / 1000), bot_id: "B1", text: ":lock: *Week 7 legs are locked* \u2014 4/12 in." };
+  const legacy = { week: 7, placerName: "X", deadlineLabel: "", deadlineEpochMs: null };
+  const sunday = Date.parse("2026-10-25T16:45:00Z"), thu9pm = Date.parse("2026-10-23T01:00:00Z");
+  t("stale: legacy lock, real cutoff still ahead → reopen", () => core.isStaleLock({ notice, header: legacy, lockMs: sunday, nowMs: thu9pm }));
+  t("stale: cutoff already passed → the lock stands", () => !core.isStaleLock({ notice, header: legacy, lockMs: Date.parse("2026-10-23T00:00:00Z"), nowMs: thu9pm }));
+  t("stale: lock posted at/after the cutoff (a late cron) → stands", () => !core.isStaleLock({ notice, header: legacy, lockMs: Date.parse("2026-10-22T22:30:00Z"), nowMs: Date.parse("2026-10-22T22:50:00Z") }));
+  t("stale: a slip the current code locked records its time → never reopened by a deleted post", () => !core.isStaleLock({ notice, header: { ...legacy, deadlineEpochMs: Date.parse("2026-10-23T00:00:00Z") }, lockMs: sunday, nowMs: thu9pm }));
+  t("stale: no notice / no lock time → nothing to reopen", () => !core.isStaleLock({ notice: null, header: legacy, lockMs: sunday, nowMs: thu9pm }) && !core.isStaleLock({ notice, header: legacy, lockMs: null, nowMs: thu9pm }));
+  t("lockNoticeOf picks the newest bot lock notice", () => core.lockNoticeOf([{ ts: "3", text: "hi" }, { ts: "2", bot_id: "B", text: "\ud83d\udd12 *Week 7 legs are locked*" }, { ts: "1", bot_id: "B", text: "Week 6 legs are locked" }]).ts === "2");
+  const gone = core.renderRetractedNotice({ week: 7, lockLabel: "Sunday 12:45 PM ET" });
+  t("retracted notice can no longer be mistaken for a lock, a board or an opener", () => !/legs are locked/i.test(gone) && !core.isBoard(gone) && !core.isOpener(gone) && /Sunday 12:45 PM ET/.test(gone));
+  const re = core.renderReopened({ week: 7, lockLabel: "Sunday 12:45 PM ET", rescued: [{ team: "Crab Boilers", leg: "Kyren Williams anytime td", mention: "<@USJRGKTDJ>" }] });
+  t("reopened announcement: new lock, who was rescued, nothing a lock-detector would match", () => /Week 7 is open again/.test(re) && /<@USJRGKTDJ> \*Crab Boilers\* \u2014 Kyren Williams/.test(re) && /Sunday 12:45 PM ET/.test(re) && !/legs are locked/i.test(re) && !core.isBoard(re));
+}
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

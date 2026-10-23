@@ -78,12 +78,15 @@ export const teamsIn = (text, slate) => {
 };
 
 // "Kyren Williams anytime td" → "Kyren Williams"; "Bills ML" → null (a team, not a player)
-const PROP_WORDS = /^(?:anytime|any|first|last|1st|2nd|\d|over|under|o\d|u\d|to\b|[+-]?\d|rec|yards|yds|rushing|receiving|passing|longest)/i;
+const PROP_WORDS = /^(?:anytime|any|first|last|1st|2nd|\d|over|under|o\d|u\d|to\b|[+-]?\d|rec|yards|yds|rushing|receiving|passing|longest|(?:one|two|three|four|five|six|a|an)\b|touchdowns?|tds?\b|catches|receptions?|completions|sacks?|ints?\b|interceptions?|points)/i;
 export const playerNameOf = (text, slate) => {
   const toks = String(text || "").trim().split(/\s+/);
   const isNameTok = (tk) => /^[A-Z](?:\.[A-Z])+\.?$/.test(tk) || (/^[A-Z][a-zA-Z'.-]*$/.test(tk) && /[a-z]/.test(tk)); // Kyren, McCaffrey, A.J. - not ML / TD / BUF
   const name = [];
-  for (const tk of toks) { if (isNameTok(tk) && !/^(?:anytime|any|first|last|over|under|to|rushing|receiving|passing|yards)$/i.test(tk)) name.push(tk); else break; }
+  for (const raw of toks) { // a comma ends the name: "Jared Goff, two passing touchdowns"
+    const tk = raw.replace(/[,;:]+$/, "");
+    if (isNameTok(tk) && !/^(?:anytime|any|first|last|over|under|to|rushing|receiving|passing|yards)$/i.test(tk)) { name.push(tk); if (tk !== raw) break; } else break;
+  }
   if (!name.length || name.length > 3) return null;
   if (!PROP_WORDS.test(toks.slice(name.length).join(" "))) return null;
   if (/^(?:Take|Going|Give|Gimme|Put|Let|Lets|The|My|Our|Over|Under|Total|Both|Either)$/.test(name[0])) return null;

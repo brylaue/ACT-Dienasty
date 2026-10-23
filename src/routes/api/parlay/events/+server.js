@@ -16,7 +16,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "$env/dynamic/private";
 import { leagueID } from "$lib/utils/leagueInfo";
 import managers from "../../../../../static/data/parlay-managers.json";
-import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "$lib/server/parlayCore.js";
+import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "$lib/server/parlayCore.js";
+import { reopenWeek } from "$lib/server/parlayReopen.js";
 import { LOCK_LEAD_MS, analyzeLeg, evaluateWeek, fetchSlate, priceLegs } from "$lib/server/parlaySlate.js";
 
 export const config = { maxDuration: 60 }; // an Oracle hand-off can take 10-20s
@@ -107,14 +108,17 @@ const loadWeek = async () => {
     for (const m of d.messages || []) if (m.ts !== ts) replies.push(m);
   }
   const header = board ? parseBoardHeader(board.text) : null;
-  const locked = lockNotice || (board ? isLockedBoard(board.text) : false); // the week's slip is final
   const slate = await getSlate(header?.week ?? null);
   const ev = await evaluateWeek({ messages, replies, allTeams, teamOfUser, slate, cache: playerCache });
   // already-locked weeks keep the cutoff they were locked at; open weeks use the live one (it moves as legs are added)
   const lockMs = ev.lockMs ?? header?.deadlineEpochMs ?? null;
+  // a lock the old fixed-6PM rule fired before the legs' real cutoff is withdrawn (see isStaleLock)
+  const notice = lockNoticeOf(messages);
+  const stale = isStaleLock({ notice, header, lockMs: ev.lockMs, nowMs: Date.now() });
+  const locked = !stale && (lockNotice || (board ? isLockedBoard(board.text) : false)); // the week's slip is final
   const legs = priceLegs(ev.legs, slate, ev.playerTeams);
   const checkLeg = (leg) => (slate ? analyzeLeg(leg, slate, { playerTeams: ev.playerTeams, atMs: Date.now() }).reason : null);
-  return { channel, allTeams, teamOfUser, usersByTeam, messages, replies, board, header, legs, rejected: ev.rejected, slate, lockMs, checkLeg, lockNotice, locked };
+  return { channel, allTeams, teamOfUser, usersByTeam, messages, replies, board, header, legs, rejected: ev.rejected, slate, lockMs, checkLeg, lockNotice, locked, notice, stale };
 };
 
 // a bet posted after the lock: 🔒 it and say so in its thread, so silence
@@ -144,6 +148,16 @@ const lockIfDue = async (ctx) => {
     if (mine) await slack("bookmarks.edit", { channel_id: channel, bookmark_id: mine.id, title: `🔒 Week ${week} slip`, link });
   } catch { /* bookmark scopes optional */ }
   return `locked via event (${Object.keys(legs).length}/${allTeams.length})`;
+};
+
+// a week the old rule locked too early: withdraw the notice, restore the live board, announce it
+const reopen = async (ctx) => {
+  const { channel, header, board, legs, allTeams, lockMs } = ctx;
+  const lockLabel = etLabel(lockMs);
+  const boardText = renderBoard({ legs, allTeams, ...header, deadlineEpochMs: lockMs, deadlineLabel: lockLabel, locked: false });
+  const note = await reopenWeek({ slack, slackGet, channel, week: header.week, notice: ctx.notice, messages: ctx.messages, legs, lockLabel, boardText, boardTs: board.ts, usersByTeam: ctx.usersByTeam });
+  ctx.board = { ...board, text: boardText }; ctx.locked = false; ctx.lockNotice = false; ctx.stale = false;
+  return note;
 };
 
 // season parlay record (only fetched when someone asks for it)
@@ -252,6 +266,7 @@ export async function POST(event) {
     const work = (async () => {
       const ctx = await loadWeek();
       const results = [];
+      if (ctx.stale && ctx.board && ctx.header) results.push(await reopen(ctx));
       const lockedNow = await lockIfDue(ctx);                         // deadline passed and cron hasn't locked? lock now (this post made the slip)
       if (lockedNow) ctx.locked = true;
       results.push(lockedNow || await refreshBoard(selfUserId, ctx)); // otherwise a leg (addressed or not) lands on the board

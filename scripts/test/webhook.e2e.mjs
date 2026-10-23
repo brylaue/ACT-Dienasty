@@ -141,9 +141,31 @@ try {
     return reacts("lock").some((x) => x.body.timestamp === TRIGGER.ts) && rep && rep.body.text.includes(PLACER_MENTION) && /have you already set the parlay/.test(rep.body.text) && /\*not\* on the slip/.test(rep.body.text) && !/Crab Boilers\* — Jalen/.test(calls().find((x) => x.method === "chat.update")?.body.text || "");
   });
 
+
+  // ── a week the old fixed-6PM rule locked early (Week 7): the legs say the real cutoff is days away ──
+  const EARLY_LATE = { ts: "1792105856.061539", user: LEE, text: "Gimme Bijan TD", reply_count: 1, reactions: [{ name: "lock", users: [SELF] }] };
+  const TOO_LATE = { ts: "1792105857.000100", thread_ts: EARLY_LATE.ts, bot_id: "B0C3MK8FJSZ", text: ":lock: Too late - Week 3 is locked and the slip is final." };
+  const NOTICE = LOCKED.find((m) => m.bot_id && /legs are locked/.test(m.text));
+  setState([EARLY_LATE, ...LOCKED], { replies: [TOO_LATE] }); // default: the first game is 26h away
+  await t("early lock: the board goes back to a live BOARD, the notice is withdrawn, the late post is ✅'d and its 🔒 + 'too late' reply removed, and it is announced", async () => {
+    await post(msg(BRYAN, "lol", {}));
+    const c = calls(), upd = c.filter((x) => x.method === "chat.update");
+    const board = upd.find((x) => /WEEK 3 BOARD/.test(x.body.text)), note = upd.find((x) => x.body.ts === NOTICE.ts), ann = replies().find((x) => /open again/.test(x.body.text));
+    return board && /locks \*<!date\^/.test(board.body.text) && /Bijan TD/.test(board.body.text) && note && !/legs are locked/i.test(note.body.text)
+      && c.some((x) => x.method === "reactions.remove" && x.body.name === "lock" && x.body.timestamp === EARLY_LATE.ts)
+      && c.some((x) => x.method === "chat.delete" && x.body.ts === TOO_LATE.ts)
+      && ann && ann.body.text.includes(`<@${LEE}>`) && !replies().some((x) => /legs are locked|Too late|have you already set/.test(x.body.text))
+      && reacts("white_check_mark").some((x) => x.body.timestamp === EARLY_LATE.ts);
+  });
+  setState([EARLY_LATE, ...LOCKED], { replies: [TOO_LATE] });
+  await t("early lock: a late post is no longer answered with 'too late' - it is simply logged on the reopened board", async () => {
+    await post(msg(LEE, EARLY_LATE.text, { ts: EARLY_LATE.ts }));
+    return !replies().some((x) => x.body.thread_ts === EARLY_LATE.ts && /Too late|have you already set|can't make the slip/.test(x.body.text));
+  });
+
   // ── after the lock ──
   const LATE = { ts: "1792105856.061539", user: LEE, text: "Gimme Bijan TD" };
-  setState([LATE, ...LOCKED]);
+  setState([LATE, ...LOCKED], { kickoffIn: 5 * 60e3 }); // lock was 10 min ago: the cutoff has really passed
   await t("locked, before the first game: a late leg → 🔒 + 'placer, have you already set the parlay?' (placer @'d), board untouched", async () => {
     await post(msg(LEE, LATE.text, { ts: LATE.ts }));
     const c = calls(), rep = replies().find((x) => x.body.thread_ts === LATE.ts);
@@ -155,7 +177,7 @@ try {
     const rep = replies().find((x) => x.body.thread_ts === LATE.ts);
     return rep && /can't make the slip/.test(rep.body.text) && !/have you already set/.test(rep.body.text) && !rep.body.text.includes(PLACER_MENTION);
   });
-  setState(LOCKED);
+  setState(LOCKED, { kickoffIn: -5 * 864e5 }); // every game has started: the lock stands
   await t("locked: a top-level result ('Josh Allen TD hit') → silence", async () => { await post(msg(BRYAN, "Josh Allen TD hit")); return calls().every((x) => !/^chat\.|^reactions\./.test(x.method)); });
   await t("locked: a thread reply under the lock notice → silence", async () => { await post(msg(BRYAN, "Bijan TD", { thread_ts: LOCKED[0].ts })); return calls().every((x) => !/^chat\.|^reactions\./.test(x.method)); });
   await t("locked: '@bot status' → 🔒 locked, placer picks", async () => {

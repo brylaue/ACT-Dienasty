@@ -93,6 +93,7 @@ await t("search: full name must match exactly; a lone surname matches an active 
     && await S.resolvePlayerTeam("Gibbs", async () => { throw new Error("offline"); }) === null;
 });
 await t("player names: a capitalized 'Anytime' still ends the name", () => S.playerNameOf("Josh Allen Anytime TD", slate) === "Josh Allen" && S.playerNameOf("Justin Jefferson Over 80 yards", slate) === "Justin Jefferson");
+await t("player names: a comma ends the name; spelled-out counts are props ('Jared Goff, two passing touchdowns')", () => S.playerNameOf("Jared Goff, two passing touchdowns", slate) === "Jared Goff" && S.playerNameOf("Gibbs, anytime TD", slate) === "Gibbs" && S.playerNameOf("Puka Nacua five catches", slate) === "Puka Nacua" && S.playerNameOf("Bills, two touchdowns", slate) === null);
 await t("fetchSlate: failure → null", async () => (await S.fetchSlate(7, async () => { throw new Error("offline"); })) === null && (await S.fetchSlate(7, async () => ({ ok: false }))) === null);
 
 console.log(`parlay-slate: ${pass} pass, ${fail} fail`);

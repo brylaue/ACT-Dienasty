@@ -36,7 +36,8 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { boardUnchanged, isBoard, isOpener, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
+import { boardUnchanged, isBoard, isOpener, isStaleLock, lockNoticeOf, parseBoardHeader, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
+import { reopenWeek } from "../src/lib/server/parlayReopen.js";
 import { LOCK_LEAD_MS, evaluateWeek, fetchSlate, lockTime, parseSlate, priceLegs } from "../src/lib/server/parlaySlate.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -395,9 +396,24 @@ const postSignoff = async () => {
   console.log("season sign-off posted");
 };
 
+// a week the old fixed-6PM rule locked before the legs' real cutoff: withdraw
+// the notice, clear the 🔒 marks, announce it. The board itself is restored by
+// the normal tick below (the lock is no longer in the channel by then).
+const reopenIfStale = async () => {
+  const { messages } = await loadWeek();
+  const f = weekFlags(messages, deadline), ev = await evalLegs();
+  const notice = lockNoticeOf(messages);
+  if (!isStaleLock({ notice, header: f.board ? parseBoardHeader(f.board.text) : null, lockMs: ev.lockMs, nowMs: NOW })) return false;
+  const legs = await readLegs();
+  console.log(await reopenWeek({ slack, slackGet, channel: channelID, week: nflWeek, notice, messages, legs, lockLabel: etLabel(ev.lockMs), boardTs: f.board?.ts || null }));
+  weekCache = null; evalCache = null; // re-read the channel: the notice no longer says "locked"
+  return true;
+};
+
 // ── modes ─────────────────────────────────────────────────────────────────
 setDeadline((await evalLegs()).lockMs); // the lock follows the legs (earliest game with a leg), so settle it before deciding what's due
 if (MODE === "tick") {
+  if (!seasonOver) await reopenIfStale();
   const flags = await postedThisWeek();
   await adoptBoard(flags);
   const now = NOW;
