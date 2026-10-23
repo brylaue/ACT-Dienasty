@@ -1,5 +1,5 @@
 import { createClient } from "contentful";
-import { json, error } from "@sveltejs/kit";
+import { error } from "@sveltejs/kit";
 
 export async function GET() {
   if (!import.meta.env.VITE_CONTENTFUL_CLIENT_ACCESS_TOKEN) {
@@ -21,5 +21,5 @@ export async function GET() {
       throw error(500, "Problem retrieving blog posts");
     });
 
-  return json(data);
+  return Response.json(data);
 }

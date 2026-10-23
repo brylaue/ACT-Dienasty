@@ -1,6 +1,6 @@
 <script>
 	import LinearProgress from '@smui/linear-progress';
-	import { Records } from '$lib/components';
+	import { Records } from '#lib/components.js';
 
     export let data;
     const recordsInfo = data.recordsInfo;

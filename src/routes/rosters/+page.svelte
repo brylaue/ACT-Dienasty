@@ -1,6 +1,6 @@
 <script>
 	import LinearProgress from '@smui/linear-progress';
-	import { Rosters } from '$lib/components'
+	import { Rosters } from '#lib/components.js'
 
 	export let data;
 	const rostersInfo = data.rostersInfo;

@@ -1,5 +1,5 @@
 import { createClient } from "contentful";
-import { json, error } from "@sveltejs/kit";
+import { error } from "@sveltejs/kit";
 
 export async function GET({ params }) {
   if (!import.meta.env.VITE_CONTENTFUL_CLIENT_ACCESS_TOKEN) {
@@ -22,5 +22,5 @@ export async function GET({ params }) {
       throw error(500, "Problem retrieving blog comments");
     });
 
-  return json(data);
+  return Response.json(data);
 }

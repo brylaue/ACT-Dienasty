@@ -1,6 +1,6 @@
 <script>
 	import LinearProgress from '@smui/linear-progress';
-	import { News, Resources } from '$lib/components';
+	import { News, Resources } from '#lib/components.js';
 
 	export let data;
 	const articlesData = data.articlesData;

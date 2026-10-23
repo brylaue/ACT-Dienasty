@@ -1,5 +1,5 @@
 <script>
-	import { MatchupsAndBrackets } from '$lib/components';
+	import { MatchupsAndBrackets } from '#lib/components.js';
 
 	export let data;
 	const {queryWeek, matchupsData, bracketsData, playersData, leagueTeamManagersData} = data;

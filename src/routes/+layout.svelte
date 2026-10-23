@@ -1,11 +1,25 @@
-<!-- __layout.svelte -->
 <script>
-	import { Nav, Footer } from "$lib/components";
-    import { dev } from '$app/environment';
-    import { injectAnalytics } from '@vercel/analytics/sveltekit';
+	import { Nav, Footer } from "#lib/components.js";
+	import { browser, dev } from '$app/env';
+	import { page } from '$app/state';
+	import { inject, pageview } from '@vercel/analytics';
 
-    injectAnalytics({ mode: dev ? 'development' : 'production' });
+	// @vercel/analytics/sveltekit still imports $app/stores, which SvelteKit 3 removed, so wire the
+	// framework-agnostic client up by hand: inject the script once, then report each route change.
+	if (browser) inject({ mode: dev ? 'development' : 'production', disableAutoTrack: true, framework: 'sveltekit' });
+	$effect(() => {
+		const route = page.route.id;
+		if (route) pageview({ route, path: page.url.pathname });
+	});
 </script>
+
+<main>
+	<Nav />
+	<!-- adds the nav (small and large) -->
+	<slot></slot>
+	<Footer />
+	<!-- adds the footer -->
+</main>
 
 <style>
 	:global(body) {
@@ -35,11 +49,3 @@
 		width: 100%;
 	}
 </style>
-
-<main>
-    <Nav /> <!-- adds the nav (small and large) -->
-
-    <slot />
-
-    <Footer /> <!-- adds the footer -->
-</main>

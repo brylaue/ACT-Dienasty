@@ -1,10 +1,10 @@
 <script>
-    import RefreshButton from '$lib/RefreshButton.svelte';
+    import RefreshButton from '#lib/RefreshButton.svelte';
 	import LinearProgress from '@smui/linear-progress';
-	import { getNflState, leagueName, getAwards, getLeagueTeamManagers, homepageText, managers, gotoManager, enableBlog, waitForAll } from '$lib/utils/helper';
-	import { Transactions, PowerRankings, HomePost} from '$lib/components';
-	import { getAvatarFromTeamManagers, getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
-    import { ranksFromPowerRankings } from '$lib/utils/helperFunctions/teamRanks';
+	import { getNflState, leagueName, getAwards, getLeagueTeamManagers, homepageText, managers, gotoManager, enableBlog, waitForAll } from '#lib/utils/helper.js';
+	import { Transactions, PowerRankings, HomePost} from '#lib/components.js';
+	import { getAvatarFromTeamManagers, getTeamFromTeamManagers } from '#lib/utils/helperFunctions/universalFunctions.js';
+    import { ranksFromPowerRankings } from '#lib/utils/helperFunctions/teamRanks.js';
 
     const nflState = getNflState();
     const podiumsData = getAwards();
@@ -38,7 +38,7 @@
         try {
             const st = await nflState;
             if (st?.season_type !== 'regular' || !(st.week > 0)) return;
-            const leagueID = (await import('$lib/utils/leagueInfo')).leagueID;
+            const leagueID = (await import('#lib/utils/leagueInfo.js')).leagueID;
             const res = await fetch(`https://api.sleeper.app/v1/league/${leagueID}/matchups/${st.week}`);
             if (!res.ok) return;
             const matchups = await res.json();

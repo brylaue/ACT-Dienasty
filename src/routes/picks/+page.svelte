@@ -1,8 +1,8 @@
 <script>
 	import LinearProgress from '@smui/linear-progress';
-	import PickTracker from '$lib/Picks/index.svelte';
-	import CompPickBanner from '$lib/CompPickBanner.svelte';
-	import PickConditions from '$lib/PickConditions.svelte';
+	import PickTracker from '#lib/Picks/index.svelte';
+	import CompPickBanner from '#lib/CompPickBanner.svelte';
+	import PickConditions from '#lib/PickConditions.svelte';
 
 	export let data;
 	const { leagueTeamManagerData } = data;

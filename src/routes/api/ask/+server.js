@@ -1,7 +1,15 @@
-import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
-import { buildLiveRosters } from '$lib/server/liveRosters';
-import { toolDefinitions, runTool } from '$lib/server/oracleTools';
+
+import { waitUntil } from '@vercel/functions';
+import {
+  ANTHROPIC_API_KEY,
+  SLACK_SIGNING_SECRET,
+  ASK_PASSCODE,
+  ORACLE_LOG_WEBHOOK,
+  ANTHROPIC_MODEL
+} from '$app/env/private';
+
+import { buildLiveRosters } from '#lib/server/liveRosters.js';
+import { toolDefinitions, runTool } from '#lib/server/oracleTools.js';
 
 /*
   The Oracle's AI half: answers questions using only the baked league
@@ -17,10 +25,10 @@ const hits = new Map();
 
 const staticText = new Map();
 const readStatic = async (fetchFn, path) => {
-    if (!staticText.has(path)) {
-        staticText.set(path, fetchFn(path).then((r) => (r.ok ? r.text() : null)).catch(() => null));
-    }
-    const text = await staticText.get(path);
+  if (!staticText.has(path)) {
+    staticText.set(path, fetchFn(path).then((r) => r.ok ? r.text() : null).catch(() => null));
+  }
+  const text = await staticText.get(path);
     if (text == null) { staticText.delete(path); return null; }
     try { return JSON.parse(text); } catch { staticText.delete(path); return null; }
 };
@@ -40,177 +48,196 @@ const allow = (ip) => {
 };
 
 export async function POST(event) {
-    const key = env.ANTHROPIC_API_KEY;
-    if (!key) {
-        return json({ error: 'unconfigured', message: 'The Oracle is asleep (no API key configured).' }, { status: 503 });
-    }
+  const key = ANTHROPIC_API_KEY;
+  if (!key) {
+        return Response.json({ error: 'unconfigured', message: 'The Oracle is asleep (no API key configured).' }, { status: 503 });
+  }
 
-    const internal = env.SLACK_SIGNING_SECRET &&
-        event.request.headers.get('x-oracle-internal') === env.SLACK_SIGNING_SECRET;
-    if (env.ASK_PASSCODE && !internal) {
-        const provided = event.request.headers.get('x-ask-passcode') || '';
-        if (provided !== env.ASK_PASSCODE) {
-            return json({ error: 'passcode', message: 'League passcode required.' }, { status: 401 });
-        }
-    }
+  const internal = SLACK_SIGNING_SECRET && event.request.headers.get('x-oracle-internal') === SLACK_SIGNING_SECRET;
 
-    if (!allow(event.getClientAddress())) {
-        return json({ error: 'rate', message: 'Easy — a few questions a minute, tops.' }, { status: 429 });
+  if (ASK_PASSCODE && !internal) {
+    const provided = event.request.headers.get('x-ask-passcode') || '';
+    if (provided !== ASK_PASSCODE) {
+      return Response.json({ error: 'passcode', message: 'League passcode required.' }, { status: 401 });
     }
+  }
 
-    let question = '';
-    let team = '';
-    let history = [];
-    try {
-        const body = await event.request.json();
-        question = String(body?.question || '').trim().slice(0, 300);
-        history = Array.isArray(body?.history) ? body.history.slice(-5) : [];
-        // optional self-identified team: context only, sanitized hard
-        team = String(body?.team || '').replace(/[\n\r{}<>]/g, '').trim().slice(0, 60);
+  if (!allow(event.getClientAddress())) {
+        return Response.json({ error: 'rate', message: 'Easy — a few questions a minute, tops.' }, { status: 429 });
+  }
+
+  let question = '';
+  let team = '';
+  let history = [];
+  try {
+    const body = await event.request.json();
+    question = String(body?.question || '').trim().slice(0, 300);
+    history = Array.isArray(body?.history) ? body.history.slice(-5) : [];
+    // optional self-identified team: context only, sanitized hard
+    team = String(body?.team || '').replace(/[\n\r{}<>]/g, '').trim().slice(0, 60);
     } catch { /* falls through to the empty-question check */ }
-    if (!question) {
-        return json({ error: 'empty', message: 'Ask an actual question.' }, { status: 400 });
-    }
+  if (!question) {
+    return Response.json({ error: 'empty', message: 'Ask an actual question.' }, { status: 400 });
+  }
 
-    // all static inputs in parallel (and from the per-instance cache when warm)
-    const [knowledgeObj, faq, compPicks, commentary, conditions] = await Promise.all([
-        readStatic(event.fetch, '/data/knowledge.json'),
-        readStatic(event.fetch, '/data/oracle-faq.json'),
-        readStatic(event.fetch, '/data/comp-picks.json'),
-        readStatic(event.fetch, '/data/commentary.json'),
+  // all static inputs in parallel (and from the per-instance cache when warm)
+  const [knowledgeObj, faq, compPicks, commentary, conditions] = await Promise.all([
+    readStatic(event.fetch, '/data/knowledge.json'),
+    readStatic(event.fetch, '/data/oracle-faq.json'),
+    readStatic(event.fetch, '/data/comp-picks.json'),
+    readStatic(event.fetch, '/data/commentary.json'),
         readStatic(event.fetch, '/data/pick-conditions.json'),
-    ]);
-    if (!knowledgeObj) {
-        return json({ error: 'nodata', message: 'Knowledge pack missing.' }, { status: 500 });
-    }
+  ]);
+  if (!knowledgeObj) {
+    return Response.json({ error: 'nodata', message: 'Knowledge pack missing.' }, { status: 500 });
+  }
 
-    // roster/taxi/pick questions deserve LIVE data, not last Tuesday's -
-    // rebuild that section from Sleeper right now; fall back to the bake
-    let rosterFreshness = `as of the weekly refresh (${knowledgeObj.generated})`;
-    try {
-        const leagueID = knowledgeObj.leagueID || '1312159501335416832';
-        knowledgeObj.rosters = await buildLiveRosters({ leagueID, knowledge: knowledgeObj, fetchFn: event.fetch });
-        rosterFreshness = 'LIVE from Sleeper as of this very question';
+  // roster/taxi/pick questions deserve LIVE data, not last Tuesday's -
+  // rebuild that section from Sleeper right now; fall back to the bake
+  let rosterFreshness = `as of the weekly refresh (${knowledgeObj.generated})`;
+  try {
+    const leagueID = knowledgeObj.leagueID || '1312159501335416832';
+    knowledgeObj.rosters = await buildLiveRosters({ leagueID, knowledge: knowledgeObj, fetchFn: event.fetch });
+    rosterFreshness = 'LIVE from Sleeper as of this very question';
     } catch { /* baked rosters remain in place */ }
-    // endpoint-only helpers - the live layer has already folded these
-    // into the roster lines, so they'd just burn tokens in the prompt
-    delete knowledgeObj.draftedBy;
-    delete knowledgeObj.claimCosts;
-    // prompt caching split: everything identical between questions (the
-    // baked pack) is one cacheable block; rosters (live, timestamped) and
-    // team context are the small dynamic block. ~90% off repeat reads.
-    const liveRosterSection = knowledgeObj.rosters;
-    delete knowledgeObj.rosters;
-    // learned rulings: curated from past questions the Oracle handled
-    // imperfectly - part of the cached static block, so learning is free
-    // (assigned in this exact order so the cached prompt block is unchanged)
-    if (faq) knowledgeObj.learnedRulings = faq.rulings;
-    // pick protections and trade conditions Sleeper cannot represent
-    if (compPicks) knowledgeObj.compPickHistory = compPicks;
-    // the Oracle's own weekly matchup predictions (baked into commentary.json)
-    // - it should never claim it has no forecast when /predictions shows one
-    const latest = latestWeekKey(Object.keys(commentary?.predictions || {}));
+  // endpoint-only helpers - the live layer has already folded these
+  // into the roster lines, so they'd just burn tokens in the prompt
+  delete knowledgeObj.draftedBy;
+  delete knowledgeObj.claimCosts;
+  // prompt caching split: everything identical between questions (the
+  // baked pack) is one cacheable block; rosters (live, timestamped) and
+  // team context are the small dynamic block. ~90% off repeat reads.
+  const liveRosterSection = knowledgeObj.rosters;
+  delete knowledgeObj.rosters;
+  // learned rulings: curated from past questions the Oracle handled
+  // imperfectly - part of the cached static block, so learning is free
+  // (assigned in this exact order so the cached prompt block is unchanged)
+  if (faq) knowledgeObj.learnedRulings = faq.rulings;
+  // pick protections and trade conditions Sleeper cannot represent
+  if (compPicks) knowledgeObj.compPickHistory = compPicks;
+  // the Oracle's own weekly matchup predictions (baked into commentary.json)
+  // - it should never claim it has no forecast when /predictions shows one
+  const latest = latestWeekKey(Object.keys(commentary?.predictions || {}));
     if (latest) knowledgeObj.oracleWeeklyPredictions = { note: `The Oracle's published matchup predictions (${latest.replace('-', ' week ')}) from the site's Predictions page.`, predictions: commentary.predictions[latest] };
-    if (conditions) knowledgeObj.pickConditions = conditions.conditions;
-    // Token diet: the full constitution (~14K tokens) and the Slack vault
-    // (~4K) only go into the prompt when the question is about rules or
-    // about what people said. Otherwise the model can fetch either with the
-    // site_file tool. knowledgeObj itself stays complete for the tools.
-    const wantsRules = /bylaw|constitution|\brules?\b|allowed|legal|penalt|dues|payout|prize|fee|deadline|window|taxi|\bir\b|injured reserve|roster (?:limit|size|max|spot)|keeper|scoring|veto|commish|commissioner|tank|collusion|waiver|faab|draft (?:order|lottery|rule)|toilet bowl|comp(?:ensatory)? pick|1\.13|eligib|process|cost|claim|how (?:do|does) .* work/i.test(question);
-    const wantsSlack = /slack|\bsaid\b|\bsays?\b|message|chat|quote|vault|texted|posted|complain|argu|announce|promise/i.test(question);
-    const promptKnowledge = { ...knowledgeObj };
-    if (!wantsRules) promptKnowledge.constitution = '(full constitution text not loaded for this question - if a rule is at issue, call site_file with name "constitution" and a query)';
-    if (!wantsSlack) promptKnowledge.slack = '(Slack vault not loaded for this question - call site_file with name "slack_vault" and a query for what managers said)';
-    const staticKnowledge = JSON.stringify(promptKnowledge);
+  if (conditions) knowledgeObj.pickConditions = conditions.conditions;
+  // Token diet: the full constitution (~14K tokens) and the Slack vault
+  // (~4K) only go into the prompt when the question is about rules or
+  // about what people said. Otherwise the model can fetch either with the
+  // site_file tool. knowledgeObj itself stays complete for the tools.
+  const wantsRules = (/bylaw|constitution|\brules?\b|allowed|legal|penalt|dues|payout|prize|fee|deadline|window|taxi|\bir\b|injured reserve|roster (?:limit|size|max|spot)|keeper|scoring|veto|commish|commissioner|tank|collusion|waiver|faab|draft (?:order|lottery|rule)|toilet bowl|comp(?:ensatory)? pick|1\.13|eligib|process|cost|claim|how (?:do|does) .* work/i).test(question);
+  const wantsSlack = (/slack|\bsaid\b|\bsays?\b|message|chat|quote|vault|texted|posted|complain|argu|announce|promise/i).test(question);
+  const promptKnowledge = { ...knowledgeObj };
+  if (!wantsRules) promptKnowledge.constitution = '(full constitution text not loaded for this question - if a rule is at issue, call site_file with name "constitution" and a query)';
+  if (!wantsSlack) promptKnowledge.slack = '(Slack vault not loaded for this question - call site_file with name "slack_vault" and a query for what managers said)';
+  const staticKnowledge = JSON.stringify(promptKnowledge);
     const dynamicContext =
         `Current rosters (${rosterFreshness}):\n` + JSON.stringify(liveRosterSection) +
         (team ? `\n\nThe person asking says they manage the team "${team}". When relevant, personalize the answer with their roster, their picks, and what things cost THEM - but never reveal anything that isn't in the league data.` : '');
 
-    // the bake's post-deploy canary only needs to know the endpoint loads its
-    // data; answering it with the model cost a full question per bake
-    if (/^canary\b/i.test(question)) {
-        return json({ ok: true, mode: 'canary', staticTokens: Math.round(staticKnowledge.length / 4), rosters: Array.isArray(liveRosterSection) ? liveRosterSection.length : undefined });
+  // the bake's post-deploy canary only needs to know the endpoint loads its
+  // data; answering it with the model cost a full question per bake
+  if ((/^canary\b/i).test(question)) {
+    return Response.json({
+      ok: true,
+      mode: 'canary',
+      staticTokens: Math.round(staticKnowledge.length / 4),
+      rosters: Array.isArray(liveRosterSection) ? liveRosterSection.length : undefined
+    });
+  }
+
+  const leagueIDForTools = knowledgeObj.leagueID || '1312159501335416832';
+  // conversation context: prior turns from this visitor's thread, so
+  // follow-ups like "which pick was that?" resolve against the last
+  // answer. Capped and sanitized - context is a courtesy, not a ledger.
+  const rawHistory = history;
+  const messages = [];
+  for (const turn of rawHistory) {
+    const hq = typeof turn?.q === 'string' ? turn.q.trim().slice(0, 300) : '';
+    const ha = typeof turn?.a === 'string' ? turn.a.trim().slice(0, 2400) : '';
+    if (hq && ha) {
+      messages.push({ role: 'user', content: `Question: ${hq}` });
+      messages.push({ role: 'assistant', content: ha });
+    }
+  }
+  messages.push({ role: 'user', content: `Question: ${question}` });
+
+  // tool loop: the model may consult live Sleeper data or the full
+  // historical game log before answering; hard-capped at 3 rounds
+  let answer = '';
+  for (let round = 0; round < 4; round++) {
+    const apiRes = await callClaude(key, messages, leagueIDForTools, round === 3, staticKnowledge, dynamicContext);
+    if (!apiRes.ok) {
+            return Response.json({ error: 'upstream', message: 'The Oracle is having a moment. Try again shortly.' }, { status: 502 });
+    }
+    const data = await apiRes.json();
+    const toolUses = (data.content || []).filter((c) => c.type === 'tool_use');
+    answer = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
+    if (data.stop_reason === 'max_tokens' && answer) {
+      answer += '\n\n_(Answer trimmed at the length limit - ask a follow-up for the rest.)_';
     }
 
-    const leagueIDForTools = knowledgeObj.leagueID || '1312159501335416832';
-    // conversation context: prior turns from this visitor's thread, so
-    // follow-ups like "which pick was that?" resolve against the last
-    // answer. Capped and sanitized - context is a courtesy, not a ledger.
-    const rawHistory = history;
-    const messages = [];
-    for (const turn of rawHistory) {
-        const hq = typeof turn?.q === 'string' ? turn.q.trim().slice(0, 300) : '';
-        const ha = typeof turn?.a === 'string' ? turn.a.trim().slice(0, 2400) : '';
-        if (hq && ha) {
-            messages.push({ role: 'user', content: `Question: ${hq}` });
-            messages.push({ role: 'assistant', content: ha });
-        }
-    }
-    messages.push({ role: 'user', content: `Question: ${question}` });
+    if (data.stop_reason !== 'tool_use' || !toolUses.length) break;
 
-    // tool loop: the model may consult live Sleeper data or the full
-    // historical game log before answering; hard-capped at 3 rounds
-    let answer = '';
-    for (let round = 0; round < 4; round++) {
-        const apiRes = await callClaude(key, messages, leagueIDForTools, round === 3, staticKnowledge, dynamicContext);
-        if (!apiRes.ok) {
-            return json({ error: 'upstream', message: 'The Oracle is having a moment. Try again shortly.' }, { status: 502 });
-        }
-        const data = await apiRes.json();
-        const toolUses = (data.content || []).filter((c) => c.type === 'tool_use');
-        answer = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
-        if (data.stop_reason === 'max_tokens' && answer) {
-            answer += '\n\n_(Answer trimmed at the length limit - ask a follow-up for the rest.)_';
-        }
-
-        if (data.stop_reason !== 'tool_use' || !toolUses.length) break;
-
-        messages.push({ role: 'assistant', content: data.content });
-        const results = [];
-        for (const tu of toolUses) {
-            let result;
-            try {
+    messages.push({ role: 'assistant', content: data.content });
+    const results = [];
+    for (const tu of toolUses) {
+      let result;
+      try {
                 result = await runTool({ name: tu.name, input: tu.input, leagueID: leagueIDForTools, knowledge: knowledgeObj, fetchFn: event.fetch });
             } catch (err) {
-                result = { error: 'tool failed: ' + (err?.message || 'unknown') };
-            }
+        result = { error: 'tool failed: ' + (err?.message || 'unknown') };
+      }
             results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(result) });
-        }
-        messages.push({ role: 'user', content: results });
     }
-    // learning loop: log Q&A when a webhook is configured, so rough answers
-    // get spotted and baked into oracle-faq.json. Never blocks the answer.
-    const hook = env.ORACLE_LOG_WEBHOOK || '';
-    if (hook && answer) {
-        const logP = fetch(hook, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
+    messages.push({ role: 'user', content: results });
+  }
+  // learning loop: log Q&A when a webhook is configured, so rough answers
+  // get spotted and baked into oracle-faq.json. Never blocks the answer.
+  const hook = ORACLE_LOG_WEBHOOK || '';
+  if (hook && answer) {
+    const logP = fetch(hook, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ text: '🔮 Q: ' + question + '\nA: ' + String(answer).slice(0, 400) }),
-        }).catch(() => {});
-        try { event.platform?.context?.waitUntil?.(logP); } catch { /* best effort */ }
+    }).catch(() => {});
+
+    try {
+      waitUntil(logP);
+    } catch {
+      /* best effort */
     }
-    return json({ answer: answer || 'The Oracle came back empty-handed. Try rephrasing?' });
+  }
+
+  return Response.json({
+    answer: answer || 'The Oracle came back empty-handed. Try rephrasing?'
+  });
 }
 
-const callClaude = (key, messages, leagueID, finalRound, staticKnowledge, dynamicContext) =>
-    fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-            'content-type': 'application/json',
-            'x-api-key': key,
+const callClaude = (
+  key,
+  messages,
+  leagueID,
+  finalRound,
+  staticKnowledge,
+  dynamicContext
+) => fetch('https://api.anthropic.com/v1/messages', {
+  method: 'POST',
+  headers: {
+    'content-type': 'application/json',
+    'x-api-key': key,
             'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-            model: env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
-            max_tokens: 700,
-            ...(finalRound ? {} : { tools: toolDefinitions(leagueID) }),
-            system: [
+  },
+  body: JSON.stringify({
+    model: ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
+    max_tokens: 700,
+    ...finalRound ? {} : { tools: toolDefinitions(leagueID) },
+    system: [
                 { type: 'text', text: SYSTEM_INSTRUCTIONS + '\n\nLeague data:\n' + staticKnowledge, cache_control: { type: 'ephemeral' } },
                 { type: 'text', text: dynamicContext, cache_control: { type: 'ephemeral' } },
-            ],
+    ],
             messages,
         }),
-    });
+});
 
 const SYSTEM_INSTRUCTIONS =
                 'You are The Oracle, the librarian of the "ACT, or DIE." dynasty fantasy football league. ' +

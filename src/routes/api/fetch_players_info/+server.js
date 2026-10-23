@@ -1,7 +1,7 @@
-import { leagueID } from "$lib/utils/leagueInfo";
-import { round } from "$lib/utils/helperFunctions/universalFunctions";
-import { waitForAll } from "$lib/utils/helperFunctions/multiPromise";
-import { json, error } from "@sveltejs/kit";
+import { leagueID } from "#lib/utils/leagueInfo.js";
+import { round } from "#lib/utils/helperFunctions/universalFunctions.js";
+import { waitForAll } from "#lib/utils/helperFunctions/multiPromise.js";
+import { error } from "@sveltejs/kit";
 
 export async function GET() {
   // get NFL state from sleeper (week and year)
@@ -57,7 +57,7 @@ export async function GET() {
   // edge serve one copy per hour (and a stale one while it refreshes)
   // instead of rebuilding it for every visitor. Browsers still keep their
   // own day-long copy in localStorage on top of this.
-  return json(computePlayers(playerData, weeklyData, scoringSettings), {
+  return Response.json(computePlayers(playerData, weeklyData, scoringSettings), {
     headers: { "cache-control": "public, s-maxage=3600, stale-while-revalidate=86400" },
   });
 }

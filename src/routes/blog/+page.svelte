@@ -1,5 +1,5 @@
 <script>
-    import { Posts } from "$lib/components";
+    import { Posts } from "#lib/components.js";
 
     export let data;
     const {postsData, queryPage, filterKey, leagueTeamManagersData} = data;

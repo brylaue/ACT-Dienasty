@@ -1,4 +1,4 @@
-import { env } from '$env/dynamic/private';
+import { SLACK_SIGNING_SECRET } from '$app/env/private';
 import { waitUntil } from '@vercel/functions';
 import crypto from 'node:crypto';
 
@@ -35,7 +35,7 @@ const verifySlack = (secret, timestamp, rawBody, signature) => {
 };
 
 export async function POST(event) {
-  const secret = env.SLACK_SIGNING_SECRET;
+  const secret = SLACK_SIGNING_SECRET;
   if (!secret) {
     return new Response('Slack integration not configured (SLACK_SIGNING_SECRET missing).', { status: 503 });
   }

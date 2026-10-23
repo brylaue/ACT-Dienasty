@@ -1,6 +1,6 @@
 <script>
 	import LinearProgress from '@smui/linear-progress';
-    import {Manager} from '$lib/components';
+    import {Manager} from '#lib/components.js';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 

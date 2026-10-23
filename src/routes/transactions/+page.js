@@ -2,7 +2,7 @@ import {
   getLeagueTransactions,
   loadPlayers,
   getLeagueTeamManagers,
-} from "$lib/utils/helper";
+} from "#lib/utils/helper.js";
 
 export async function load({ url, fetch }) {
   const show = url?.searchParams?.get("show");

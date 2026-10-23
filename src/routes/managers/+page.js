@@ -1,4 +1,4 @@
-import { getLeagueTeamManagers, managers } from "$lib/utils/helper";
+import { getLeagueTeamManagers, managers } from "#lib/utils/helper.js";
 
 export async function load() {
   if (!managers.length) return { managers };

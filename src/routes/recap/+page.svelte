@@ -1,6 +1,6 @@
 <script>
 	import LinearProgress from '@smui/linear-progress';
-	import SundayShame from '$lib/Recap/index.svelte';
+	import SundayShame from '#lib/Recap/index.svelte';
 
 	export let data;
 	const { leagueTeamManagerData } = data;

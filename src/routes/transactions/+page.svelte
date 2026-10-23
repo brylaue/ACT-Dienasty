@@ -1,7 +1,7 @@
 <script>
 	import LinearProgress from '@smui/linear-progress';
-	import { TransactionsPage } from '$lib/components'
-    import { waitForAll } from '$lib/utils/helper';
+	import { TransactionsPage } from '#lib/components.js'
+    import { waitForAll } from '#lib/utils/helper.js';
 
     export let data;
     const {show, query, page, playersData, transactionsData, leagueTeamManagersData} = data;

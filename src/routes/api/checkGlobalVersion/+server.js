@@ -1,6 +1,5 @@
-import { version } from "$lib/version";
-import { json } from "@sveltejs/kit";
+import { version } from "#lib/version.js";
 
 export async function GET() {
-  return json(version);
+  return Response.json(version);
 }

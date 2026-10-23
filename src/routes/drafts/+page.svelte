@@ -1,6 +1,6 @@
 <script>
-	import { Drafts } from '$lib/components';
-	import CompPickBanner from '$lib/CompPickBanner.svelte';
+	import { Drafts } from '#lib/components.js';
+	import CompPickBanner from '#lib/CompPickBanner.svelte';
 
     export let data;
     const {upcomingDraftData, previousDraftsData, leagueTeamManagersData, playersData} = data;

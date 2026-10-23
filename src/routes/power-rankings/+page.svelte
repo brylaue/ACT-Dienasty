@@ -1,8 +1,8 @@
 <script>
-	import TrendChart from '$lib/TrendChart.svelte';
-	import RefreshButton from '$lib/RefreshButton.svelte';
-	import { getLeagueTeamManagers, gotoManager } from '$lib/utils/helper';
-	import { getAvatarFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+	import TrendChart from '#lib/TrendChart.svelte';
+	import RefreshButton from '#lib/RefreshButton.svelte';
+	import { getLeagueTeamManagers, gotoManager } from '#lib/utils/helper.js';
+	import { getAvatarFromTeamManagers } from '#lib/utils/helperFunctions/universalFunctions.js';
 
 	let data = $state(null);
 	let loading = $state(true);

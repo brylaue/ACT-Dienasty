@@ -1,5 +1,5 @@
 <script>
-	import { Standings } from '$lib/components'
+	import { Standings } from '#lib/components.js'
 
 	export let data;
 	const {standingsData, leagueTeamManagersData} = data;

@@ -1,6 +1,6 @@
 <script>
     let openWhy = null; // rosterID whose note is pinned open (tap on mobile)
-	import TrendChart from '$lib/TrendChart.svelte';
+	import TrendChart from '#lib/TrendChart.svelte';
     import LinearProgress from '@smui/linear-progress';
 
     let data = null;

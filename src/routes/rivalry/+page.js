@@ -2,7 +2,7 @@ import {
   getLeagueTeamManagers,
   loadPlayers,
   getLeagueTransactions,
-} from "$lib/utils/helper";
+} from "#lib/utils/helper.js";
 
 export async function load({ url, fetch }) {
   const teamOne = url?.searchParams?.get("team_one");

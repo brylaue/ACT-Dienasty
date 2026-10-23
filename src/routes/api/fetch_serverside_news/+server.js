@@ -1,12 +1,11 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
-import { waitForAll } from "$lib/utils/helperFunctions/multiPromise";
-import { dynasty } from "$lib/utils/helper";
-import { json } from "@sveltejs/kit";
+import { waitForAll } from "#lib/utils/helperFunctions/multiPromise.js";
+import { dynasty } from "#lib/utils/helper.js";
 import {
   handleApiError,
   handleFetchError,
   safeTextParse,
-} from "$lib/utils/errorHandler";
+} from "#lib/utils/errorHandler.js";
 
 const FF_BALLERS = "https://thefantasyfootballers.libsyn.com/fantasyfootball";
 const DYNASTY_LEAGUE = "https://dynastyleaguefootball.com/feed/";
@@ -28,7 +27,7 @@ export async function GET() {
     finalArticles = [...finalArticles, ...response];
   }
 
-  return json(finalArticles);
+  return Response.json(finalArticles);
 }
 
 const getXMLArticles = async (url, callback) => {

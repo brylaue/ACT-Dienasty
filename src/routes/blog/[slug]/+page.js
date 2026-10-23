@@ -2,7 +2,7 @@ import {
   enableBlog,
   getBlogPosts,
   getLeagueTeamManagers,
-} from "$lib/utils/helper";
+} from "#lib/utils/helper.js";
 
 export function load({ fetch, params }) {
   if (!enableBlog) return false;

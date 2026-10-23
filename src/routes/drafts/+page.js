@@ -3,7 +3,7 @@ import {
   getPreviousDrafts,
   getLeagueTeamManagers,
   loadPlayers,
-} from "$lib/utils/helper";
+} from "#lib/utils/helper.js";
 
 export async function load({ fetch }) {
   const upcomingDraftData = getUpcomingDraft();

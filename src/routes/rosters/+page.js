@@ -4,7 +4,7 @@ import {
   getLeagueTeamManagers,
   loadPlayers,
   waitForAll,
-} from "$lib/utils/helper";
+} from "#lib/utils/helper.js";
 
 export async function load({ fetch }) {
   const rostersInfo = waitForAll(

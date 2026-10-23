@@ -1,7 +1,7 @@
 import { createClient } from "contentful-management";
-import { json, error } from "@sveltejs/kit";
+import { error } from "@sveltejs/kit";
 
-import { getLeagueTeamManagers } from "$lib/utils/helper";
+import { getLeagueTeamManagers } from "#lib/utils/helper.js";
 
 const lang = "en-US";
 
@@ -59,7 +59,7 @@ export async function POST({ request, params }) {
   newComment.fields.comment = comment;
   newComment.fields.author = author;
 
-  return json(newComment);
+  return Response.json(newComment);
 }
 
 const validateID = (leagueTeamManagers, authorID) => {

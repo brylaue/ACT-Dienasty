@@ -1,6 +1,6 @@
 <script>
 	import LinearProgress from '@smui/linear-progress';
-	import LuckIndex from '$lib/Luck/index.svelte';
+	import LuckIndex from '#lib/Luck/index.svelte';
 
 	export let data;
 	const { leagueTeamManagerData } = data;

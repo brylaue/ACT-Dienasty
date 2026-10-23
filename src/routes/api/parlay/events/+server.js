@@ -11,21 +11,30 @@
   SLACK_SIGNING_SECRET (Slack app → Basic Information → Signing Secret).
   Optional PARLAY_CHANNEL_ID (defaults to the league's channel).
 */
-import { json, text as textResponse } from "@sveltejs/kit";
+import { waitUntil } from "@vercel/functions";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { env } from "$env/dynamic/private";
-import { leagueID } from "$lib/utils/leagueInfo";
+
+import {
+  PARLAY_CHANNEL_ID,
+  SLACK_SIGNING_SECRET,
+  SLACK_BOT_TOKEN,
+  PARLAY_TEST_SLATE_TTL,
+  ANTHROPIC_API_KEY,
+  ANTHROPIC_MODEL
+} from "$app/env/private";
+
+import { leagueID } from "#lib/utils/leagueInfo.js";
 import managers from "../../../../../static/data/parlay-managers.json";
-import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "$lib/server/parlayCore.js";
-import { reopenWeek } from "$lib/server/parlayReopen.js";
-import { LOCK_LEAD_MS, analyzeLeg, evaluateWeek, fetchSlate, priceLegs } from "$lib/server/parlaySlate.js";
+import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "#lib/server/parlayCore.js";
+import { reopenWeek } from "#lib/server/parlayReopen.js";
+import { LOCK_LEAD_MS, analyzeLeg, evaluateWeek, fetchSlate, priceLegs } from "#lib/server/parlaySlate.js";
 
 export const config = { maxDuration: 60 }; // an Oracle hand-off can take 10-20s
 
-const CHANNEL = () => env.PARLAY_CHANNEL_ID || "C09EEV8M32S";
+const CHANNEL = () => PARLAY_CHANNEL_ID || "C09EEV8M32S";
 
 const verify = (raw, headers) => {
-  const secret = env.SLACK_SIGNING_SECRET;
+  const secret = SLACK_SIGNING_SECRET;
   if (!secret) return false;
   const ts = headers.get("x-slack-request-timestamp");
   const sig = headers.get("x-slack-signature") || "";
@@ -37,15 +46,18 @@ const verify = (raw, headers) => {
 const slack = async (method, payload) => {
   const r = await fetch(`https://slack.com/api/${method}`, {
     method: "POST",
-    headers: { "content-type": "application/json; charset=utf-8", authorization: `Bearer ${env.SLACK_BOT_TOKEN}` },
-    body: JSON.stringify(payload),
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      authorization: `Bearer ${SLACK_BOT_TOKEN}`
+    },
+    body: JSON.stringify(payload)
   });
   const d = await r.json();
   if (!d.ok) throw new Error(`${method}: ${d.error}`);
   return d;
 };
 const slackGet = async (method, params) => {
-  const r = await fetch(`https://slack.com/api/${method}?${new URLSearchParams(params)}`, { headers: { authorization: `Bearer ${env.SLACK_BOT_TOKEN}` } });
+  const r = await fetch(`https://slack.com/api/${method}?${new URLSearchParams(params)}`, { headers: { authorization: `Bearer ${SLACK_BOT_TOKEN}` } });
   const d = await r.json();
   if (!d.ok) throw new Error(`${method}: ${d.error}`);
   return d;
@@ -55,12 +67,15 @@ const slackGet = async (method, params) => {
 const mondayTs = () => {
   const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
   const offset = Date.now() - Date.UTC(et.getFullYear(), et.getMonth(), et.getDate(), et.getHours(), et.getMinutes(), et.getSeconds());
-  et.setDate(et.getDate() - ((et.getDay() + 6) % 7)); et.setHours(0, 0, 0, 0);
+
+  et.setDate(et.getDate() - (et.getDay() + 6) % 7);
+  et.setHours(0, 0, 0, 0);
+
   return String(Math.floor((Date.UTC(et.getFullYear(), et.getMonth(), et.getDate()) + offset) / 1000));
 };
 
 // ESPN slate (kickoffs, byes, DraftKings lines) cached per server instance for 5 min; player->team lookups for the instance's life
-const SLATE_TTL = Number(env.PARLAY_TEST_SLATE_TTL) || 5 * 60e3; // (the env var is a test hook only)
+const SLATE_TTL = Number(PARLAY_TEST_SLATE_TTL) || 5 * 60e3; // (the env var is a test hook only)
 let slateCache = { at: 0, week: null, slate: null };
 const playerCache = new Map();
 const getSlate = async (week) => {
@@ -71,20 +86,29 @@ const getSlate = async (week) => {
 };
 const etLabel = (ms) => new Date(ms).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "long", hour: "numeric", minute: "2-digit" }).replace(":00", "") + " ET";
 
-// everything the webhook knows about the week, loaded once per event
-const loadWeek = async () => {
-  const channel = CHANNEL();
-  const [rosters, users] = await Promise.all([
+// Sleeper's rosters + users barely change mid-week: reuse them for 10 minutes instead of two calls per Slack message
+let leagueCache = { at: 0, data: null };
+const getLeague = async () => {
+  if (leagueCache.data && Date.now() - leagueCache.at < 10 * 60e3) return leagueCache.data;
+  const data = await Promise.all([
     fetch(`https://api.sleeper.app/v1/league/${leagueID}/rosters`).then((r) => r.json()),
     fetch(`https://api.sleeper.app/v1/league/${leagueID}/users`).then((r) => r.json()),
   ]);
+  if (Array.isArray(data[0]) && Array.isArray(data[1])) leagueCache = { at: Date.now(), data };
+  return data;
+};
+
+// everything the webhook knows about the week, loaded once per event
+const loadWeek = async () => {
+  const channel = CHANNEL();
+  const [rosters, users] = await getLeague();
   const teamName = (rid) => {
     const r = rosters.find((x) => x.roster_id === rid);
     const u = users.find((x) => x.user_id === r?.owner_id);
     return (u?.metadata?.team_name || u?.display_name || `Roster ${rid}`).trim();
   };
   const allTeams = rosters.map((r) => teamName(r.roster_id));
-  const teamOfUser = (uid) => (managers.users?.[uid] != null ? teamName(Number(managers.users[uid])) : null);
+  const teamOfUser = (uid) => managers.users?.[uid] != null ? teamName(Number(managers.users[uid])) : null;
   const usersByTeam = {};
   for (const [uid, rid] of Object.entries(managers.users || {})) (usersByTeam[teamName(Number(rid))] ||= []).push(uid);
 
@@ -96,8 +120,8 @@ const loadWeek = async () => {
     for (const m of d.messages || []) {
       messages.push(m);
       if (m.bot_id && isBoard(m.text) && !board) board = m; // newest first
-      if (m.bot_id && /legs are locked/i.test(m.text || "")) lockNotice = true;
-      if ((isOpener(m.text) || (m.bot_id && isBoard(m.text))) && m.reply_count) threads.push(m.ts);
+      if (m.bot_id && (/legs are locked/i).test(m.text || "")) lockNotice = true;
+      if ((isOpener(m.text) || m.bot_id && isBoard(m.text)) && m.reply_count) threads.push(m.ts);
     }
     cursor = d.response_metadata?.next_cursor;
     if (!cursor || !d.has_more) break;
@@ -117,8 +141,31 @@ const loadWeek = async () => {
   const stale = isStaleLock({ notice, header, lockMs: ev.lockMs, nowMs: Date.now() });
   const locked = !stale && (lockNotice || (board ? isLockedBoard(board.text) : false)); // the week's slip is final
   const legs = priceLegs(ev.legs, slate, ev.playerTeams);
-  const checkLeg = (leg) => (slate ? analyzeLeg(leg, slate, { playerTeams: ev.playerTeams, atMs: Date.now() }).reason : null);
-  return { channel, allTeams, teamOfUser, usersByTeam, messages, replies, board, header, legs, rejected: ev.rejected, slate, lockMs, checkLeg, lockNotice, locked, notice, stale };
+
+  const checkLeg = (leg) => slate
+    ? analyzeLeg(leg, slate, { playerTeams: ev.playerTeams, atMs: Date.now() }).reason
+    : null;
+
+  return {
+    channel,
+    allTeams,
+    teamOfUser,
+    usersByTeam,
+    messages,
+    replies,
+    board,
+    header,
+    legs,
+    rejected: ev.rejected,
+    unplaced: ev.unplaced || [],
+    slate,
+    lockMs,
+    checkLeg,
+    lockNotice,
+    locked,
+    notice,
+    stale
+  };
 };
 
 // a bet posted after the lock: 🔒 it and say so in its thread, so silence
@@ -144,9 +191,18 @@ const lockIfDue = async (ctx) => {
   await slack("chat.postMessage", { channel, text: renderLockNotice({ legs, allTeams, week, placerName, placerMentions: placerName ? ctx.usersByTeam[placerName] || [] : [], kickoffLabel: etLabel(lockMs + LOCK_LEAD_MS) }) });
   try {
     const link = (await slackGet("chat.getPermalink", { channel, message_ts: board.ts })).permalink;
-    const mine = ((await slackGet("bookmarks.list", { channel_id: channel })).bookmarks || []).find((b) => /^(?:📋|🔒|:clipboard:|:lock:)/.test(b.title || ""));
-    if (mine) await slack("bookmarks.edit", { channel_id: channel, bookmark_id: mine.id, title: `🔒 Week ${week} slip`, link });
-  } catch { /* bookmark scopes optional */ }
+    const mine = ((await slackGet("bookmarks.list", { channel_id: channel })).bookmarks || []).find((b) => (/^(?:📋|🔒|:clipboard:|:lock:)/).test(b.title || ""));
+
+    if (mine) await slack("bookmarks.edit", {
+      channel_id: channel,
+      bookmark_id: mine.id,
+      title: `🔒 Week ${week} slip`,
+      link
+    });
+  } catch {
+    /* bookmark scopes optional */
+  }
+
   return `locked via event (${Object.keys(legs).length}/${allTeams.length})`;
 };
 
@@ -154,7 +210,7 @@ const lockIfDue = async (ctx) => {
 const reopen = async (ctx) => {
   const { channel, header, board, legs, allTeams, lockMs } = ctx;
   const lockLabel = etLabel(lockMs);
-  const boardText = renderBoard({ legs, allTeams, ...header, deadlineEpochMs: lockMs, deadlineLabel: lockLabel, locked: false });
+  const boardText = renderBoard({ legs, allTeams, ...header, deadlineEpochMs: lockMs, deadlineLabel: lockLabel, locked: false, unplaced: ctx.unplaced });
   const note = await reopenWeek({ slack, slackGet, channel, week: header.week, notice: ctx.notice, messages: ctx.messages, legs, lockLabel, boardText, boardTs: board.ts, usersByTeam: ctx.usersByTeam });
   ctx.board = { ...board, text: boardText }; ctx.locked = false; ctx.lockNotice = false; ctx.stale = false;
   return note;
@@ -166,13 +222,13 @@ const loadRecord = async (ctx) => {
   const messages = [];
   for (let cursor = ""; ;) {
     const d = await slackGet("conversations.history", { channel: ctx.channel, oldest, limit: 200, cursor });
-    messages.push(...(d.messages || []));
+    messages.push(...d.messages || []);
     cursor = d.response_metadata?.next_cursor;
     if (!cursor || !d.has_more) break;
   }
   const repliesByTs = {};
   for (const m of messages) {
-    if (m.bot_id && /Week \d+ legs are locked/i.test(m.text || "") && m.reply_count) {
+    if (m.bot_id && (/Week \d+ legs are locked/i).test(m.text || "") && m.reply_count) {
       const d = await slackGet("conversations.replies", { channel: ctx.channel, ts: m.ts, limit: 200 }).catch(() => ({ messages: [] }));
       repliesByTs[m.ts] = (d.messages || []).filter((r) => r.ts !== m.ts);
     }
@@ -192,8 +248,23 @@ const refreshBoard = async (selfUserId, ctx) => {
     await slack("reactions.add", { channel, timestamp: r.ts, name: "warning" }).catch(() => {});
     await slack("chat.postMessage", { channel, thread_ts: r.msg?.thread_ts || r.ts, text: renderInvalidLeg({ user: r.msg?.user, leg: r.leg, reason: r.reason }) }).catch(() => {});
   }
-  const live = ctx.lockMs && ctx.lockMs !== header?.deadlineEpochMs ? { deadlineEpochMs: ctx.lockMs, deadlineLabel: etLabel(ctx.lockMs) } : {}; // the lock moves as legs are added
-  const next = renderBoard({ legs, allTeams, ...(header || { week: 0, placerName: null, deadlineLabel: "" }), ...live, locked: false });
+
+  const live = ctx.lockMs && ctx.lockMs !== header?.deadlineEpochMs
+    ? {
+      deadlineEpochMs: ctx.lockMs,
+      deadlineLabel: etLabel(ctx.lockMs)
+    }
+    : {}; // the lock moves as legs are added
+
+  const next = renderBoard({
+    legs,
+    allTeams,
+    ...header || { week: 0, placerName: null, deadlineLabel: "" },
+    ...live,
+    locked: false,
+    unplaced: ctx.unplaced
+  });
+
   if (boardUnchanged(board.text, next)) return `board already current (${Object.keys(legs).length}/${allTeams.length})`;
   await slack("chat.update", { channel, ts: board.ts, text: next });
   return `board refreshed: ${Object.keys(legs).length}/${allTeams.length}`;
@@ -202,12 +273,18 @@ const refreshBoard = async (selfUserId, ctx) => {
 // free-form questions the rule intents don't cover: ask Claude, grounded
 // ONLY in the bot's rules and the live week. Short, deadpan, no invention.
 const aiAnswer = async (question, snapshot) => {
-  if (!env.ANTHROPIC_API_KEY) return null;
+  if (!ANTHROPIC_API_KEY) return null;
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01"
+    },
+
     body: JSON.stringify({
-      model: env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001", max_tokens: 200,
+      model: ANTHROPIC_MODEL || "claude-haiku-4-5-20251001",
+      max_tokens: 200,
       system: `You are the Parlay Builder, a Slack bot for a fantasy football league's weekly group parlay. If the question is about the parlay, answer in one or two short, dry sentences (under 60 words) using ONLY the rules and live status below; if the rules don't cover it, say so and point them to Bryan (the human who built you). If the question is about anything else - trivia, life advice, who to bet on, the weather - reply with ONE deadpan, league-appropriate quip (under 25 words) that makes clear you only do parlays. Never invent rules, odds, picks, or facts; never share or guess personal details; never be cruel about a specific person. Slack mrkdwn only (*bold*), no headers.\n\n${PARLAY_RULES}`,
       messages: [{ role: "user", content: `Live status: ${snapshot}\n\nQuestion: ${question}` }],
     }),
@@ -226,17 +303,20 @@ const askOracle = async (origin, question) => {
 
 // someone spoke to the bot - answer in a thread under their message
 const respond = async (ev, selfUserId, ctx, origin) => {
-  const record = /\b(record|season|tally|hit rate|standings|status|how (?:have|are) we)\b/i.test(ev.text || "") ? await loadRecord(ctx).catch(() => null) : null;
+  const record = (/\b(record|season|tally|hit rate|standings|status|how (?:have|are) we)\b/i).test(ev.text || "") ? await loadRecord(ctx).catch(() => null) : null;
   const a = answerParlayQuestion(ev.text, {
     legs: ctx.legs, allTeams: ctx.allTeams, week: ctx.header?.week ?? null, placerName: ctx.header?.placerName ?? null,
     deadlineLabel: ctx.lockMs ? etLabel(ctx.lockMs) : ctx.header?.deadlineLabel ?? "", locked: ctx.locked, checkLeg: ctx.checkLeg, record, usersByTeam: ctx.usersByTeam, askerTeam: ctx.teamOfUser(ev.user),
   });
-  let text = a.text, how = a.leg ? "answered (leg logged)" : "answered";
-  if (/^Not sure what you're after/.test(text) && isLeagueQuestion(ev.text)) {
+
+  let text = a.text,
+    how = a.leg ? "answered (leg logged)" : "answered";
+
+  if ((/^Not sure what you're after/).test(text) && isLeagueQuestion(ev.text)) {
     const oracle = await askOracle(origin, ev.text.replace(/<@[A-Z0-9]+>/g, "").trim()).catch(() => null);
     if (oracle) { text = oracleForSlack(oracle); how = "answered (oracle)"; }
   }
-  if (/^Not sure what you're after/.test(text)) {
+  if ((/^Not sure what you're after/).test(text)) {
     const inCount = Object.keys(ctx.legs).length;
     const snapshot = ctx.header ? `Week ${ctx.header.week}, ${inCount}/${ctx.allTeams.length} legs in, placer ${ctx.header.placerName || "TBD"}, locks ${ctx.header.deadlineLabel}; asker's team: ${ctx.teamOfUser(ev.user) || "unknown"}` : "the week hasn't opened yet";
     const ai = await aiAnswer(ev.text, snapshot).catch(() => null);
@@ -248,20 +328,20 @@ const respond = async (ev, selfUserId, ctx, origin) => {
 
 export async function POST(event) {
   const raw = await event.request.text();
-  if (!verify(raw, event.request.headers)) return textResponse("bad signature", { status: 401 });
-  if (event.request.headers.get("x-slack-retry-num")) return textResponse("ok"); // Slack re-delivery: we already handled it
+  if (!verify(raw, event.request.headers)) return new Response("bad signature", { status: 401 });
+  if (event.request.headers.get("x-slack-retry-num")) return new Response("ok"); // Slack re-delivery: we already handled it
   let body;
-  try { body = JSON.parse(raw); } catch { return textResponse("bad json", { status: 400 }); }
+  try { body = JSON.parse(raw); } catch { return new Response("bad json", { status: 400 }); }
 
   // Slack's one-time URL verification handshake
-  if (body.type === "url_verification") return json({ challenge: body.challenge });
+  if (body.type === "url_verification") return Response.json({ challenge: body.challenge });
 
   // only human posts/edits/deletes - never the bot's own board edits, which
   // Slack echoes back as message_changed events (that would loop forever)
   const selfUserId = body.authorizations?.[0]?.user_id;
   const ev = body.event || {};
   const relevant = body.type === "event_callback" && shouldRefreshForEvent(ev, CHANNEL(), selfUserId);
-  if (relevant && env.SLACK_BOT_TOKEN) {
+  if (relevant && SLACK_BOT_TOKEN) {
     const talking = !ev.subtype && addressedToBot(ev.text, selfUserId); // "@Parlay Builder …" or "hey parlay builder …"
     const work = (async () => {
       const ctx = await loadWeek();
@@ -275,8 +355,7 @@ export async function POST(event) {
       results.push(`[${ctx.locked ? "locked" : "open"} · ${Object.keys(ctx.legs).length} legs · ${ctx.rejected.length} rejected · lock ${ctx.lockMs ? new Date(ctx.lockMs).toISOString() : "n/a"}${ctx.slate ? "" : " · no slate"}]`);
       return results.join(" · ");
     })().then((r) => console.log(`parlay events: ${r}`)).catch((e) => console.error(`parlay events: ${e.message}`));
-    try { event.platform?.context?.waitUntil?.(work); } catch { /* best effort */ }
-    if (!event.platform?.context?.waitUntil) await work; // local dev: no background runtime
+    waitUntil(work); // answer Slack's 3-second deadline now; Vercel keeps the function alive until the work settles (adapter-vercel has no event.platform)
   }
-  return textResponse("ok"); // Slack wants a fast 200 regardless
+  return new Response("ok"); // Slack wants a fast 200 regardless
 }

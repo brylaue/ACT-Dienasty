@@ -1,5 +1,4 @@
-import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
+import { GITHUB_DISPATCH_TOKEN, REFRESH_PASSCODE, ASK_PASSCODE } from '$app/env/private';
 
 // Force a league-data update: dispatches the "Update league data" GitHub
 // workflow. The bake takes a few minutes, then Vercel redeploys with the
@@ -13,19 +12,19 @@ const COOLDOWN_MS = 10 * 60 * 1000;
 let lastDispatch = 0;
 
 export async function POST(event) {
-    const token = env.GITHUB_DISPATCH_TOKEN || '';
+    const token = GITHUB_DISPATCH_TOKEN || '';
     if (!token) {
-        return json({ error: 'unconfigured', message: 'Manual updates are not set up yet (no GITHUB_DISPATCH_TOKEN).' }, { status: 503 });
+        return Response.json({ error: 'unconfigured', message: 'Manual updates are not set up yet (no GITHUB_DISPATCH_TOKEN).' }, { status: 503 });
     }
-    const pass = env.REFRESH_PASSCODE || env.ASK_PASSCODE || '';
+    const pass = REFRESH_PASSCODE || ASK_PASSCODE || '';
     if (pass) {
         const given = event.request.headers.get('x-refresh-passcode') || '';
-        if (given !== pass) return json({ error: 'forbidden', message: 'Wrong passcode.' }, { status: 403 });
+        if (given !== pass) return Response.json({ error: 'forbidden', message: 'Wrong passcode.' }, { status: 403 });
     }
     const now = Date.now();
     if (now - lastDispatch < COOLDOWN_MS) {
         const wait = Math.ceil((COOLDOWN_MS - (now - lastDispatch)) / 60000);
-        return json({ error: 'cooldown', message: `An update was requested recently. Try again in about ${wait} min.` }, { status: 429 });
+        return Response.json({ error: 'cooldown', message: `An update was requested recently. Try again in about ${wait} min.` }, { status: 429 });
     }
     try {
         const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW}/dispatches`, {
@@ -41,11 +40,11 @@ export async function POST(event) {
         });
         if (res.status !== 204) {
             const detail = await res.text().catch(() => '');
-            return json({ error: 'github', message: `GitHub refused the update (${res.status}).`, detail: detail.slice(0, 200) }, { status: 502 });
+            return Response.json({ error: 'github', message: `GitHub refused the update (${res.status}).`, detail: detail.slice(0, 200) }, { status: 502 });
         }
         lastDispatch = now;
-        return json({ ok: true, message: 'Update requested. Fresh data lands in about 5 minutes.' });
+        return Response.json({ ok: true, message: 'Update requested. Fresh data lands in about 5 minutes.' });
     } catch {
-        return json({ error: 'upstream', message: 'Could not reach GitHub. Try again shortly.' }, { status: 502 });
+        return Response.json({ error: 'upstream', message: 'Could not reach GitHub. Try again shortly.' }, { status: 502 });
     }
 }

@@ -1,10 +1,9 @@
-import { version } from "$lib/version";
-import { json } from "@sveltejs/kit";
+import { version } from "#lib/version.js";
 import {
   handleApiError,
   handleFetchError,
   safeJsonParse,
-} from "$lib/utils/errorHandler";
+} from "#lib/utils/errorHandler.js";
 
 export async function GET() {
   try {
@@ -23,8 +22,8 @@ export async function GET() {
       }
     }
 
-    return json(needsUpdate);
+    return Response.json(needsUpdate);
   } catch (error) {
-    return json(handleApiError(error, "version check", false));
+    return Response.json(handleApiError(error, "version check", false));
   }
 }

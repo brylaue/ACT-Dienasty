@@ -1,5 +1,5 @@
 <script>
-    import { FullPost } from "$lib/components";
+    import { FullPost } from "#lib/components.js";
 
     export let data;
     const {postsData, postID, leagueTeamManagersData} = data;
