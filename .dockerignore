@@ -1,3 +1,0 @@
-# Copied in from: https://nodejs.org/en/docs/guides/nodejs-docker-webapp/#dockerignore-file 
-node_modules
-npm-debug.log
