@@ -28,7 +28,7 @@ bot event `message.channels`. If the channel ever becomes private, add
 |---|---|---|
 | `update-league-data.yml` | Mon/Tue/Fri 05:37 UTC, catch-up 06:53 UTC, and the Update button | full bake: rivalry, power rankings + odds, trends ledger, tradeblock, matchups archive, knowledge pack, commentary, draft recap, Slack digest, Oracle canary. The `gate` job skips a *scheduled* run if a bake landed < 3 h ago (so the catch-up only runs when the first one failed). One run at a time. |
 | `poll-commentary.yml` | every 30 min | AI lines for new trades/waivers; weekly trade re-evaluations and Roundup recaps once a week completes |
-| `parlay-builder.yml` | every 15 min Tue–Thu | Parlay Builder `tick`: opener (Tue 10am ET), nag 24 h before the deadline, lock at the deadline. Idempotent — it reads the channel before posting. |
+| `parlay-builder.yml` | every 15 min, all week | Parlay Builder `tick`: opener (Tue 10am ET), nag 24 h before the deadline, lock at the deadline (15 min before the first game with a leg). Idempotent — it reads the channel before posting. |
 | `ci.yml` | every upload touching `src/`, `scripts/` or the manager map | site builds + Parlay tests pass. A red X means don't trust that upload. |
 
 Crons are UTC. The bakes are pinned before 3am Eastern year-round; the Parlay
@@ -36,8 +36,29 @@ bot computes everything in Eastern time itself.
 
 ## Parlay Builder — how the week runs
 
-- **Deadline** = 2 h before the week's first kickoff (Sleeper's schedule feed,
-  ESPN fallback), capped at **Thursday 6pm ET**. Thanksgiving → Thursday 11am.
+- **Deadline** = **15 minutes before the kickoff of the earliest game that has
+  a leg in it.** Thursday night's game if anyone has a leg in it (normally
+  Thursday 8:00pm ET); if nobody does, the lock slides to the next game with a
+  leg (typically Sunday 12:45pm ET). It moves as legs are added or changed, and
+  the pinned board's "locks …" time (shown in each viewer's timezone) is updated
+  to match. A leg the bot can't place in a game counts as the week's first game
+  (earlier is the safe side). Anything posted after the lock never counts, even
+  if GitHub's cron runs late. Source: ESPN's scoreboard; if it's down, Sleeper's
+  kickoff feed, then Thursday 8:15pm ET.
+- **Playable legs only.** A leg for a team on a bye (or a player on one), or for
+  a game inside its last 15 minutes / already started, gets a ⚠️ and a one-line
+  thread reply explaining why, stays off the board, and the team's earlier
+  valid leg (if any) stands. Edit the message into something valid and the ⚠️
+  is replaced by a ✅. Player → team uses ESPN's player search (the most
+  prominent match wins when names collide); if that fails the leg is simply
+  not validated.
+- **Odds.** Each leg on the board / slip / lock notice shows its **DraftKings**
+  price when it is a spread, total or moneyline at the posted line (ESPN's
+  scoreboard carries DraftKings' lines), plus an estimated combined parlay
+  price for the priced legs ("1 of 5 legs priced"). Player props, alt lines and
+  "by 10" legs show n/a: DraftKings' own API blocks datacenter traffic and
+  ESPN's prop feed has lines but no prices. Pricing those would need a paid odds
+  API (e.g. The Odds API) and a key in Vercel + GitHub secrets.
 - **Tue 10am**: opener names the placer (last week's lowest starter score) and
   the season parlay record. A pinned **board** is posted and edited in place as
   legs land (instantly via the webhook; every 15 min via cron as backstop).
@@ -54,10 +75,10 @@ bot computes everything in Eastern time itself.
   (needs `bookmarks:read` + `bookmarks:write`). The board's deadline is a Slack
   date token, so it shows in each viewer's timezone — and the webhook uses it
   to lock the week itself if the cron is late. A bet posted **after** the lock
-  gets a 🔒 reaction and a one-line thread reply ("too late - the placer picks
-  for you") instead of a ✅, so silence never reads as "logged". A bet that
-  lands between the deadline and a late cron lock *does* count — it is what
-  triggers the lock.
+  gets a 🔒 reaction and a thread reply that **@s the placer** ("have you
+  already set the parlay? If not, it's your call - it's not on the slip") instead
+  of a ✅, so silence never reads as "logged". Once the games are underway the
+  reply just says it can't make the slip.
 - **Talk to it**: `@Parlay Builder …` or "hey parlay builder, …" in the
   channel. It answers in a thread: *who's missing?*, *status*, *deadline?*,
   *who's placing?*, *record?*, *my leg?*, *help*. "hey parlay builder, Vikings
@@ -91,7 +112,7 @@ new items (a dozen small calls a week).
 
 ## Tests
 
-`npm test` → `scripts/test/`: parser unit tests, full-week scenarios replayed
+`npm test` → `scripts/test/`: parser + slate (byes, odds, lock time) unit tests, full-week scenarios replayed
 from real channel fixtures (cron bot, dry run), and `webhook.e2e.mjs`, which
 starts the *built* site with slack.com mocked (`mock-slack.mjs`) and posts
 signed Slack events at the real webhook — board edits, ✅/🔒 reactions, thread

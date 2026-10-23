@@ -15,7 +15,7 @@ t("display: wrappers cleaned", () => core.cleanLeg("Put me down for Kelce anytim
 
 // ── looksLikeLeg: real legs and real chatter from the league's channel ──
 const LEGS = ["I want Bills ML", "Bills ML for me", "Chase over 80 yards this week", "Take the over in BUF/LAC", "Put me down for Kelce anytime TD", "Ravens ML please", "Going with Lions -3", "Bijan to score a TD", "Chiefs win", "Buffalo to cover against the Chargers", "Vikings ML", "Derrick Henry anytime td", "Garrett Wilson Anytime TD - free money", "Bills -3.5", "Jets +150", "Chase 75+ yards", "Lions by 10", "Puka under 60.5 receiving"];
-const CHAT = ["Alright send over your bets. Looks like it me again.", "Bryan I don't even have time to do my real work lol, you're good", "Bet is submitted. $5 to win $629", "Only the browns can fail you by busting open the parlay by winning", "I will never let Tim execute me", "Finally we're not betting to win $70", "That Fannin TD will lead us to glory", "Should I force group text instead?", "this parlay is cooked"];
+const CHAT = ["Alright send over your bets. Looks like it me again.", "Bryan I don't even have time to do my real work lol, you're good", "Bet is submitted. $5 to win $629", "Only the browns can fail you by busting open the parlay by winning", "I will never let Tim execute me", "Finally we're not betting to win $70", "That Fannin TD will lead us to glory", "Should I force group text instead?", "this parlay is cooked", "Recommended improvement to the bot, current odds according to whichever book on the parlay"];
 for (const l of LEGS) t(`leg: ${l}`, () => core.looksLikeLeg(core.cleanLeg(l)));
 for (const c of CHAT) t(`chatter: ${c.slice(0, 40)}`, () => !core.looksLikeLeg(core.cleanLeg(c)));
 
@@ -140,7 +140,7 @@ t("seasonRecord: thread verdict + short post, decoy ignored, window closes at ne
   // after the lock (Lee, Thu 7:10pm: "Gimme Bijan TD" → silence, which read as "logged")
   const L = { ...ctx, locked: true, deadlineLabel: "" }; // a SLIP header carries no deadline
   const AL = (t) => core.answerParlayQuestion(t, L).text;
-  t("locked: addressed leg is NOT logged, told it's too late", () => { const a = core.answerParlayQuestion("hey parlay builder, Bijan TD", L); return a.leg === null && /Too late/.test(a.text) && /\*Dirty Birds\* picks for \*Immigrants\*/.test(a.text) && /"Bijan TD"/.test(a.text); });
+  t("locked: addressed leg is NOT logged; the placer is asked", () => { const a = core.answerParlayQuestion("hey parlay builder, Bijan TD", { ...L, usersByTeam: { "Dirty Birds": ["U0650HX32KV"] } }); return a.leg === null && /locked, but \*Immigrants\* just posted "Bijan TD"/.test(a.text) && /have you already set the parlay/.test(a.text); });
   t("locked: deadline question → locked, no empty bold", () => /Week 3 is locked/.test(AL("parlay builder when is it due")) && !/\*\*/.test(AL("parlay builder when is it due")));
   t("locked: change → not this week", () => /Not this week/.test(AL("hey parlay builder can I change my pick?")));
   t("locked: missing → placer picks", () => /Locked at 2\/3/.test(AL("parlay builder who's missing?")) && /picks for: \*Crab Boilers\*/.test(AL("parlay builder who's missing?")));
@@ -154,7 +154,10 @@ t("seasonRecord: thread verdict + short post, decoy ignored, window closes at ne
   t("not late: a result report", () => !core.isLateLeg({ user: "US0P6RDSR", text: "Josh Allen TD hit", ts: "1" }, lateCtx) && !core.isLateLeg({ user: "US0P6RDSR", text: "parlay busted", ts: "1" }, lateCtx));
   t("not late: chatter / unknown user / edits", () => !core.isLateLeg({ user: "US0P6RDSR", text: "lol we are cooked", ts: "1" }, lateCtx) && !core.isLateLeg({ user: "UNKNOWN", text: "Bijan TD", ts: "1" }, lateCtx) && !core.isLateLeg({ user: "US0P6RDSR", text: "Bijan TD", ts: "1", subtype: "message_changed" }, lateCtx));
   const late = core.renderLateLeg({ week: 6, team: "The Maniacs", placerName: "Dirty Birds", leg: "Bijan TD" });
-  t("late reply: names placer + team, trips none of the bot's own detectors", () => /\*Dirty Birds\* picks for \*The Maniacs\*/.test(late) && !/legs are locked/i.test(late) && !core.isBoard(late) && !core.isOpener(late) && !core.weekFlags([{ bot_id: "B1", ts: "1", text: late }], 0).nag && !core.weekFlags([{ bot_id: "B1", ts: "1", text: late }], 0).slip);
+  const pinged = core.renderLateLeg({ week: 6, team: "The Maniacs", placerName: "Dirty Birds", placerMentions: ["U0650HX32KV", "U08J2BJARLL"], poster: "US0P6RDSR", leg: "Bijan TD" });
+  t("late leg before kickoff: @s the placer(s) and the poster, asks if the parlay is set, says it is not on the slip", () => /<@U0650HX32KV> <@U08J2BJARLL> \(\*Dirty Birds\*\)/.test(pinged) && /<@US0P6RDSR> \*The Maniacs\* just posted "Bijan TD"/.test(pinged) && /have you already set the parlay\?/.test(pinged) && /\*not\* on the slip/.test(pinged));
+  t("late leg after kickoff: no ping, just 'can't make the slip'", () => { const x = core.renderLateLeg({ week: 6, team: "The Maniacs", placerName: "Dirty Birds", placerMentions: ["U0650HX32KV"], leg: "Bijan TD", beforeKickoff: false }); return /can't make the slip/.test(x) && !/have you already set/.test(x); });
+  t("late reply: names placer + team, trips none of the bot's own detectors", () => /\*Dirty Birds\*/.test(late) && /\*The Maniacs\*/.test(late) && !/legs are locked/i.test(late) && !core.isBoard(late) && !core.isOpener(late) && !core.weekFlags([{ bot_id: "B1", ts: "1", text: late }], 0).nag && !core.weekFlags([{ bot_id: "B1", ts: "1", text: late }], 0).slip);
   t("late reply: no week → 'This week'", () => /This week is locked/.test(core.renderLateLeg({ week: null, team: null, placerName: null, leg: "x" })));
 }
 
@@ -175,6 +178,40 @@ t("seasonRecord: seeded pre-bot weeks count, channel results win when both exist
   const r = core.seasonRecord({ messages: [{ ...B, ts: "400", text: ":lock: *Week 3 legs are locked* - 7/12 in." }, { ts: "410", user: "UTB8NMCLQ", text: "Bet busted" }], teamOfUser, seed: { 1: "miss", 3: "hit" } });
   return r.wins === 0 && r.losses === 2 && r.byWeek.map((w) => `${w.week}:${w.result}${w.seeded ? "*" : ""}`).join() === "1:miss*,3:miss";
 });
+
+// ── odds, rendering, ⚠️ plan ──
+t("americanToDecimal / decimalToAmerican round-trip", () => core.americanToDecimal(150) === 2.5 && Math.abs(core.americanToDecimal(-200) - 1.5) < 1e-9 && core.decimalToAmerican(2.5) === 150 && core.decimalToAmerican(1.5) === -200);
+t("parlayOdds: -110 x2 → +264; unpriced legs are left out and counted", () => { const p = core.parlayOdds([-110, -110]); const q = core.parlayOdds([-110, null, -110]); return p.american === 264 && p.priced === 2 && q.american === 264 && q.priced === 2 && q.total === 3 && core.parlayOdds([null, null]) === null; });
+t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110) === "-110" && core.fmtAmerican(null) === "n/a");
+{
+  const legsO = { Immigrants: { leg: "Vikings ML", odds: -285 }, "The Maniacs": { leg: "Garrett Wilson anytime TD", odds: null } };
+  const b = core.renderBoard({ legs: legsO, allTeams, week: 7, placerName: "We Have The Meats", deadlineLabel: "Thursday 8 PM ET", deadlineEpochMs: 1790294400000, locked: false });
+  t("board: odds on each leg, n/a for props, combined price + how many were priced", () => /Vikings ML \(-285\)/.test(b) && /Wilson anytime TD \(n\/a\)/.test(b) && /Est\. parlay at DraftKings: \*-285\* \(1 of 2 legs priced/.test(b));
+  t("board: the top 'copy me' line stays odds-free", () => b.split("\n")[1] === "Vikings ML  •  Garrett Wilson anytime TD".split("  •  ").reverse().join("  •  ") || !b.split("\n")[1].includes("(-285)"));
+  const lk = core.renderBoard({ legs: legsO, allTeams, week: 7, placerName: "We Have The Meats", deadlineLabel: "Thursday 8 PM ET", deadlineEpochMs: 1790294400000, locked: true });
+  t("locked slip carries the lock time, and parseBoardHeader reads it back", () => /locked \*<!date\^1790294400\^/.test(lk) && core.parseBoardHeader(lk.replace("🔒", ":lock:")).deadlineEpochMs === 1790294400000);
+  t("no odds supplied (old callers / no slate) → no tags, no footer", () => !/\(n\/a\)|Est\. parlay/.test(core.renderBoard({ legs: { Immigrants: { leg: "Vikings ML" } }, allTeams, week: 7, placerName: null, deadlineLabel: "x", locked: false })));
+  t("lock notice carries odds too", () => /Vikings ML \(-285\)/.test(core.renderLockNotice({ legs: legsO, allTeams, week: 7, placerName: "X" })));
+}
+{
+  const bye = (leg, ts) => (/Bills/.test(leg) ? "The Bills are on a bye in Week 7" : null);
+  const msgs = [{ ts: "100", user: "UTB8NMCLQ", text: "Bills ML" }, { ts: "90", user: "US0P6RDSR", text: "Vikings ML" }];
+  const d = core.collectLegsDetailed({ messages: msgs, allTeams, teamOfUser, check: bye });
+  t("collect: a leg that fails the check is rejected with its reason, not counted", () => !d.legs["Immigrants"] && d.rejected.length === 1 && d.rejected[0].team === "Immigrants" && /bye/.test(d.rejected[0].reason) && d.legs["The Maniacs"].leg === "Vikings ML");
+  const d2 = core.collectLegsDetailed({ messages: [{ ts: "120", user: "UTB8NMCLQ", text: "Chiefs ML" }, ...msgs], allTeams, teamOfUser, check: bye });
+  t("collect: a newer valid leg supersedes the rejected one (no stale warning)", () => d2.legs["Immigrants"].leg === "Chiefs ML" && d2.rejected.length === 0);
+  const d3 = core.collectLegsDetailed({ messages: [{ ts: "200", user: "US0P6RDSR", text: "Bills -3.5" }, ...msgs], allTeams, teamOfUser, check: bye });
+  t("collect: latest post invalid → the team's earlier valid leg still stands", () => d3.legs["The Maniacs"].leg === "Vikings ML" && d3.rejected.some((r) => r.team === "The Maniacs" && r.ts === "200"));
+  const d4 = core.collectLegsDetailed({ messages: msgs, allTeams, teamOfUser, beforeMs: 95000 });
+  t("collect: beforeMs drops anything posted after the lock", () => d4.legs["The Maniacs"] && !d4.legs["Immigrants"]);
+  const plan = core.reactionPlan({ messages: msgs, replies: [], legs: d.legs, selfUserId: SELF, rejected: d.rejected });
+  t("plan: ⚠️ for a rejected leg (once), ✅ only for the counted one", () => plan.warn.length === 1 && plan.warn[0].ts === "100" && plan.add.length === 1 && plan.add[0] === "90");
+  const done = [{ ...msgs[0], reactions: [{ name: "warning", users: [SELF] }] }, msgs[1]];
+  const dDone = core.collectLegsDetailed({ messages: done, allTeams, teamOfUser, check: bye });
+  t("plan: already ⚠️'d → no second warning; edited into something valid → ⚠️ removed", () => core.reactionPlan({ messages: done, replies: [], legs: dDone.legs, selfUserId: SELF, rejected: dDone.rejected }).warn.length === 0 && core.reactionPlan({ messages: done, replies: [], legs: d.legs, selfUserId: SELF, rejected: [] }).unwarn[0] === "100");
+  t("invalid-leg reply explains and @s the poster", () => { const x = core.renderInvalidLeg({ user: "UTB8NMCLQ", leg: "Bills ML", reason: "The Bills are on a bye in Week 7" }); return /<@UTB8NMCLQ> "Bills ML" can't be played: The Bills are on a bye in Week 7/.test(x) && !core.isBoard(x) && !core.isOpener(x); });
+  t("addressed 'Bills ML' on a bye week → invalid reply, not 'Got it'", () => { const a = core.answerParlayQuestion("hey parlay builder, Bills ML", { legs: {}, allTeams, week: 7, placerName: "X", deadlineLabel: "", askerTeam: "Immigrants", checkLeg: bye }); return a.leg === null && /can't be played/.test(a.text); });
+}
 
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

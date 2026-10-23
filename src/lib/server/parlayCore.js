@@ -21,7 +21,7 @@ export const cleanLeg = (t) => String(t || "")
 // Callers pass cleaned text, so "I'll take X anytime TD" → "X anytime TD".
 const CHATTER = /\b(you|your|you're|guys|lol|lmao|haha|thanks|thank|sorry|please|pls|send|bets|everyone|reminder|deadline|placed|submitted|bet is|slip|i|i'm|im|we|we're|us|our|me|my|he|she|they|them|it's|that's|will|would|should|could|can|can't|won't|is|was|are|were|been|feel|feels|think|hope|love|hate|glory)\b|\$\d/i;
 export const looksLikeLeg = (t) => t.length <= 90 && !/\?/.test(t) && !CHATTER.test(t) && !/[.!]\s+[A-Z]/.test(t) && (
-  /\b(ML|moneyline|anytime|any time|TD|TDs|touchdowns?|over|under|spread|ATS|covers?|to cover|to win|wins? by|win|first half|1st half|1H|2H|quarter|1Q|team total|total|alt|prop|to score|first TD|last TD|parlay|o\/u|[ou]\d+(\.\d+)?|yds|yards|rushing|receiving|passing|receptions|rec|completions|attempts|sacks?|INT|interceptions?|field goals?|FG|longest|assists?|rebounds?)\b/i.test(t)
+  /\b(ML|moneyline|anytime|any time|TD|TDs|touchdowns?|over|under|spread|ATS|covers?|to cover|to win|wins? by|win|first half|1st half|1H|2H|quarter|1Q|team total|total|alt|prop|to score|first TD|last TD|o\/u|[ou]\d+(\.\d+)?|yds|yards|rushing|receiving|passing|receptions|rec|completions|attempts|sacks?|INT|interceptions?|field goals?|FG|longest|assists?|rebounds?)\b/i.test(t)
   || /[+-]\d+(\.\d+)?\b/.test(t)          // a spread or a price: -3.5, +150
   || /\b\d+\+\s*\w/.test(t)               // 75+ yards, 5+ receptions
   || /\bby \d+/i.test(t)                   // Lions by 10
@@ -35,10 +35,13 @@ export const looksLikeLeg = (t) => t.length <= 90 && !/\?/.test(t) && !CHATTER.t
   - latest per team wins
   messages: top-level channel messages; replies: array of thread-reply messages
 */
-export const collectLegs = ({ messages, replies = [], allTeams, teamOfUser }) => {
-  const legs = {};
+export const collectLegsDetailed = ({ messages, replies = [], allTeams, teamOfUser, check = null, beforeMs = null }) => {
+  const legs = {}, rejected = [];
   const consider = (team, leg, ts, msg) => {
     if (!team || !leg || leg.length < 3 || /\?$/.test(leg)) return;
+    if (beforeMs != null && Number(ts) * 1000 > beforeMs) return;              // posted after the lock: never on the slip
+    const problem = check ? check(leg, Number(ts) * 1000) : null;               // bye week, game already closed...
+    if (problem) { rejected.push({ team, leg, ts, msg, reason: problem }); return; }
     if (!legs[team] || Number(ts) > Number(legs[team].ts)) legs[team] = { leg, ts, msg };
   };
   const teamFromText = (name) => allTeams.find((t) => t.toLowerCase() === String(name).trim().toLowerCase());
@@ -54,7 +57,30 @@ export const collectLegs = ({ messages, replies = [], allTeams, teamOfUser }) =>
   };
   for (const m of messages) parse(m, false);
   for (const m of replies) parse(m, true);
-  return legs;
+  // a rejected post only matters while it is the team's latest word: a newer valid leg supersedes it
+  return { legs, rejected: rejected.filter((r) => !legs[r.team] || Number(r.ts) > Number(legs[r.team].ts)) };
+};
+export const collectLegs = (args) => collectLegsDetailed(args).legs;
+
+// ── odds (American) ────────────────────────────────────────────────────────
+export const americanToDecimal = (a) => (a > 0 ? 1 + a / 100 : 1 + 100 / Math.abs(a));
+export const decimalToAmerican = (d) => (d >= 2 ? Math.round((d - 1) * 100) : Math.round(-100 / (d - 1)));
+export const fmtAmerican = (a) => (a == null ? "n/a" : a > 0 ? `+${a}` : `${a}`);
+// combined price of every leg we could price; unpriced legs are left out, and the caller says so
+export const parlayOdds = (prices) => {
+  const priced = prices.filter((p) => p != null && Number.isFinite(p) && p !== 0);
+  if (!priced.length) return null;
+  const dec = priced.reduce((acc, p) => acc * americanToDecimal(p), 1);
+  return { american: decimalToAmerican(dec), decimal: Math.round(dec * 100) / 100, priced: priced.length, total: prices.length };
+};
+// "(−155)" after each leg, one footer with the combined price. Only when the caller priced the legs (odds !== undefined).
+const oddsTag = (v) => (v?.odds === undefined ? "" : ` (${fmtAmerican(v.odds)})`);
+const oddsFooter = (legs, teams) => {
+  const mine = teams.filter((t) => legs[t]).map((t) => legs[t]);
+  if (!mine.length || mine.every((v) => v.odds === undefined)) return "";
+  const p = parlayOdds(mine.map((v) => v.odds));
+  if (!p) return "\n_Odds: DraftKings game lines only - none of these legs has one (props aren't priced)._";
+  return `\n_Est. parlay at DraftKings: *${fmtAmerican(p.american)}* (${p.priced} of ${p.total} legs priced - player props have no price feed, so they're left out)._`;
 };
 
 export const isOpener = (text) => /Parlay Builder is OPEN/.test(text || "");
@@ -70,18 +96,18 @@ export const renderBoard = ({ legs, allTeams, week, placerName, deadlineLabel, d
   const inCount = Object.keys(legs).length;
   const missing = allTeams.filter((t) => !legs[t]);
   const line = allTeams.filter((t) => legs[t]).map((t) => legs[t].leg ?? legs[t]).join("  •  ");
-  const rows = allTeams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legs[t].leg ?? legs[t]}`).join("\n");
+  const rows = allTeams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legs[t].leg ?? legs[t]}${oddsTag(legs[t])}`).join("\n");
   const placerLine = placerName ? `Placer: *${placerName}*` : "Placer: TBD";
   if (locked) {
-    return `🔒 *WEEK ${week} SLIP — ${inCount}/${allTeams.length} legs* · ${placerLine}\n${line || "(no legs submitted - somehow, this league found a new low)"}\n\n${rows}${missing.length ? `\n\nMissing (placer picks these): ${missing.join(", ")}` : ""}\n_Placer: copy the top line into the book and reply here with the slip screenshot before kickoff${kickoffLabel ? ` (${kickoffLabel})` : ""}._`;
+    return `🔒 *WEEK ${week} SLIP — ${inCount}/${allTeams.length} legs* · ${placerLine}${deadlineEpochMs ? ` · locked *${deadlineToken(deadlineEpochMs, deadlineLabel)}*` : ""}\n${line || "(no legs submitted - somehow, this league found a new low)"}\n\n${rows}${missing.length ? `\n\nMissing (placer picks these): ${missing.join(", ")}` : ""}${oddsFooter(legs, allTeams)}\n_Placer: copy the top line into the book and reply here with the slip screenshot before kickoff${kickoffLabel ? ` (${kickoffLabel})` : ""}._`;
   }
-  return `📋 *WEEK ${week} BOARD — ${inCount}/${allTeams.length} legs* · ${placerLine} · locks *${deadlineToken(deadlineEpochMs, deadlineLabel)}*\n${line || "_(legs appear here as they land - just post your bet in the channel)_"}${rows ? `\n\n${rows}` : ""}${missing.length ? `\n\nStill needed: ${missing.join(", ")}` : "\n\n✅ All legs in."}`;
+  return `📋 *WEEK ${week} BOARD — ${inCount}/${allTeams.length} legs* · ${placerLine} · locks *${deadlineToken(deadlineEpochMs, deadlineLabel)}*\n${line || "_(legs appear here as they land - just post your bet in the channel)_"}${rows ? `\n\n${rows}` : ""}${missing.length ? `\n\nStill needed: ${missing.join(", ")}` : "\n\n✅ All legs in."}${oddsFooter(legs, allTeams)}`;
 };
 
 // the live board's header line carries week/placer/deadline; the events
 // endpoint reuses it verbatim so it doesn't need to recompute any of that
 export const parseBoardHeader = (text) => {
-  const m = String(text || "").match(/WEEK (\d+) (?:BOARD|SLIP)[^\n]*?Placer: (?:\*([^*]+)\*|TBD)(?:[^\n]*?locks \*([^*\n]+)\*)?/);
+  const m = String(text || "").match(/WEEK (\d+) (?:BOARD|SLIP)[^\n]*?Placer: (?:\*([^*]+)\*|TBD)(?:[^\n]*?lock(?:s|ed) \*([^*\n]+)\*)?/);
   if (!m) return null;
   const raw = m[3] || "";
   const tok = raw.match(/^<!date\^(\d+)\^[^|]*\|([^>]+)>$/); // Slack date token → epoch + fallback label
@@ -92,14 +118,15 @@ export const parseBoardHeader = (text) => {
 export const renderLockNotice = ({ legs, allTeams, week, placerName, placerMentions = [], kickoffLabel }) => {
   const inCount = Object.keys(legs).length;
   const missing = allTeams.filter((t) => !legs[t]);
-  const rows = allTeams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legs[t].leg ?? legs[t]}`).join("\n");
+  const rows = allTeams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legs[t].leg ?? legs[t]}${oddsTag(legs[t])}`).join("\n");
   const who = placerMentions.length ? `${placerMentions.map((u) => `<@${u}>`).join(" ")} (*${placerName}*)` : placerName ? `*${placerName}*` : "placer TBD";
-  return `🔒 *Week ${week} legs are locked* — ${inCount}/${allTeams.length} in. ${who}, you're up${kickoffLabel ? ` - kickoff ${kickoffLabel}` : ""}.\n${rows || "_(no legs)_"}${missing.length ? `\n_Placer picks for: ${missing.join(", ")}._` : ""}\n_Reply here with *hit* or *miss* once it settles - the bot keeps the season record. The pinned board and the 🔒 bookmark up top have this too._`;
+  return `🔒 *Week ${week} legs are locked* — ${inCount}/${allTeams.length} in. ${who}, you're up${kickoffLabel ? ` - kickoff ${kickoffLabel}` : ""}.\n${rows || "_(no legs)_"}${missing.length ? `\n_Placer picks for: ${missing.join(", ")}._` : ""}${oddsFooter(legs, allTeams)}\n_Reply here with *hit* or *miss* once it settles - the bot keeps the season record. The pinned board and the 🔒 bookmark up top have this too._`;
 };
 
 // ── a leg that arrives after the lock ─────────────────────────────────────
 // Silence reads as "logged". A top-level bet-shaped post from a known manager
-// after the week is locked gets a 🔒 and a one-line thread reply instead.
+// after the week is locked gets a 🔒 and a thread reply that asks the PLACER
+// whether the parlay is already set (it may not be, and then it's their call).
 // Thread replies are left alone (that's where hit/miss reports live), and so
 // is anything that reads like a result ("Josh Allen TD hit").
 const RESULT_WORDS = /\b(hit|hits|cashed|cash|miss|missed|busted|bust|won|lost|loss|whiff(?:ed)?)\b/i;
@@ -109,8 +136,18 @@ export const isLateLeg = (ev, { locked, teamOfUser }) => {
   if (RESULT_WORDS.test(text)) return false;
   return /^\s*🎯/u.test(text) || looksLikeLeg(cleanLeg(text));
 };
-export const renderLateLeg = ({ week, team, placerName, leg }) =>
-  `🔒 Too late - Week ${week ?? ""} is locked and the slip is final. *${placerName || "The placer"}* picks for *${team || "your team"}* this week; "${leg}" lives on in the archive as what could have been.`.replace(/Week\s+is/, "This week is");
+// beforeKickoff: the placer can still act -> @ them and ask. After kickoff: just say it's too late.
+export const renderLateLeg = ({ week, team, placerName, placerMentions = [], poster = null, leg, beforeKickoff = true }) => {
+  const wk = week != null ? `Week ${week} is` : "This week is";
+  const who = placerMentions.length ? `${placerMentions.map((u) => `<@${u}>`).join(" ")} (*${placerName}*)` : `*${placerName || "The placer"}*`;
+  const from = `${poster ? `<@${poster}> ` : ""}*${team || "A team"}*`;
+  return beforeKickoff
+    ? `🔒 ${wk} locked, but ${from} just posted "${leg}". ${who}: have you already set the parlay? If not, it's your call whether to add it - it's *not* on the slip.`
+    : `🔒 ${wk} locked and the games are underway - "${leg}" can't make the slip. *${placerName || "The placer"}* picks for *${team || "your team"}*.`;
+};
+// a leg that can't be played (bye week, game already closed)
+export const renderInvalidLeg = ({ user, leg, reason }) =>
+  `⚠️ ${user ? `<@${user}> ` : ""}"${leg}" can't be played: ${reason}. It's not on the board - post another (or edit that message) before the lock and I'll swap it in.`;
 
 // ── Slack event filtering ─────────────────────────────────────────────────
 // Refresh on new human posts, human edits and human deletes. NEVER on
@@ -145,11 +182,16 @@ export const hasOurCheck = (msg, selfUserId) => (msg?.reactions || []).some((r) 
 // which messages need a ✅ added (counted legs we haven't marked) and which
 // should lose ours (a leg later replaced by a newer one from the same team) -
 // so a ✅ always means "this is the leg that counts"
-export const reactionPlan = ({ messages, replies = [], legs, selfUserId }) => {
+export const hasOur = (msg, name, selfUserId) => (msg?.reactions || []).some((r) => r.name === name && (!selfUserId || (r.users || []).includes(selfUserId)));
+export const reactionPlan = ({ messages, replies = [], legs, selfUserId, rejected = [] }) => {
   const counted = new Set(Object.values(legs).map((v) => v.ts));
+  const bad = new Set(rejected.map((r) => r.ts));
   const add = Object.values(legs).filter((v) => !hasOurCheck(v.msg, selfUserId)).map((v) => v.ts);
   const remove = [...messages, ...replies].filter((m) => !counted.has(m.ts) && selfUserId && hasOurCheck(m, selfUserId)).map((m) => m.ts);
-  return { add, remove };
+  // ⚠️ marks a leg that can't be played (bye week, game closed) - once per message, cleared when it's edited into something valid
+  const warn = rejected.filter((r) => !hasOur(r.msg, "warning", selfUserId));
+  const unwarn = [...messages, ...replies].filter((m) => !bad.has(m.ts) && selfUserId && hasOur(m, "warning", selfUserId)).map((m) => m.ts);
+  return { add, remove, warn, unwarn };
 };
 
 // What has the bot already done this week? messages = channel history
@@ -229,11 +271,13 @@ export const PARLAY_RULES = `How the Parlay Builder works:
 - One leg per team per week. Just post the bet in the channel ("Vikings ML", "Bijan anytime TD", "Bills -3.5"); the bot knows whose team you are. Thread replies under the opener or the pinned board count too. Entering for someone else: "🎯 LEG | Their Team | the leg".
 - Changing your mind: post the new bet - your team's LATEST post is the one that counts, and the ✅ moves to it. Editing your original message works too. Any number of changes until the lock.
 - The ✅ on a message means "this is the leg that counts". No ✅ = not registered (wrong wording, unknown account, or it read like chat).
-- Deadline: 2 hours before the week's first kickoff, never later than Thursday 6pm ET (Thanksgiving week is earlier). Legs lock then; the pinned board becomes the final slip.
-- Missed the deadline: the placer picks your leg for you, no appeals. A bet posted after the lock gets a 🔒 instead of a ✅ and doesn't count.
+- Deadline: 15 minutes before the kickoff of the earliest game that has a leg in it (Thursday night's game if anyone has it; otherwise the next game up). Legs lock then; the pinned board becomes the final slip.
+- Legs must be playable: a team on a bye, or a game that's about to start, gets a ⚠️ instead of a ✅ and doesn't count.
+- Odds: each leg on the board shows its DraftKings price (spread / total / moneyline) with an estimated combined parlay price. Player props have no price feed, so they show n/a.
+- Missed the deadline: the placer picks your leg for you, no appeals. A bet posted after the lock gets a 🔒 instead of a ✅ and doesn't count; the bot asks the placer whether the parlay is already set.
 - Placer: the team with the lowest score the previous week places the bet and posts the slip screenshot.
 - Results: after it settles, reply "hit" or "miss" under the lock notice; the bot keeps the season record and shows it in each opener.
-- Cadence: opener Tuesday 10am ET, reminder 24h before the deadline (tagging whoever's missing), lock at the deadline. Runs regular season only.`;
+- Cadence: opener Tuesday 10am ET, reminder 24h before the deadline (tagging whoever's missing), lock at the deadline (it moves earlier if a leg is added for an earlier game). Runs regular season only.`;
 
 const ADDRESS = /^\s*(?:hey|hi|hello|yo|ok|okay|alright|oi)?[,!\s]*@?\s*parlay\s*(?:builder|bot)\b[,:!\s]*/i;
 const MENTIONED_ANYWHERE = /\b(?:parlay\s*(?:builder|bot)|the bot|slack bot)\b/i;
@@ -278,6 +322,8 @@ export const answerParlayQuestion = (rawText, ctx) => {
   const legText = cleanLeg(q);
   if (!INTENT.help.test(q) && looksLikeLeg(legText) && !/\?/.test(q)) {
     if (locked) return { text: renderLateLeg({ week: ctx.week, team: ctx.askerTeam, placerName: ctx.placerName, leg: legText }), leg: null };
+    const bad = ctx.checkLeg?.(legText);            // bye week / game closed
+    if (bad) return { text: renderInvalidLeg({ leg: legText, reason: bad }), leg: null };
     if (!ctx.askerTeam) return { text: "I don't know which team you are - ask Bryan to add you to the manager map, or post it as `🎯 LEG | Your Team | the leg`.", leg: null };
     return { text: `Got it - *${ctx.askerTeam}*: ${legText} ✅`, leg: legText };
   }

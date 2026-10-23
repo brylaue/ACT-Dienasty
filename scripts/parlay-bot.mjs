@@ -10,19 +10,21 @@
   Latest submission per team wins.
 
   Modes (first CLI arg):
-    tick     hourly Tue-Thu from cron. Works out what's due and posts it:
+    tick     every 15 min from cron, all week. Works out what's due and posts it:
              the Tuesday opener (10am ET+), the nag (24h before the
              deadline), the slip (at the deadline). Each posts at most once
              per week - it checks the channel first - so a delayed or
              doubled cron is harmless.
     open | nag | compile   force one step by hand (used with --force).
 
-  THE DEADLINE FOLLOWS THE REAL SCHEDULE: 2 hours before the week's
-  earliest kickoff (Sleeper's own GraphQL scores feed; ESPN as fallback),
-  capped at Thursday 6pm ET.
-  Normal weeks that's Thursday 6pm; Thanksgiving (1pm games) it's 11am;
-  a Wednesday holiday game pulls it to Wednesday. Everything is computed
-  in Eastern time, so DST never shifts it.
+  THE DEADLINE FOLLOWS THE REAL SCHEDULE: 15 minutes before the kickoff of
+  the earliest game that has a leg in it (ESPN's scoreboard, which also
+  supplies the DraftKings lines and the bye list). Thursday night's game if
+  anyone has a leg in it; otherwise the next game up. It moves as legs are
+  added. Without a slate it falls back to Sleeper's earliest kickoff, then
+  Thursday 8:15pm ET. Everything is computed in Eastern time, so DST never
+  shifts it. Legs for a team on a bye, or a game inside its last 15
+  minutes, get a ⚠️ and don't count.
 
   SEASON: runs only in the NFL regular season and stops at the league's
   playoff_week_start (posting one sign-off), so playoff weeks are quiet.
@@ -34,7 +36,8 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { boardUnchanged, collectLegs, isBoard, isOpener, reactionPlan, renderBoard as renderBoardCore, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
+import { boardUnchanged, isBoard, isOpener, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
+import { LOCK_LEAD_MS, evaluateWeek, fetchSlate, lockTime, parseSlate, priceLegs } from "../src/lib/server/parlaySlate.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MODE = process.argv[2];
@@ -99,36 +102,31 @@ const playoffStart = Number(leagueMeta.settings?.playoff_week_start) || 15;
 if (state.season_type !== "regular") { console.log(`NFL ${state.season_type} - the Parlay Builder only runs in the regular season.`); process.exit(0); }
 const seasonOver = nflWeek >= playoffStart;
 
-// ── the week's real deadline: 2h before the earliest kickoff, capped at Thu 6pm ET ──
+// ── the week's real deadline: 15 min before the first game that has a leg ──
 const monday = new Date(etNow); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7)); monday.setHours(0, 0, 0, 0);
 const mondayEpochMs = epochFromET(monday.getFullYear(), monday.getMonth(), monday.getDate(), 0); // Monday 00:00 ET, as epoch
-const thursday6 = epochFromET(monday.getFullYear(), monday.getMonth(), monday.getDate() + 3, 18);
-// kickoff times come from Sleeper itself (its GraphQL "scores" query, the
-// same unauthenticated endpoint the tradeblock sync uses) - start_time is
-// epoch ms. ESPN's public scoreboard is the fallback; if both fail, the
-// deadline is simply the standard Thursday 6pm ET.
-let earliestKick = null;
-try {
-  const r = await fetch("https://sleeper.com/graphql", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ query: `query { scores(sport: "nfl", season_type: "regular", season: "${state.season}", week: ${nflWeek}) { start_time status } }` }),
-  });
-  const d = await r.json();
-  const times = (d.data?.scores || []).map((g) => Number(g.start_time)).filter((x) => x > NOW - 6 * 3600e3);
-  if (times.length) earliestKick = Math.min(...times);
-} catch { /* fall through to ESPN */ }
+const thursdayKick = epochFromET(monday.getFullYear(), monday.getMonth(), monday.getDate() + 3, 20, 15); // the usual TNF kickoff, last-resort fallback
+// ESPN's scoreboard: kickoffs, byes and DraftKings game lines. Optional - if
+// it can't be had, the bot still runs (no validation, no odds, simpler deadline).
+const slate = process.env.PARLAY_TEST_SLATE ? parseSlate(JSON.parse(readFileSync(process.env.PARLAY_TEST_SLATE, "utf8"))) : DRY ? null : await fetchSlate(nflWeek); // dry runs stay offline unless a test slate is supplied
+// Sleeper's own GraphQL scores feed (start_time = epoch ms) is the kickoff fallback when ESPN is down
+let earliestKick = slate?.firstKickoffMs || null;
 if (!earliestKick) {
   try {
-    const sb = await get(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=${nflWeek}`);
-    const dates = (sb.events || []).map((e) => Date.parse(e.date)).filter((x) => x > NOW - 6 * 3600e3);
-    if (dates.length) earliestKick = Math.min(...dates);
-  } catch { /* neither source - standard deadline applies */ }
+    const r = await fetch("https://sleeper.com/graphql", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: `query { scores(sport: "nfl", season_type: "regular", season: "${state.season}", week: ${nflWeek}) { start_time status } }` }),
+    });
+    const d = await r.json();
+    const times = (d.data?.scores || []).map((g) => Number(g.start_time)).filter((x) => x > NOW - 6 * 3600e3);
+    if (times.length) earliestKick = Math.min(...times);
+  } catch { /* standard Thursday fallback applies */ }
 }
 if (process.env.PARLAY_TEST_KICKOFF) earliestKick = Date.parse(process.env.PARLAY_TEST_KICKOFF); // test only
-const deadline = earliestKick ? Math.min(thursday6, earliestKick - 2 * 3600e3) : thursday6;
-const earlyWeek = deadline < thursday6 - 60e3;
-const nagAt = deadline - 24 * 3600e3;
-const deadlineLabel = `${etLabel(deadline)}${earlyWeek ? ` (early kickoff ${etLabel(earliestKick)})` : ""}`;
+let deadline = slate ? lockTime([], slate, NOW) : (earliestKick || thursdayKick) - LOCK_LEAD_MS; // refined below once legs are known
+let nagAt = deadline - 24 * 3600e3;
+let deadlineLabel = etLabel(deadline);
+const setDeadline = (ms) => { if (ms && ms !== deadline) { deadline = ms; nagAt = ms - 24 * 3600e3; deadlineLabel = etLabel(ms); } };
 
 // last week's lowest STARTER score = this week's placer
 let placer = null;
@@ -241,20 +239,36 @@ const loadWeek = async () => {
 // instant events endpoint uses the same). ✅ marks the leg that counts:
 // added where missing, removed from legs a newer post replaced.
 const selfUserId = DRY ? null : (await slack("auth.test", {}).catch(() => null))?.user_id || null;
+const playerCache = new Map();
+if (process.env.PARLAY_TEST_PLAYERS) for (const [k, v] of Object.entries(JSON.parse(readFileSync(process.env.PARLAY_TEST_PLAYERS, "utf8")))) playerCache.set(k, v); // test only: name → team, no ESPN lookups
+let evalCache = null;
+const teamOfUserFn = (uid) => (userTeam[uid] != null ? teamName(Number(userTeam[uid])) : null);
+// legs + rejected + the lock time, worked out once per run
+const evalLegs = async () => {
+  if (evalCache) return evalCache;
+  const { messages, replies } = await loadWeek();
+  evalCache = await evaluateWeek({ messages, replies, allTeams, teamOfUser: teamOfUserFn, slate, nowMs: NOW, cache: playerCache });
+  return evalCache;
+};
 const readLegs = async () => {
   const { messages, replies } = await loadWeek();
-  const teamOfUser = (uid) => (userTeam[uid] != null ? teamName(Number(userTeam[uid])) : null);
-  const legs = collectLegs({ messages, replies, allTeams, teamOfUser });
-  const plan = reactionPlan({ messages, replies, legs, selfUserId });
+  const ev = await evalLegs();
+  const legs = priceLegs(ev.legs, slate, ev.playerTeams); // { team: { leg, ts, msg, odds } } - odds only when we have a slate
+  const plan = reactionPlan({ messages, replies, legs, selfUserId, rejected: ev.rejected });
   let reactHint = false;
-  const react = async (method, ts) => {
-    try { await slack(method, { channel: channelID, timestamp: ts, name: "white_check_mark" }); }
+  const react = async (method, ts, name = "white_check_mark") => {
+    try { await slack(method, { channel: channelID, timestamp: ts, name }); }
     catch (err) { if (/missing_scope|not_allowed/.test(String(err.message))) reactHint = true; }
   };
   for (const ts of plan.add) await react("reactions.add", ts);
   for (const ts of plan.remove) await react("reactions.remove", ts);
+  for (const ts of plan.unwarn) await react("reactions.remove", ts, "warning");
+  for (const r of plan.warn) { // can't be played (bye / game closed): ⚠️ and say why, once per message
+    await react("reactions.add", r.ts, "warning");
+    await slack("chat.postMessage", { channel: channelID, thread_ts: r.msg?.thread_ts || r.ts, text: renderInvalidLeg({ user: r.msg?.user, leg: r.leg, reason: r.reason }) }).catch(() => {});
+  }
   if (reactHint) console.log("Can't ✅ legs: add the reactions:write scope to the Slack app and reinstall it.");
-  return Object.fromEntries(Object.entries(legs).map(([t, v]) => [t, v.leg]));
+  return legs;
 };
 
 // ── season parlay record: "Week N legs are locked" notices + the hit/miss
@@ -291,7 +305,7 @@ const postedThisWeek = async () => weekFlags((await loadWeek()).messages, deadli
 // ── the live board: a pinned message the bot edits as legs land ──────────
 const renderBoard = (legs, locked) => renderBoardCore({
   legs, allTeams, week: nflWeek, placerName: placer?.name || null, deadlineLabel, deadlineEpochMs: deadline,
-  kickoffLabel: etLabel(earliestKick || thursday6 + 2 * 3600e3), locked,
+  kickoffLabel: etLabel(deadline + LOCK_LEAD_MS), locked,
 });
 let boardTs = null;
 let boardText = null;
@@ -338,7 +352,7 @@ const postOpener = async () => {
   const rec = recordLine(await readSeasonRecord().catch(() => ({ wins: 0, losses: 0, byWeek: [] })));
   await slack("chat.postMessage", {
     channel: channelID,
-    text: `🎰 *Week ${nflWeek} Parlay Builder is OPEN*\n${hook}${rec ? `\n${rec}` : ""}\n*Post your leg here* - just the bet, e.g. "Vikings ML" - we know whose team you are, and you'll get a ✅ when it's logged. (Entering one for someone else? Post \`🎯 LEG | Their Team | the leg\`.)\n*Legs lock ${deadlineLabel}.* Miss it and the placer picks your leg for you - no appeals.`,
+    text: `🎰 *Week ${nflWeek} Parlay Builder is OPEN*\n${hook}${rec ? `\n${rec}` : ""}\n*Post your leg here* - just the bet, e.g. "Vikings ML" - we know whose team you are, and you'll get a ✅ when it's logged. (Entering one for someone else? Post \`🎯 LEG | Their Team | the leg\`.)\n*Legs lock ${deadlineLabel}* - 15 minutes before the first game that has a leg in it (Thursday night's game if anyone takes it, otherwise the next game up), so the lock can move. Miss it and the placer picks your leg for you - no appeals. Legs for teams on a bye get a ⚠️.`,
   });
   await updateBoard(await readLegs(), false);
   console.log(`opened week ${nflWeek}; deadline ${deadlineLabel}; board pinned`);
@@ -372,7 +386,7 @@ const postSlip = async () => {
   for (const [uid, rid] of Object.entries(userTeam)) (usersByTeam[teamName(Number(rid))] ||= []).push(uid);
   await slack("chat.postMessage", {
     channel: channelID,
-    text: renderLockNotice({ legs: Object.fromEntries(Object.entries(legs).map(([t, l]) => [t, { leg: l }])), allTeams, week: nflWeek, placerName: placer?.name || null, placerMentions: placer ? usersByTeam[placer.name] || [] : [], kickoffLabel: etLabel(earliestKick || thursday6 + 2 * 3600e3) }),
+    text: renderLockNotice({ legs, allTeams, week: nflWeek, placerName: placer?.name || null, placerMentions: placer ? usersByTeam[placer.name] || [] : [], kickoffLabel: etLabel(deadline + LOCK_LEAD_MS) }),
   });
   console.log(`locked ${inCount}/${allTeams.length} legs for week ${nflWeek}`);
 };
@@ -382,6 +396,7 @@ const postSignoff = async () => {
 };
 
 // ── modes ─────────────────────────────────────────────────────────────────
+setDeadline((await evalLegs()).lockMs); // the lock follows the legs (earliest game with a leg), so settle it before deciding what's due
 if (MODE === "tick") {
   const flags = await postedThisWeek();
   await adoptBoard(flags);

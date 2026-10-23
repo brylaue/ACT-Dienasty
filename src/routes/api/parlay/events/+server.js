@@ -16,7 +16,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "$env/dynamic/private";
 import { leagueID } from "$lib/utils/leagueInfo";
 import managers from "../../../../../static/data/parlay-managers.json";
-import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, oracleForSlack, renderLateLeg, renderLockNotice, collectLegs, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "$lib/server/parlayCore.js";
+import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "$lib/server/parlayCore.js";
+import { LOCK_LEAD_MS, analyzeLeg, evaluateWeek, fetchSlate, priceLegs } from "$lib/server/parlaySlate.js";
 
 export const config = { maxDuration: 60 }; // an Oracle hand-off can take 10-20s
 
@@ -57,6 +58,18 @@ const mondayTs = () => {
   return String(Math.floor((Date.UTC(et.getFullYear(), et.getMonth(), et.getDate()) + offset) / 1000));
 };
 
+// ESPN slate (kickoffs, byes, DraftKings lines) cached per server instance for 5 min; player->team lookups for the instance's life
+const SLATE_TTL = Number(env.PARLAY_TEST_SLATE_TTL) || 5 * 60e3; // (the env var is a test hook only)
+let slateCache = { at: 0, week: null, slate: null };
+const playerCache = new Map();
+const getSlate = async (week) => {
+  if (Date.now() - slateCache.at < SLATE_TTL && slateCache.week === (week ?? null)) return slateCache.slate;
+  const slate = await fetchSlate(week);
+  if (slate) slateCache = { at: Date.now(), week: week ?? null, slate };
+  return slate || (slateCache.week === (week ?? null) ? slateCache.slate : null);
+};
+const etLabel = (ms) => new Date(ms).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "long", hour: "numeric", minute: "2-digit" }).replace(":00", "") + " ET";
+
 // everything the webhook knows about the week, loaded once per event
 const loadWeek = async () => {
   const channel = CHANNEL();
@@ -93,19 +106,25 @@ const loadWeek = async () => {
     const d = await slackGet("conversations.replies", { channel, ts, limit: 200 });
     for (const m of d.messages || []) if (m.ts !== ts) replies.push(m);
   }
-  const legs = collectLegs({ messages, replies, allTeams, teamOfUser });
   const header = board ? parseBoardHeader(board.text) : null;
   const locked = lockNotice || (board ? isLockedBoard(board.text) : false); // the week's slip is final
-  return { channel, allTeams, teamOfUser, usersByTeam, messages, replies, board, header, legs, lockNotice, locked };
+  const slate = await getSlate(header?.week ?? null);
+  const ev = await evaluateWeek({ messages, replies, allTeams, teamOfUser, slate, cache: playerCache });
+  // already-locked weeks keep the cutoff they were locked at; open weeks use the live one (it moves as legs are added)
+  const lockMs = ev.lockMs ?? header?.deadlineEpochMs ?? null;
+  const legs = priceLegs(ev.legs, slate, ev.playerTeams);
+  const checkLeg = (leg) => (slate ? analyzeLeg(leg, slate, { playerTeams: ev.playerTeams, atMs: Date.now() }).reason : null);
+  return { channel, allTeams, teamOfUser, usersByTeam, messages, replies, board, header, legs, rejected: ev.rejected, slate, lockMs, checkLeg, lockNotice, locked };
 };
 
 // a bet posted after the lock: 🔒 it and say so in its thread, so silence
 // is never mistaken for "logged"
 const lateLegReply = async (ev, ctx) => {
-  const leg = cleanLeg(ev.text), team = ctx.teamOfUser(ev.user);
+  const leg = cleanLeg(ev.text), team = ctx.teamOfUser(ev.user), placerName = ctx.header?.placerName;
+  const beforeKickoff = ctx.lockMs ? Date.now() < ctx.lockMs + LOCK_LEAD_MS : true; // the placer can still act until the first leg's game starts
   await slack("reactions.add", { channel: ctx.channel, timestamp: ev.ts, name: "lock" }).catch(() => {});
-  await slack("chat.postMessage", { channel: ctx.channel, thread_ts: ev.ts, text: renderLateLeg({ week: ctx.header?.week, team, placerName: ctx.header?.placerName, leg }) });
-  return `late leg (${team}) told it's locked`;
+  await slack("chat.postMessage", { channel: ctx.channel, thread_ts: ev.ts, text: renderLateLeg({ week: ctx.header?.week, team, placerName, placerMentions: placerName ? ctx.usersByTeam[placerName] || [] : [], poster: ev.user, leg, beforeKickoff }) });
+  return `late leg (${team}): placer ${beforeKickoff ? "pinged" : "told it's too late"}`;
 };
 
 // the cron locks at the deadline, but GitHub sometimes runs it late. The
@@ -113,11 +132,12 @@ const lateLegReply = async (ev, ctx) => {
 // lock it from here - whatever message just arrived was the trigger.
 const lockIfDue = async (ctx) => {
   const { board, header, legs, allTeams, channel } = ctx;
-  if (!board || !header?.deadlineEpochMs || isLockedBoard(board.text) || ctx.lockNotice) return null;
-  if (Date.now() < header.deadlineEpochMs) return null;
-  const week = header.week, placerName = header.placerName;
-  await slack("chat.update", { channel, ts: board.ts, text: renderBoard({ legs, allTeams, week, placerName, deadlineLabel: header.deadlineLabel, deadlineEpochMs: header.deadlineEpochMs, locked: true }) });
-  await slack("chat.postMessage", { channel, text: renderLockNotice({ legs, allTeams, week, placerName, placerMentions: placerName ? ctx.usersByTeam[placerName] || [] : [] }) });
+  const lockMs = ctx.lockMs;
+  if (!board || !header || !lockMs || isLockedBoard(board.text) || ctx.lockNotice) return null;
+  if (Date.now() < lockMs) return null;
+  const week = header.week, placerName = header.placerName, label = etLabel(lockMs);
+  await slack("chat.update", { channel, ts: board.ts, text: renderBoard({ legs, allTeams, week, placerName, deadlineLabel: label, deadlineEpochMs: lockMs, locked: true }) });
+  await slack("chat.postMessage", { channel, text: renderLockNotice({ legs, allTeams, week, placerName, placerMentions: placerName ? ctx.usersByTeam[placerName] || [] : [], kickoffLabel: etLabel(lockMs + LOCK_LEAD_MS) }) });
   try {
     const link = (await slackGet("chat.getPermalink", { channel, message_ts: board.ts })).permalink;
     const mine = ((await slackGet("bookmarks.list", { channel_id: channel })).bookmarks || []).find((b) => /^(?:📋|🔒|:clipboard:|:lock:)/.test(b.title || ""));
@@ -150,10 +170,16 @@ const refreshBoard = async (selfUserId, ctx) => {
   const { channel, allTeams, messages, replies, board, header, legs } = ctx;
   if (!board || isLockedBoard(board.text)) return "no live board"; // before the opener, or already locked
   // ✅ = "this is the leg that counts": add where missing, drop from replaced legs
-  const plan = reactionPlan({ messages, replies, legs, selfUserId });
+  const plan = reactionPlan({ messages, replies, legs, selfUserId, rejected: ctx.rejected });
   for (const ts of plan.add) await slack("reactions.add", { channel, timestamp: ts, name: "white_check_mark" }).catch(() => {});
   for (const ts of plan.remove) await slack("reactions.remove", { channel, timestamp: ts, name: "white_check_mark" }).catch(() => {});
-  const next = renderBoard({ legs, allTeams, ...(header || { week: 0, placerName: null, deadlineLabel: "" }), locked: false });
+  for (const ts of plan.unwarn) await slack("reactions.remove", { channel, timestamp: ts, name: "warning" }).catch(() => {});
+  for (const r of plan.warn) { // a leg that can't be played: ⚠️ + say why, once per message
+    await slack("reactions.add", { channel, timestamp: r.ts, name: "warning" }).catch(() => {});
+    await slack("chat.postMessage", { channel, thread_ts: r.msg?.thread_ts || r.ts, text: renderInvalidLeg({ user: r.msg?.user, leg: r.leg, reason: r.reason }) }).catch(() => {});
+  }
+  const live = ctx.lockMs && ctx.lockMs !== header?.deadlineEpochMs ? { deadlineEpochMs: ctx.lockMs, deadlineLabel: etLabel(ctx.lockMs) } : {}; // the lock moves as legs are added
+  const next = renderBoard({ legs, allTeams, ...(header || { week: 0, placerName: null, deadlineLabel: "" }), ...live, locked: false });
   if (boardUnchanged(board.text, next)) return `board already current (${Object.keys(legs).length}/${allTeams.length})`;
   await slack("chat.update", { channel, ts: board.ts, text: next });
   return `board refreshed: ${Object.keys(legs).length}/${allTeams.length}`;
@@ -189,7 +215,7 @@ const respond = async (ev, selfUserId, ctx, origin) => {
   const record = /\b(record|season|tally|hit rate|standings|status|how (?:have|are) we)\b/i.test(ev.text || "") ? await loadRecord(ctx).catch(() => null) : null;
   const a = answerParlayQuestion(ev.text, {
     legs: ctx.legs, allTeams: ctx.allTeams, week: ctx.header?.week ?? null, placerName: ctx.header?.placerName ?? null,
-    deadlineLabel: ctx.header?.deadlineLabel ?? "", locked: ctx.locked, record, usersByTeam: ctx.usersByTeam, askerTeam: ctx.teamOfUser(ev.user),
+    deadlineLabel: ctx.lockMs ? etLabel(ctx.lockMs) : ctx.header?.deadlineLabel ?? "", locked: ctx.locked, checkLeg: ctx.checkLeg, record, usersByTeam: ctx.usersByTeam, askerTeam: ctx.teamOfUser(ev.user),
   });
   let text = a.text, how = a.leg ? "answered (leg logged)" : "answered";
   if (/^Not sure what you're after/.test(text) && isLeagueQuestion(ev.text)) {
@@ -230,7 +256,8 @@ export async function POST(event) {
       if (lockedNow) ctx.locked = true;
       results.push(lockedNow || await refreshBoard(selfUserId, ctx)); // otherwise a leg (addressed or not) lands on the board
       if (talking) results.push(await respond(ev, selfUserId, ctx, new URL(event.request.url).origin));
-      else if (!lockedNow && isLateLeg(ev, ctx)) results.push(await lateLegReply(ev, ctx)); // a bet after the lock: say so, don't go quiet
+      else if (isLateLeg(ev, ctx)) results.push(await lateLegReply(ev, ctx)); // a bet after the lock: ask the placer, don't go quiet
+      results.push(`[${ctx.locked ? "locked" : "open"} · ${Object.keys(ctx.legs).length} legs · ${ctx.rejected.length} rejected · lock ${ctx.lockMs ? new Date(ctx.lockMs).toISOString() : "n/a"}${ctx.slate ? "" : " · no slate"}]`);
       return results.join(" · ");
     })().then((r) => console.log(`parlay events: ${r}`)).catch((e) => console.error(`parlay events: ${e.message}`));
     try { event.platform?.context?.waitUntil?.(work); } catch { /* best effort */ }
