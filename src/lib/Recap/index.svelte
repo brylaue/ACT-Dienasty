@@ -1,9 +1,9 @@
 <script>
     import LinearProgress from '@smui/linear-progress';
-    import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
-    import { retryFetch } from '$lib/utils/errorHandler';
-    import { round } from '$lib/utils/helper';
-    import { getCommentary } from '$lib/utils/helperFunctions/commentary';
+    import { getTeamFromTeamManagers } from '#lib/utils/helperFunctions/universalFunctions.js';
+    import { retryFetch } from '#lib/utils/errorHandler.js';
+    import { round } from '#lib/utils/helper.js';
+    import { getCommentary } from '#lib/utils/helperFunctions/commentary.js';
 
     export let leagueTeamManagers;
 

@@ -1,5 +1,5 @@
 <script>
-  	import { getTeamNameFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+  	import { getTeamNameFromTeamManagers } from '#lib/utils/helperFunctions/universalFunctions.js';
     import {Row, Cell } from '@smui/data-table';
     export let draftRow, draftType, row, reversalRound, previous=false, players, year, leagueTeamManagers;
 </script>

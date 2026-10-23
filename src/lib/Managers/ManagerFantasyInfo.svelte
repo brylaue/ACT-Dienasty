@@ -1,6 +1,6 @@
 <script>
-    import { dreamDraftLocationImages, beverageImages } from '$lib/utils/leagueInfo';
-    import { modeIconSrc } from '$lib/utils/helperFunctions/modeIcon';
+    import { dreamDraftLocationImages, beverageImages } from '#lib/utils/leagueInfo.js';
+    import { modeIconSrc } from '#lib/utils/helperFunctions/modeIcon.js';
 
     export let viewManager, players, changeManager;
 </script>

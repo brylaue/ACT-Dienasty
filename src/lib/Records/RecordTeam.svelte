@@ -1,5 +1,5 @@
 <script>
-	import { getAvatarFromTeamManagers, getTeamNameFromTeamManagers, renderManagerNames } from "$lib/utils/helperFunctions/universalFunctions";
+	import { getAvatarFromTeamManagers, getTeamNameFromTeamManagers, renderManagerNames } from "#lib/utils/helperFunctions/universalFunctions.js";
 
     let { leagueTeamManagers, managerID = null, rosterID = null, year, compressed = false, points = null } = $props();
 

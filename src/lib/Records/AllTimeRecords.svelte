@@ -1,6 +1,6 @@
 <script>
-    import {round} from '$lib/utils/helper'
-    import { getRosterIDFromManagerID } from '$lib/utils/helperFunctions/universalFunctions';
+    import {round} from '#lib/utils/helper.js'
+    import { getRosterIDFromManagerID } from '#lib/utils/helperFunctions/universalFunctions.js';
 	import RecordsAndRankings from './RecordsAndRankings.svelte';
 
     let { key, leagueManagerRecords, leagueTeamManagers, leagueWeekHighs, leagueWeekLows, allTimeBiggestBlowouts, allTimeClosestMatchups, mostSeasonLongPoints, leastSeasonLongPoints, transactionTotals } = $props();

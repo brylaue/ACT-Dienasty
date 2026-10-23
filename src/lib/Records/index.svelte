@@ -1,6 +1,6 @@
 <script>
     import Button, { Group, Label } from '@smui/button';
-    import { getLeagueRecords, getLeagueTransactions } from '$lib/utils/helper';
+    import { getLeagueRecords, getLeagueTransactions } from '#lib/utils/helper.js';
     import AllTimeRecords from './AllTimeRecords.svelte';
     import PerSeasonRecords from './PerSeasonRecords.svelte';
     import ThisSeasonSoFar from './ThisSeasonSoFar.svelte';

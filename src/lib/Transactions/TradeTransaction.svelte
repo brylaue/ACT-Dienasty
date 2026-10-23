@@ -1,6 +1,6 @@
 <script>
-	import { gotoManager } from '$lib/utils/helper';
-	import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+	import { gotoManager } from '#lib/utils/helper.js';
+	import { getTeamFromTeamManagers } from '#lib/utils/helperFunctions/universalFunctions.js';
 	import TransactionMove from './TransactionMove.svelte';
 	import TradeOMeter from './TradeOMeter.svelte';
 

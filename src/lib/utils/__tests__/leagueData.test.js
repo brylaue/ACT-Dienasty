@@ -7,17 +7,17 @@ vi.mock("svelte/store", () => ({
   update: vi.fn(),
 }));
 
-vi.mock("$lib/stores", () => ({
+vi.mock("#lib/stores.js", () => ({
   leagueData: {
     update: vi.fn(),
   },
 }));
 
-vi.mock("$lib/utils/leagueInfo", () => ({
+vi.mock("#lib/utils/leagueInfo.js", () => ({
   leagueID: "test-league-id",
 }));
 
-vi.mock("$lib/utils/errorHandler", () => ({
+vi.mock("#lib/utils/errorHandler.js", () => ({
   handleApiError: vi.fn(),
   handleFetchError: vi.fn(),
   safeJsonParse: vi.fn(),
@@ -39,7 +39,7 @@ describe("leagueData", () => {
 
   it("should handle fetch errors gracefully", async () => {
     const { get } = await import("svelte/store");
-    const { handleApiError } = await import("$lib/utils/errorHandler");
+    const { handleApiError } = await import("#lib/utils/errorHandler.js");
 
     get.mockReturnValue({});
     handleApiError.mockReturnValue({ error: true, message: "API Error" });

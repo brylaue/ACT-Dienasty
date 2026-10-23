@@ -1,5 +1,5 @@
 <script>
-    import { leagueName } from '$lib/utils/helper';
+    import { leagueName } from '#lib/utils/helper.js';
     import ManagerRow from './ManagerRow.svelte'
 
     export let managers, leagueTeamManagers;

@@ -1,5 +1,5 @@
 <script>
-	import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+	import { getTeamFromTeamManagers } from '#lib/utils/helperFunctions/universalFunctions.js';
 
 	export let move, leagueTeamManagers, players, season;
 

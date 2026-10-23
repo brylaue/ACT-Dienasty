@@ -1,8 +1,8 @@
 <script>
     import LinearProgress from '@smui/linear-progress';
-    import { gotoManager } from '$lib/utils/helper';
-    import { getPickMatrix } from '$lib/utils/helperFunctions/pickOwnership';
-    import { getFranchises } from '$lib/utils/helperFunctions/rivalryMatchups';
+    import { gotoManager } from '#lib/utils/helper.js';
+    import { getPickMatrix } from '#lib/utils/helperFunctions/pickOwnership.js';
+    import { getFranchises } from '#lib/utils/helperFunctions/rivalryMatchups.js';
 
     export let leagueTeamManagers;
 

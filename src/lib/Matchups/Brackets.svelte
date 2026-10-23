@@ -23,10 +23,10 @@
 
     onMount(() => {
         if(queryWeek && queryWeek > 0 && queryWeek < playoffsStart) {
-            goto(`/matchups?week=1`, {noscroll: true});
+            goto(`/matchups?week=1`);
             selection = 'regular';
         } else {
-            goto(`/matchups?week=${playoffsStart}`, {noscroll: true});
+            goto(`/matchups?week=${playoffsStart}`);
         }
     })
 

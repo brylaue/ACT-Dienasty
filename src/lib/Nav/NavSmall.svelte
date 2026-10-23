@@ -1,5 +1,5 @@
 <script>
-	import { tabs } from '$lib/utils/tabs';
+	import { tabs } from '#lib/utils/tabs.js';
 	import Drawer, {
 	  Content,
 	  Header,
@@ -9,8 +9,8 @@
   	import List, { Item, Text, Graphic, Separator, Subheader } from '@smui/list';
 	import { goto, preloadData } from '$app/navigation';
     import { page } from '$app/state';
-	import { leagueName } from '$lib/utils/helper';
-	import { enableBlog, managers } from '$lib/utils/leagueInfo';
+	import { leagueName } from '#lib/utils/helper.js';
+	import { enableBlog, managers } from '#lib/utils/leagueInfo.js';
 
 	let active = $state(page.url.pathname);
 
@@ -18,7 +18,7 @@
 
 	const selectTab = (tab) => {
 		open = false;
-		goto(tab.dest);
+		/^https?:/.test(tab.dest) ? (window.location.href = tab.dest) : goto(tab.dest); // external links (Sleeper) can't go through goto()
 	}
 </script>
 

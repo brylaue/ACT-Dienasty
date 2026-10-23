@@ -1,6 +1,6 @@
 <script>
-    import { round } from "$lib/utils/helper";
-	import { checkIfManagerReceivedAward, getTeamNameFromTeamManagers } from "$lib/utils/helperFunctions/universalFunctions";
+    import { round } from "#lib/utils/helper.js";
+	import { checkIfManagerReceivedAward, getTeamNameFromTeamManagers } from "#lib/utils/helperFunctions/universalFunctions.js";
 
     export let awards, records, rosterID, tookOver, leagueTeamManagers, managerID;
 

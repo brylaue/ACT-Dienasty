@@ -1,7 +1,7 @@
 <script>
-    import { managers } from '$lib/utils/helper';
-	import { tabs } from '$lib/utils/tabs';
-	import { enableBlog } from '$lib/utils/leagueInfo';
+    import { managers } from '#lib/utils/helper.js';
+	import { tabs } from '#lib/utils/tabs.js';
+	import { enableBlog } from '#lib/utils/leagueInfo.js';
 	import { onMount } from 'svelte';
 
 	let outOfDate = $state(false);

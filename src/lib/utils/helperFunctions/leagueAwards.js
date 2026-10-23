@@ -1,9 +1,9 @@
 import { getLeagueData } from "./leagueData";
 import { getLeagueRosters } from "./leagueRosters";
 import { waitForAll } from "./multiPromise";
-import { retryFetch } from "$lib/utils/errorHandler";
+import { retryFetch } from "#lib/utils/errorHandler.js";
 import { get } from "svelte/store";
-import { awards } from "$lib/stores";
+import { awards } from "#lib/stores.js";
 
 export const getAwards = async () => {
   if (get(awards).length) {

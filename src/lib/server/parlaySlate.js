@@ -188,21 +188,32 @@ export const priceLegs = (legs, slate, playerTeams = {}) => {
 //  - drops legs that can't be played (bye / game closed) into `rejected`
 //  - works out when the week locks (lockMs) and, once that moment has passed,
 //    ignores anything posted after it
+const MISS_TTL_MS = 5 * 60e3;
+const missCache = new WeakMap(); // player-cache Map → { name → when the lookup last came up empty }
+const missesOf = (cache) => { if (!missCache.has(cache)) missCache.set(cache, new Map()); return missCache.get(cache); };
 export const evaluateWeek = async ({ messages, replies = [], allTeams, teamOfUser, slate, nowMs = Date.now(), cache = new Map(), fetchFn = fetch }) => {
   const base = { messages, replies, allTeams, teamOfUser };
-  if (!slate) return { ...collectLegsDetailed(base), lockMs: null, playerTeams: {}, slate: null };
+  if (!slate) return { ...collectLegsDetailed(base), lockMs: null, playerTeams: {}, slate: null, unplaced: [] };
   const names = new Set();
   collectLegsDetailed({ ...base, check: (leg) => { const n = playerNameOf(leg, slate); if (n) names.add(n.toLowerCase()); return null; } });
   const playerTeams = {};
+  // A found team is cached for good. A miss (ESPN hiccup, or a name it doesn't know) is only remembered for
+  // MISS_TTL_MS: caching it forever would pin the lock to Thursday night for the rest of the server's life.
+  const miss = missesOf(cache);
   await Promise.all([...names].map(async (n) => {
-    if (!cache.has(n)) cache.set(n, await resolvePlayerTeam(n.replace(/\b\w/g, (c) => c.toUpperCase()), fetchFn));
-    playerTeams[n] = cache.get(n);
+    if (!cache.get(n) && !(miss.has(n) && nowMs - miss.get(n) < MISS_TTL_MS)) {
+      const abbr = await resolvePlayerTeam(n.replace(/\b\w/g, (c) => c.toUpperCase()), fetchFn);
+      if (abbr) { cache.set(n, abbr); miss.delete(n); } else miss.set(n, nowMs);
+    }
+    playerTeams[n] = cache.get(n) ?? null;
   }));
   const check = (leg, atMs) => analyzeLeg(leg, slate, { playerTeams, atMs }).reason;
   const lockOf = (legs) => lockTime(Object.values(legs).map((v) => analyzeLeg(v.leg, slate, { playerTeams })), slate, nowMs);
   let res = collectLegsDetailed({ ...base, check });
   let lockMs = lockOf(res.legs);
   if (lockMs != null && nowMs >= lockMs) { res = collectLegsDetailed({ ...base, check, beforeMs: lockMs }); lockMs = lockOf(res.legs) ?? lockMs; } // after the lock: late posts never count
-  return { ...res, lockMs, playerTeams, slate };
+  // legs we can't place in any game: each one holds the lock at the week's first kickoff, so say so
+  const unplaced = Object.entries(res.legs).filter(([, v]) => !analyzeLeg(v.leg, slate, { playerTeams }).teams.length).map(([team, v]) => ({ team, leg: v.leg }));
+  return { ...res, lockMs, playerTeams, slate, unplaced };
 };
 export { parlayOdds };

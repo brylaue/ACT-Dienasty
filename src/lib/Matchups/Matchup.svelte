@@ -1,7 +1,7 @@
 <script>
-    import {round} from '$lib/utils/helper'
-	import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
-    import { loadTeamRanks } from '$lib/utils/helperFunctions/teamRanks';
+    import {round} from '#lib/utils/helper.js'
+	import { getTeamFromTeamManagers } from '#lib/utils/helperFunctions/universalFunctions.js';
+    import { loadTeamRanks } from '#lib/utils/helperFunctions/teamRanks.js';
     import { onMount } from 'svelte';
 
     // standings position + power rank under each name - current season only

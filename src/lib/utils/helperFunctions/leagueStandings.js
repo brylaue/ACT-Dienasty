@@ -1,10 +1,10 @@
-import { leagueID } from "$lib/utils/leagueInfo";
+import { leagueID } from "#lib/utils/leagueInfo.js";
 import { getNflState } from "./nflState";
 import { getLeagueData } from "./leagueData";
 import { getLeagueRosters } from "./leagueRosters";
 import { waitForAll } from "./multiPromise";
 import { get } from "svelte/store";
-import { standingsStore } from "$lib/stores";
+import { standingsStore } from "#lib/stores.js";
 import { round } from "./universalFunctions";
 
 export const getLeagueStandings = async () => {

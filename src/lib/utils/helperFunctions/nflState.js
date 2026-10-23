@@ -1,10 +1,10 @@
 import { get } from "svelte/store";
-import { nflState } from "$lib/stores";
+import { nflState } from "#lib/stores.js";
 import {
   handleApiError,
   handleFetchError,
   safeJsonParse,
-} from "$lib/utils/errorHandler";
+} from "#lib/utils/errorHandler.js";
 
 export const getNflState = async () => {
   if (get(nflState).season) {

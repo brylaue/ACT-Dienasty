@@ -1,11 +1,11 @@
 <script>
-    import { esc } from '$lib/utils/sanitize';
+    import { esc } from '#lib/utils/sanitize.js';
   	import DataTable, { Head, Body, Row, Cell } from '@smui/data-table';
 	import LinearProgress from '@smui/linear-progress';
     import { onMount } from 'svelte';
     import DraftRow from './DraftRow.svelte';
-    import { gotoManager } from '$lib/utils/helper'
-	import { getAvatarFromTeamManagers, getTeamNameFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+    import { gotoManager } from '#lib/utils/helper.js'
+	import { getAvatarFromTeamManagers, getTeamNameFromTeamManagers } from '#lib/utils/helperFunctions/universalFunctions.js';
     
     export let draftData, leagueTeamManagers, previous = false, year, players;
 

@@ -1,5 +1,5 @@
 <script>
-	import { loadPlayers } from '$lib/utils/helper';
+	import { loadPlayers } from '#lib/utils/helper.js';
 	import RosterSorter from './RosterSorter.svelte'
 
 	export let leagueData, rosterData, leagueTeamManagers, playersInfo;

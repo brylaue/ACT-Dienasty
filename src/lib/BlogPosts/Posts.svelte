@@ -1,11 +1,11 @@
 <script>
     import { goto } from "$app/navigation";
-    import Pagination from "$lib/Pagination.svelte";
-    import { getBlogPosts, leagueName, waitForAll } from "$lib/utils/helper";
+    import Pagination from "#lib/Pagination.svelte";
+    import { getBlogPosts, leagueName, waitForAll } from "#lib/utils/helper.js";
     import LinearProgress from "@smui/linear-progress";
     import { onMount } from "svelte";
     import Post from "./Post.svelte";
-    import { browser } from '$app/environment';
+    import { browser } from '$app/env';
 
     export let postsData, leagueTeamManagersData, queryPage = 1, filterKey = '';
 
@@ -21,8 +21,8 @@
     let categories;
 
     const filterPosts = (ap, fk) => {
-        if(ap.length && fk != '') {
-            posts = ap.filter(p => p.fields.type == fk);
+        if (ap.length && fk != '') {
+            posts = ap.filter((p) => p.fields.type == fk);
         } else {
             posts = ap;
         }
@@ -75,12 +75,73 @@
             } else {
                 direction = -1;
             }
-            goto(`/blog?page=${dest + 1}&filter=${filterKey}`, {noscroll: true,  keepfocus: true});
+            goto(`/blog?page=${dest + 1}&filter=${filterKey}`);
         }
     }
 
 	$: changePage(page);
 </script>
+
+<h2 bind:this={el}>{leagueName} Blog</h2>
+
+{#if loading}
+    <div class="loading">
+        <p>Loading league blog posts...</p>
+        <LinearProgress indeterminate />
+    </div>
+{:else}
+    <div class="filterButtons">
+        {#if filterKey == ''}
+            {#each categories as category}
+                <a
+                    class="noUnderline"
+                    onclick={() => changeFilter(category)}
+                    href="/blog?filter={category}&page=1"
+                ><div class="filter filterLink">{category}</div></a>
+            {/each}
+        {:else}
+            <div class="filteringBy">
+                Showing 
+                <div class="filter filterLink noHover">{filterKey}</div>
+                posts 
+
+                <a
+                    class="noUnderline"
+                    onclick={() => changeFilter('')}
+                    href="/blog?filter=&page=1"
+                ><div class="filter filterClear">Clear Filter</div></a>
+            </div>
+        {/if}
+    </div>
+
+    <Pagination
+        perPage={perPage}
+        total={total}
+        bind:page
+        target={top}
+        scroll={false}
+    />
+
+    {#each displayPosts as post}
+        {#key post.sys.id}
+            <Post
+                leagueTeamManagers={leagueTeamManagers}
+                createdAt={post.sys.createdAt}
+                post={post.fields}
+                id={post.sys.id}
+                direction={direction}
+            />
+        {/key}
+    {/each}
+
+    <Pagination
+        perPage={perPage}
+        total={total}
+        bind:page
+        target={top}
+        scroll={true}
+    />
+{/if}
 
 <style>
     h2 {
@@ -140,31 +201,3 @@
         font-size: 1em;
     }
 </style>
-
-<h2 bind:this={el}>{leagueName} Blog</h2>
-
-{#if loading}
-    <div class="loading" >
-        <p>Loading league blog posts...</p>
-        <LinearProgress indeterminate />
-    </div>
-{:else}
-    <div class="filterButtons">
-        {#if filterKey == ''}
-            {#each categories as category}
-                <a class="noUnderline" onclick={() => changeFilter(category)} href="/blog?filter={category}&page=1"><div class="filter filterLink">{category}</div></a>
-            {/each}
-        {:else}
-            <div class="filteringBy">Showing <div class="filter filterLink noHover">{filterKey}</div> posts <a class="noUnderline" onclick={() => changeFilter('')} href="/blog?filter=&page=1"><div class="filter filterClear">Clear Filter</div></a></div>
-        {/if}
-    </div>
-
-    <Pagination {perPage} {total} bind:page={page} target={top} scroll={false} />
-
-    {#each displayPosts as post}
-        {#key post.sys.id}
-        <Post {leagueTeamManagers} createdAt={post.sys.createdAt} post={post.fields} id={post.sys.id} {direction} />
-        {/key}
-    {/each}
-    <Pagination {perPage} {total} bind:page={page} target={top} scroll={true} />
-{/if}

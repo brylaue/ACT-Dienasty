@@ -1,6 +1,6 @@
 <script>
-	import BarChart from '$lib/BarChart.svelte';
-    import { generateGraph, getTeamFromTeamManagers, round, predictScores, loadPlayers } from '$lib/utils/helper';
+	import BarChart from '#lib/BarChart.svelte';
+    import { generateGraph, getTeamFromTeamManagers, round, predictScores, loadPlayers } from '#lib/utils/helper.js';
     export let nflState, rostersData, leagueTeamManagers, playersInfo, leagueData;
 
     const rosters = rostersData.rosters;

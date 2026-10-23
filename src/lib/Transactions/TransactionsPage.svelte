@@ -7,7 +7,7 @@
 	import Pagination from '../Pagination.svelte';
 	import { match } from 'fuzzyjs';
 	import { goto } from '$app/navigation';
-	import { getLeagueTransactions, loadPlayers } from '$lib/utils/helper';
+	import { getLeagueTransactions, loadPlayers } from '#lib/utils/helper.js';
 	import WaiverTransaction from './WaiverTransaction.svelte';
 
 	export let show, playersInfo, query, queryPage, transactions, stale, perPage, postUpdate=false, leagueTeamManagers;
@@ -79,7 +79,7 @@
 		}
 		displayTransactions = setQuery(query, filteredTransactions, page);
 		if(postUpdate) {
-            goto(`/transactions?show=${show}&query=${query}&page=${page+1}`, {noscroll: true,  keepfocus: true});
+            goto(`/transactions?show=${show}&query=${query}&page=${page+1}`);
 		}
 	}
 
@@ -90,7 +90,7 @@
 	const debounce = (dest) => {
 		clearTimeout(timer);
 		timer = setTimeout(() => {
-            goto(dest,{noscroll: true,  keepfocus: true});
+            goto(dest);
 		}, 750);
 	}
 
@@ -108,7 +108,7 @@
 	const clearSearch = () => {
 		query = "";
 		if(postUpdate) {
-			goto(`/transactions?show=${show}&query=&page=${page+1}`, {noscroll: true,  keepfocus: true});
+			goto(`/transactions?show=${show}&query=&page=${page+1}`);
 		}
 	}
 	

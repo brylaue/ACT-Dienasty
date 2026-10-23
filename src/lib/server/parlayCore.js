@@ -96,7 +96,11 @@ export const isLockedBoard = (text) => /WEEK \d+ SLIP/.test(text || "");
   locked=false → the live 📋 board; locked=true → the final 🔒 slip.
 */
 export const deadlineToken = (deadlineEpochMs, label) => deadlineEpochMs ? `<!date^${Math.floor(deadlineEpochMs / 1000)}^{date_short_pretty} at {time}|${label}>` : label;
-export const renderBoard = ({ legs, allTeams, week, placerName, deadlineLabel, deadlineEpochMs = null, kickoffLabel, locked }) => {
+// an unplaceable leg pins the lock to the week's first kickoff - say so, and how to fix it
+const unplacedNote = (unplaced) => unplaced?.length
+  ? `\n_❓ Can't tell which game ${unplaced.map((u) => `"${u.leg}" (${u.team})`).join(", ")} ${unplaced.length > 1 ? "are" : "is"} in, so the lock is held at the week's first kickoff. Name the team - e.g. "Jared Goff (DET) two passing TDs" - and it moves to that game._`
+  : "";
+export const renderBoard = ({ legs, allTeams, week, placerName, deadlineLabel, deadlineEpochMs = null, kickoffLabel, locked, unplaced = [] }) => {
   const inCount = Object.keys(legs).length;
   const missing = allTeams.filter((t) => !legs[t]);
   const line = allTeams.filter((t) => legs[t]).map((t) => legs[t].leg ?? legs[t]).join("  •  ");
@@ -105,7 +109,7 @@ export const renderBoard = ({ legs, allTeams, week, placerName, deadlineLabel, d
   if (locked) {
     return `🔒 *WEEK ${week} SLIP — ${inCount}/${allTeams.length} legs* · ${placerLine}${deadlineEpochMs ? ` · locked *${deadlineToken(deadlineEpochMs, deadlineLabel)}*` : ""}\n${line || "(no legs submitted - somehow, this league found a new low)"}\n\n${rows}${missing.length ? `\n\nMissing (placer picks these): ${missing.join(", ")}` : ""}${oddsFooter(legs, allTeams)}\n_Placer: copy the top line into the book and reply here with the slip screenshot before kickoff${kickoffLabel ? ` (${kickoffLabel})` : ""}._`;
   }
-  return `📋 *WEEK ${week} BOARD — ${inCount}/${allTeams.length} legs* · ${placerLine} · locks *${deadlineToken(deadlineEpochMs, deadlineLabel)}*\n${line || "_(legs appear here as they land - just post your bet in the channel)_"}${rows ? `\n\n${rows}` : ""}${missing.length ? `\n\nStill needed: ${missing.join(", ")}` : "\n\n✅ All legs in."}${oddsFooter(legs, allTeams)}`;
+  return `📋 *WEEK ${week} BOARD — ${inCount}/${allTeams.length} legs* · ${placerLine} · locks *${deadlineToken(deadlineEpochMs, deadlineLabel)}*\n${line || "_(legs appear here as they land - just post your bet in the channel)_"}${rows ? `\n\n${rows}` : ""}${missing.length ? `\n\nStill needed: ${missing.join(", ")}` : "\n\n✅ All legs in."}${oddsFooter(legs, allTeams)}${unplacedNote(unplaced)}`;
 };
 
 // the live board's header line carries week/placer/deadline; the events

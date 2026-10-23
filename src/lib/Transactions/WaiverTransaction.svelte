@@ -1,8 +1,8 @@
 <script>
-	import { gotoManager } from '$lib/utils/helper';
-	import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
-	import { waiverHeadline } from '$lib/utils/helperFunctions/waiverHeadlines';
-	import { getCommentary } from '$lib/utils/helperFunctions/commentary';
+	import { gotoManager } from '#lib/utils/helper.js';
+	import { getTeamFromTeamManagers } from '#lib/utils/helperFunctions/universalFunctions.js';
+	import { waiverHeadline } from '#lib/utils/helperFunctions/waiverHeadlines.js';
+	import { getCommentary } from '#lib/utils/helperFunctions/commentary.js';
 
 	export let transaction, players, leagueTeamManagers;
 

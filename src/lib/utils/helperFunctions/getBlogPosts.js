@@ -1,5 +1,5 @@
 import { get } from "svelte/store";
-import { posts } from "$lib/stores";
+import { posts } from "#lib/stores.js";
 
 export const getBlogPosts = async (servFetch, bypass = false) => {
   if (get(posts)[0]?.items && !bypass) {

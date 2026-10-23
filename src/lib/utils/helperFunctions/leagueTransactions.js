@@ -1,12 +1,12 @@
 import { getLeagueData } from "./leagueData";
-import { leagueID } from "$lib/utils/leagueInfo";
+import { leagueID } from "#lib/utils/leagueInfo.js";
 import { getNflState } from "./nflState";
 import { waitForAll } from "./multiPromise";
 import { get } from "svelte/store";
-import { transactionsStore } from "$lib/stores";
-import { browser } from "$app/environment";
+import { transactionsStore } from "#lib/stores.js";
+import { browser } from "$app/env";
 import { getLeagueTeamManagers } from "./leagueTeamManagers";
-import { retryFetch } from "$lib/utils/errorHandler";
+import { retryFetch } from "#lib/utils/errorHandler.js";
 
 export const getLeagueTransactions = async (preview, refresh = false) => {
   const transactionsStoreVal = get(transactionsStore);
@@ -45,20 +45,9 @@ export const getLeagueTransactions = async (preview, refresh = false) => {
     week = nflState.week;
   }
 
-  const { transactionsData, currentSeason } = await combThroughTransactions(
-    week,
-    leagueID,
-  );
-
-  const { transactions, totals } = await digestTransactions({
-    transactionsData,
-    currentSeason,
-  });
-
-  const transactionPackage = {
-    transactions,
-    totals,
-  };
+  const { transactionsData, currentSeason } = await combThroughTransactions(week, leagueID);
+  const { transactions, totals } = await digestTransactions({ transactionsData, currentSeason });
+  const transactionPackage = { transactions, totals };
 
   if (browser) {
     // update localStorage
@@ -270,18 +259,8 @@ const digestDate = (tStamp) => {
   const date = a.getDate();
   const hour = a.getHours();
   const min = a.getMinutes();
-  return (
-    month +
-    " " +
-    date +
-    " " +
-    year +
-    ", " +
-    (hour % 12 == 0 ? 12 : hour % 12) +
-    ":" +
-    min +
-    (hour / 12 >= 1 ? "PM" : "AM")
-  );
+
+  return month + " " + date + " " + year + ", " + (hour % 12 == 0 ? 12 : hour % 12) + ":" + min + (hour / 12 >= 1 ? "PM" : "AM");
 };
 
 const digestTransaction = ({ transaction, currentSeason }) => {

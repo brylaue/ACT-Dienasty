@@ -1,4 +1,4 @@
-import { browser } from "$app/environment";
+import { browser } from "$app/env";
 import { classifyTrade, gradeFor } from "./tradeClassification";
 
 /*
@@ -67,7 +67,7 @@ const loadValues = async () => {
 const hashString = (str) => {
   let h = 0;
   for (let i = 0; i < String(str).length; i++) {
-    h = (h * 31 + String(str).charCodeAt(i)) >>> 0;
+    h = h * 31 + String(str).charCodeAt(i) >>> 0;
   }
   return h;
 };

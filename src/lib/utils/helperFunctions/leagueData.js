@@ -1,11 +1,11 @@
 import { get } from "svelte/store";
-import { leagueData } from "$lib/stores";
-import { leagueID } from "$lib/utils/leagueInfo";
+import { leagueData } from "#lib/stores.js";
+import { leagueID } from "#lib/utils/leagueInfo.js";
 import {
   handleApiError,
   handleFetchError,
   safeJsonParse,
-} from "$lib/utils/errorHandler";
+} from "#lib/utils/errorHandler.js";
 
 export const getLeagueData = async (queryLeagueID = leagueID) => {
   if (get(leagueData)[queryLeagueID]) {

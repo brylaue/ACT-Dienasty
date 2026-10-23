@@ -1,9 +1,9 @@
 <script>
     import LinearProgress from '@smui/linear-progress';
-    import { gotoManager } from '$lib/utils/helper';
-    import { getLuckIndex } from '$lib/utils/helperFunctions/luckIndex';
-    import { getFranchises } from '$lib/utils/helperFunctions/rivalryMatchups';
-    import { round } from '$lib/utils/helper';
+    import { gotoManager } from '#lib/utils/helper.js';
+    import { getLuckIndex } from '#lib/utils/helperFunctions/luckIndex.js';
+    import { getFranchises } from '#lib/utils/helperFunctions/rivalryMatchups.js';
+    import { round } from '#lib/utils/helper.js';
 
     export let leagueTeamManagers;
 

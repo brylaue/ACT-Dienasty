@@ -1,9 +1,9 @@
 import { getLeagueData } from "./leagueData";
-import { leagueID } from "$lib/utils/leagueInfo";
+import { leagueID } from "#lib/utils/leagueInfo.js";
 import { getLeagueRosters } from "./leagueRosters";
 import { waitForAll } from "./multiPromise";
 import { get } from "svelte/store";
-import { brackets } from "$lib/stores";
+import { brackets } from "#lib/stores.js";
 
 export const getBrackets = async (queryLeagueID = leagueID) => {
   if (get(brackets).champs && queryLeagueID == leagueID) {

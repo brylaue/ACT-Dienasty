@@ -1,7 +1,7 @@
 <script>
-    import { getTradeValues, analyzeTrade } from '$lib/utils/helperFunctions/tradeAnalysis';
-    import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
-    import { getCommentary } from '$lib/utils/helperFunctions/commentary';
+    import { getTradeValues, analyzeTrade } from '#lib/utils/helperFunctions/tradeAnalysis.js';
+    import { getTeamFromTeamManagers } from '#lib/utils/helperFunctions/universalFunctions.js';
+    import { getCommentary } from '#lib/utils/helperFunctions/commentary.js';
 
     export let transaction, leagueTeamManagers;
 

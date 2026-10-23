@@ -1,8 +1,8 @@
 <script>
     import { goto } from "$app/navigation";
-	import { getDatesActive, getRosterIDFromManagerID, getTeamNameFromTeamManagers } from "$lib/utils/helperFunctions/universalFunctions";
-    import {dynasty} from "$lib/utils/leagueInfo"
-    import { modeIconSrc } from "$lib/utils/helperFunctions/modeIcon";
+	import { getDatesActive, getRosterIDFromManagerID, getTeamNameFromTeamManagers } from "#lib/utils/helperFunctions/universalFunctions.js";
+    import {dynasty} from "#lib/utils/leagueInfo.js"
+    import { modeIconSrc } from "#lib/utils/helperFunctions/modeIcon.js";
 
     let { manager, leagueTeamManagers, key } = $props();
 

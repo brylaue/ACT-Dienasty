@@ -1,6 +1,6 @@
 <script>
 	import { goto } from "$app/navigation";
-	import { getFranchises } from "$lib/utils/helperFunctions/rivalryMatchups";
+	import { getFranchises } from "#lib/utils/helperFunctions/rivalryMatchups.js";
 
     export let teamOne, teamTwo, leagueTeamManagers;
 
@@ -14,7 +14,7 @@
         if(!t1 || !t2) {
             return;
         }
-        goto(`/rivalry?team_one=${t1}&team_two=${t2}`, {noscroll: true, keepfocus: true})
+        goto(`/rivalry?team_one=${t1}&team_two=${t2}`)
     }
 
     $: analyzeRivalry(teamOne, teamTwo)

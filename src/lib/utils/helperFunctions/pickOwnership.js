@@ -1,5 +1,5 @@
-import { leagueID } from "$lib/utils/leagueInfo";
-import { retryFetch } from "$lib/utils/errorHandler";
+import { leagueID } from "#lib/utils/leagueInfo.js";
+import { retryFetch } from "#lib/utils/errorHandler.js";
 import { waitForAll } from "./multiPromise";
 import { getTradeValues, valueForPick } from "./tradeAnalysis";
 

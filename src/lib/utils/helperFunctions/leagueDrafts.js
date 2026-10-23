@@ -1,8 +1,8 @@
 import { getLeagueData } from "./leagueData";
-import { leagueID } from "$lib/utils/leagueInfo";
+import { leagueID } from "#lib/utils/leagueInfo.js";
 import { waitForAll } from "./multiPromise";
 import { get } from "svelte/store";
-import { upcomingDraft, previousDrafts } from "$lib/stores";
+import { upcomingDraft, previousDrafts } from "#lib/stores.js";
 import { getLeagueRosters } from "./leagueRosters";
 
 export const getUpcomingDraft = async () => {

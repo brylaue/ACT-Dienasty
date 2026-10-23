@@ -1,7 +1,7 @@
 import { getLeagueData } from "./leagueData";
-import { leagueID } from "$lib/utils/leagueInfo";
+import { leagueID } from "#lib/utils/leagueInfo.js";
 import { waitForAll } from "./multiPromise";
-import { retryFetch } from "$lib/utils/errorHandler";
+import { retryFetch } from "#lib/utils/errorHandler.js";
 
 /*
   Franchise-based rivalry engine.

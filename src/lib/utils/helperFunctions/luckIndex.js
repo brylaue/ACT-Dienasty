@@ -1,4 +1,4 @@
-import { leagueID } from "$lib/utils/leagueInfo";
+import { leagueID } from "#lib/utils/leagueInfo.js";
 import { loadSeason } from "./rivalryMatchups";
 
 /*

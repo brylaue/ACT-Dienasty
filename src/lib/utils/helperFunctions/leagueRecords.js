@@ -1,14 +1,14 @@
 import { getLeagueData } from "./leagueData";
-import { leagueID } from "$lib/utils/leagueInfo";
+import { leagueID } from "#lib/utils/leagueInfo.js";
 import { getNflState } from "./nflState";
 import { getLeagueRosters } from "./leagueRosters";
 import { waitForAll } from "./multiPromise";
 import { get } from "svelte/store";
-import { records } from "$lib/stores";
+import { records } from "#lib/stores.js";
 import { getManagers, round, sortHighAndLow } from "./universalFunctions";
-import { Records } from "$lib/utils/dataClasses";
+import { Records } from "#lib/utils/dataClasses.js";
 import { getBrackets } from "./leagueBrackets";
-import { browser } from "$app/environment";
+import { browser } from "$app/env";
 
 /**
  * getLeagueRecords obtains all the record for a league since it was first created
@@ -196,7 +196,7 @@ const processRegularSeason = async ({
   }
   const matchupsData = await waitForAll(...matchupsJsonPromises).catch(
     (err) => {
-      console.error(err);
+    console.error(err);
     },
   );
 
@@ -489,12 +489,7 @@ const processPlayoffs = async ({
     pSD.rosterID = rosterID;
 
     // add season long points entry
-    playoffRecords.addSeasonLongPoints({
-      fpts: pSD.fptsFor,
-      fptsPerGame,
-      year,
-      rosterID: rosterID,
-    });
+    playoffRecords.addSeasonLongPoints({ fpts: pSD.fptsFor, fptsPerGame, year, rosterID });
 
     // update the manager records for this roster ID
     const managers = getManagers(rosters[rosterID]);

@@ -6,7 +6,7 @@
     import Button, { Group, Label } from '@smui/button';
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
-    import { loadPlayers } from '$lib/utils/helper';
+    import { loadPlayers } from '#lib/utils/helper.js';
 
 	export let queryWeek, leagueTeamManagersData, matchupsData, bracketsData, playersData;
 
@@ -35,10 +35,10 @@
     const changeSelection = (s) => {
         if(s == 'regular') {
             queryWeek = 1;
-            goto(`/matchups?week=1`, {noscroll: true});
+            goto(`/matchups?week=1`);
         } else if(selection == 'regular') {
             queryWeek = 99;
-            goto(`/matchups?week=99`, {noscroll: true});
+            goto(`/matchups?week=99`);
         }
         selection = s;
     }

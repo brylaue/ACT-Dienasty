@@ -1,9 +1,9 @@
 import { getLeagueData } from "./leagueData";
-import { leagueID } from "$lib/utils/leagueInfo";
+import { leagueID } from "#lib/utils/leagueInfo.js";
 import { getNflState } from "./nflState";
 import { waitForAll } from "./multiPromise";
 import { get } from "svelte/store";
-import { matchupsStore } from "$lib/stores";
+import { matchupsStore } from "#lib/stores.js";
 
 export const getLeagueMatchups = async () => {
   if (get(matchupsStore).matchupWeeks) {

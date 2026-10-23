@@ -1,6 +1,6 @@
 import { get } from "svelte/store";
-import { players } from "$lib/stores";
-import { browser } from "$app/environment";
+import { players } from "#lib/stores.js";
+import { browser } from "$app/env";
 
 export const loadPlayers = async (servFetch, refresh = false) => {
   if (get(players)[1426]) {

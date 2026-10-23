@@ -1,5 +1,5 @@
 import { esc } from "../sanitize";
-import { managers as managersObj } from "$lib/utils/leagueInfo";
+import { managers as managersObj } from "#lib/utils/leagueInfo.js";
 import { goto } from "$app/navigation";
 import { stringDate } from "./news";
 

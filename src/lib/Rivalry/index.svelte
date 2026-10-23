@@ -1,8 +1,8 @@
 <script>
-	import Matchup from "$lib/Matchups/Matchup.svelte";
-	import TradeTransaction from "$lib/Transactions/TradeTransaction.svelte";
-	import { getLeagueTransactions, getRivalryMatchups, loadPlayers, round } from "$lib/utils/helper";
-	import { getAvatarFromTeamManagers, getTeamNameFromTeamManagers } from "$lib/utils/helperFunctions/universalFunctions";
+	import Matchup from "#lib/Matchups/Matchup.svelte";
+	import TradeTransaction from "#lib/Transactions/TradeTransaction.svelte";
+	import { getLeagueTransactions, getRivalryMatchups, loadPlayers, round } from "#lib/utils/helper.js";
+	import { getAvatarFromTeamManagers, getTeamNameFromTeamManagers } from "#lib/utils/helperFunctions/universalFunctions.js";
 	import RivalryCrest from "./RivalryCrest.svelte";
 	import LinearProgress from '@smui/linear-progress';
 	import { onMount } from "svelte";

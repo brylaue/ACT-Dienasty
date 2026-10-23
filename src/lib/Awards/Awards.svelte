@@ -1,6 +1,6 @@
 <script>
-	import { gotoManager } from '$lib/utils/helper';
-	import { getAvatarFromTeamManagers, getNestedTeamNamesFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+	import { gotoManager } from '#lib/utils/helper.js';
+	import { getAvatarFromTeamManagers, getNestedTeamNamesFromTeamManagers } from '#lib/utils/helperFunctions/universalFunctions.js';
 	export let podium, leagueTeamManagers;
 
 	const { year, champion, second, third, divisions, toilet } = podium;

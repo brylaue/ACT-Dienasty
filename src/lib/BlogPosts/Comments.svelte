@@ -1,6 +1,6 @@
 <script>
-    import { sanitizeHtml } from '$lib/utils/sanitize';
-    import { getAuthor, getAvatar, parseDate } from "$lib/utils/helper";
+    import { sanitizeHtml } from '#lib/utils/sanitize.js';
+    import { getAuthor, getAvatar, parseDate } from "#lib/utils/helper.js";
     import Icon from "@smui/textfield/icon";
     import CreateComment from "./CreateComment.svelte";
     import Dialog, { Title, Content, Actions } from '@smui/dialog';

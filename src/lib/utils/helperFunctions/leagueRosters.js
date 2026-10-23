@@ -1,7 +1,7 @@
-import { leagueID } from "$lib/utils/leagueInfo";
+import { leagueID } from "#lib/utils/leagueInfo.js";
 import { get } from "svelte/store";
-import { rostersStore } from "$lib/stores";
-import { retryFetch } from "$lib/utils/errorHandler";
+import { rostersStore } from "#lib/stores.js";
+import { retryFetch } from "#lib/utils/errorHandler.js";
 
 export const getLeagueRosters = async (queryLeagueID = leagueID) => {
   const storedRoster = get(rostersStore)[queryLeagueID];

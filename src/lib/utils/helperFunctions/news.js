@@ -1,6 +1,6 @@
 import { get } from "svelte/store";
-import { news } from "$lib/stores";
-import { dynasty } from "$lib/utils/leagueInfo";
+import { news } from "#lib/stores.js";
+import { dynasty } from "#lib/utils/leagueInfo.js";
 
 const REDDIT_DYNASTY = "https://www.reddit.com/r/DynastyFF/new.json";
 const REDDIT_FANTASY = "https://www.reddit.com/r/fantasyfootball/new.json";

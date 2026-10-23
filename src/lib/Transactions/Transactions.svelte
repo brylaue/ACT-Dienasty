@@ -1,6 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
-	import { getLeagueTransactions, getLeagueTeamManagers, loadPlayers, waitForAll } from '$lib/utils/helper';
+	import { getLeagueTransactions, getLeagueTeamManagers, loadPlayers, waitForAll } from '#lib/utils/helper.js';
 	import LinearProgress from '@smui/linear-progress';
 	import { onMount } from 'svelte';
 	import TradeTransaction from './TradeTransaction.svelte';

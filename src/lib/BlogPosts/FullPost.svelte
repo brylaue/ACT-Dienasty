@@ -1,6 +1,6 @@
 <script>
 	import LinearProgress from '@smui/linear-progress';
-    import { generateParagraph, waitForAll } from "$lib/utils/helper";
+    import { generateParagraph, waitForAll } from "#lib/utils/helper.js";
     import { onMount } from "svelte";
     import Comments from "./Comments.svelte";
 	import AuthorAndDate from './AuthorAndDate.svelte';

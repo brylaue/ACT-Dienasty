@@ -12,7 +12,7 @@
         if(!queryWeek || queryWeek < 1) {
             queryWeek = week;
             displayWeek = queryWeek * 1;
-            goto(`/matchups?week=${queryWeek}`, {noscroll: true});
+            goto(`/matchups?week=${queryWeek}`);
             if(queryWeek > regularSeasonLength) {
                 selection = 'champions';
                 return;
@@ -44,7 +44,7 @@
         displayWeek = newWeek;
         processDisplayMatchup(displayWeek);
         active = null;
-        goto(`/matchups?week=${displayWeek}`, {noscroll: true});
+        goto(`/matchups?week=${displayWeek}`);
     }
 </script>
 

@@ -1,5 +1,5 @@
 <script>
-    import { sanitizeHtml } from '$lib/utils/sanitize';
+    import { sanitizeHtml } from '#lib/utils/sanitize.js';
     import Paper, { Title, Content } from '@smui/paper';
 
     let { article } = $props();

@@ -1,11 +1,11 @@
 <script>
-	import { tabs } from '$lib/utils/tabs';
+	import { tabs } from '#lib/utils/tabs.js';
 	import Tab, { Icon, Label } from '@smui/tab';
 	import List, { Item, Graphic, Text, Separator } from '@smui/list';
 	import TabBar from '@smui/tab-bar';
     import { page } from '$app/state';
 	import { goto, preloadData } from '$app/navigation';
-	import { enableBlog, managers } from '$lib/utils/leagueInfo';
+	import { enableBlog, managers } from '#lib/utils/leagueInfo.js';
 
 	let active = $state(tabs.find(tab => tab.dest == page.url.pathname || (tab.nest && tab.children.find(subTab => subTab.dest == page.url.pathname))));
 
@@ -34,9 +34,12 @@
 		display = !display;
 	}
 
+	// goto() only takes app routes now (SvelteKit 3); "Go to Sleeper" is an external link
+	const goNav = (dest) => (/^https?:/.test(dest) ? (window.location.href = dest) : goto(dest));
+
 	const subGoto = (dest) => {
 		open(false);
-		goto(dest);
+		goNav(dest);
 	}
 
 	let tabChildren = $state([]);

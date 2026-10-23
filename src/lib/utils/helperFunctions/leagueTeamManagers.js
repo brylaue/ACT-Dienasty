@@ -1,10 +1,10 @@
-import { leagueID, managers } from "$lib/utils/leagueInfo";
+import { leagueID, managers } from "#lib/utils/leagueInfo.js";
 import { get } from "svelte/store";
-import { teamManagersStore } from "$lib/stores";
+import { teamManagersStore } from "#lib/stores.js";
 import { waitForAll } from "./multiPromise";
 import { getManagers, getTeamData } from "./universalFunctions";
 import { getLeagueData } from "./leagueData";
-import { retryFetch } from "$lib/utils/errorHandler";
+import { retryFetch } from "#lib/utils/errorHandler.js";
 
 export const getLeagueTeamManagers = async () => {
   if (get(teamManagersStore) && get(teamManagersStore).currentSeason) {
