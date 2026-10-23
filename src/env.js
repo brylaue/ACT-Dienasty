@@ -3,6 +3,7 @@ import { defineEnvVars } from '@sveltejs/kit/env';
 export const variables = defineEnvVars({
 	SLACK_SIGNING_SECRET: { schema: (input) => input ?? '' },
 	GITHUB_DISPATCH_TOKEN: { schema: (input) => input ?? '' },
+	CRON_SECRET: { schema: (input) => input ?? '' },
 	REFRESH_PASSCODE: { schema: (input) => input ?? '' },
 	ASK_PASSCODE: { schema: (input) => input ?? '' },
 	PARLAY_CHANNEL_ID: { schema: (input) => input ?? '' },

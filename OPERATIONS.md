@@ -166,3 +166,12 @@ files). Wait for CI to go green.
 - **Analytics**: `@vercel/analytics/sveltekit` still imports the removed `$app/stores`, so `src/routes/+layout.svelte` injects the framework-agnostic client and reports page views itself. `package.json` has an `overrides` entry because the package's peer range stops at SvelteKit 2; drop both once Vercel ships a SvelteKit 3 build.
 - **Slack webhook** answers immediately and finishes its work with `waitUntil` (adapter-vercel has no `event.platform`).
 - SMUI 9 vendors Material's SCSS: the theme files in `src/theme/` import `@smui/common/...` instead of `@material/...`. `static/smui*.css` are rebuilt by `npm install` (`prepare`).
+
+## Parlay heartbeat (`/api/parlay/tick`)
+
+GitHub's scheduled workflows drift by hours, which can delay the Sunday lock notice. `GET /api/parlay/tick` dispatches `parlay-builder.yml` in `tick` mode (safe - it only does what's due). Call it every 15 minutes from an external clock:
+
+- Needs Vercel env `CRON_SECRET` (any long random string) plus the existing `GITHUB_DISPATCH_TOKEN`; redeploy after adding.
+- **Free pinger (any Vercel plan):** cron-job.org → URL `https://act-dienasty.vercel.app/api/parlay/tick?key=<CRON_SECRET>`, every 15 min.
+- **Vercel Cron (Pro plan only - Hobby allows once a day and would fail the deploy):** add `"crons": [{"path": "/api/parlay/tick", "schedule": "*/15 * * * *"}]` to vercel.json; Vercel sends the secret as a Bearer header itself.
+- The GitHub cron stays as a backup. Missing config returns 503 listing what's absent; a wrong key returns 403.

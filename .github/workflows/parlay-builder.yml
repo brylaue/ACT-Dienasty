@@ -10,6 +10,7 @@ on:
     # nobody took Thursday, so the cron has to run all week. It stops at the
     # league's playoff weeks. Odd minute: on-the-hour crons get delayed.
     - cron: "7,22,37,52 * * * *"   # every 15 min: the pinned board refreshes as legs land, and the lock fires on time wherever it lands
+    # GitHub drifts badly (gaps of hours), so /api/parlay/tick on the site dispatches this same workflow from an external clock - see OPERATIONS.md.
   workflow_dispatch:
     inputs:
       mode:
