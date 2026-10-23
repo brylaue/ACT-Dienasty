@@ -1,9 +1,6 @@
 {
   "compilerOptions": {
-    "moduleResolution": "bundler",
-    "paths": {
-      "$lib/*": ["./src/lib/*"]
-    }
+    "moduleResolution": "bundler"
   },
   "include": ["src/**/*.d.ts", "src/**/*.js", "src/**/*.svelte"]
 }

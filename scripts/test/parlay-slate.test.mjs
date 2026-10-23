@@ -70,6 +70,22 @@ await t("week: after the lock, a later Sunday leg is ignored; before it, it coun
   const before = await S.evaluateWeek({ messages: late, allTeams, teamOfUser, slate, nowMs: thuNight, cache: new Map(), fetchFn: fakeSearch });
   return !after.legs["Dirty Birds"] && !!before.legs["Dirty Birds"];
 });
+await t("week: an ESPN hiccup on a player lookup is retried (not cached forever); a found team is cached for good", async () => {
+  const cache = new Map(); let down = true, calls = 0;
+  const flaky = async (url) => { calls++; return down ? { ok: false } : fakeSearch(url); };
+  const one = [{ ts: String(TNF / 1000 - 3600), user: "B", text: "Gibbs anytime TD" }, { ts: String(TNF / 1000 - 3500), user: "E", text: "Vikings ML" }];
+  const a = await S.evaluateWeek({ messages: one, allTeams, teamOfUser, slate, nowMs: thuNight, cache, fetchFn: flaky });
+  const quick = await S.evaluateWeek({ messages: one, allTeams, teamOfUser, slate, nowMs: thuNight + 60e3, cache, fetchFn: flaky }); // inside the 5-min miss window: no hammering ESPN
+  const callsAfterQuick = calls; down = false;
+  const later = await S.evaluateWeek({ messages: one, allTeams, teamOfUser, slate, nowMs: thuNight + 6 * 60e3, cache, fetchFn: flaky }); // window over, ESPN is back
+  const again = await S.evaluateWeek({ messages: one, allTeams, teamOfUser, slate, nowMs: thuNight + 7 * 60e3, cache, fetchFn: flaky });
+  return iso(a.lockMs) === "2026-10-23T00:00:00.000Z" && callsAfterQuick === 1 && iso(later.lockMs) === "2026-10-25T16:45:00.000Z" && cache.get("gibbs") === "DET" && calls === 2 && iso(again.lockMs) === iso(later.lockMs);
+});
+await t("week: a leg that can't be placed in any game is reported, and holds the lock at the first kickoff", async () => {
+  const m = [{ ts: String(TNF / 1000 - 3600), user: "B", text: "Jared Goff, two passing touchdowns" }, { ts: String(TNF / 1000 - 3500), user: "E", text: "Vikings ML" }];
+  const r = await S.evaluateWeek({ messages: m, allTeams, teamOfUser, slate, nowMs: thuNight, cache: new Map(), fetchFn: async () => ({ ok: true, json: async () => ({ items: [] }) }) });
+  return r.unplaced.length === 1 && r.unplaced[0].leg.startsWith("Jared Goff") && iso(r.lockMs) === "2026-10-23T00:00:00.000Z";
+});
 await t("week: no Thursday leg → lock slides to Sunday 12:45pm", async () => {
   const r = await S.evaluateWeek({ messages: msgs.filter((m) => m.user !== "D"), allTeams, teamOfUser, slate, nowMs: thuNight, cache: new Map(), fetchFn: fakeSearch });
   return iso(r.lockMs) === "2026-10-25T16:45:00.000Z"; // Vikings (1pm slate) and Gibbs/Lions (4pm) → the earliest of those, 12:45pm ET Sunday

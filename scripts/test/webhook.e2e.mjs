@@ -46,13 +46,20 @@ const post = async (body, { sign = true, retry = false } = {}) => {
   writeFileSync(LOG, ""); // each post is judged on its own calls
   const raw = JSON.stringify(body), ts = String(Math.floor(Date.now() / 1000));
   const sig = "v0=" + createHmac("sha256", sign ? SECRET : "wrong").update(`v0:${ts}:${raw}`).digest("hex");
+  const before = done();
   const r = await fetch(`http://127.0.0.1:${PORT}/api/parlay/events`, { method: "POST", headers: { "content-type": "application/json", "x-slack-request-timestamp": ts, "x-slack-signature": sig, ...(retry ? { "x-slack-retry-num": "1" } : {}) }, body: raw });
-  return { status: r.status, text: await r.text() };
+  const out = { status: r.status, text: await r.text() };
+  // The endpoint answers Slack immediately and finishes the work in the background (waitUntil), so wait for
+  // the server's "parlay events:" log line. Requests that do no work (bad signature, retries, bot echoes) never log one.
+  for (let i = 0; i < 60 && done() === before; i++) await new Promise((res) => setTimeout(res, 20));
+  return out;
 };
 const msg = (user, text, extra = {}) => ({ type: "event_callback", authorizations: [{ user_id: SELF }], event: { type: "message", channel: CH, user, text, ts: nowTs(), ...extra } });
 const replies = () => calls().filter((x) => x.method === "chat.postMessage");
 const reacts = (name) => calls().filter((x) => x.method === "reactions.add" && x.body.name === name);
 
+let serverLog = "";
+const done = () => (serverLog.match(/parlay events:/g) || []).length;
 let pass = 0, fail = 0;
 const t = async (name, fn) => { try { if (await fn()) pass++; else { fail++; console.log(`  FAIL ${name}`); } } catch (e) { fail++; console.log(`  FAIL ${name} → ${e.message}`); } };
 
@@ -60,7 +67,6 @@ const server = spawn(process.execPath, [join(root, "node_modules", "vite", "bin"
   cwd: root, stdio: ["ignore", "pipe", "pipe"],
   env: { ...process.env, NODE_OPTIONS: `--import=${join(here, "mock-slack.mjs")}`, PARLAY_MOCK_STATE: STATE, PARLAY_MOCK_LOG: LOG, PARLAY_MOCK_SLATE: join(here, "fixtures", "espn-week7-scoreboard.json"), PARLAY_TEST_SLATE_TTL: "1", SLACK_SIGNING_SECRET: SECRET, SLACK_BOT_TOKEN: "xoxb-e2e", ANTHROPIC_API_KEY: "" },
 });
-let serverLog = "";
 server.stdout.on("data", (d) => { serverLog += d; }); server.stderr.on("data", (d) => { serverLog += d; });
 const exited = new Promise((r) => server.on("exit", r));
 const stop = async () => { try { server.kill("SIGTERM"); } catch { /* already gone */ } await Promise.race([exited, new Promise((r) => setTimeout(r, 3000))]); };

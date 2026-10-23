@@ -98,13 +98,9 @@ _If you've never touched a line of code, use the [Training Wheels Guide](./TRAIN
 
 ## For local developing [npm](https://docs.npmjs.com/getting-started/what-is-npm):
 
-    npm install
+    npm install   (needs Node 24 - see .nvmrc)
     npm run dev --
     npm run dev -- --host (to test on other devices locally)
-
-## For local developing with a container
-
-    npm run docker-run
 
 ## To deploy on [Vercel](https://vercel.com/) for free:
 

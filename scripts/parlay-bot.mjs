@@ -306,7 +306,7 @@ const postedThisWeek = async () => weekFlags((await loadWeek()).messages, deadli
 // ── the live board: a pinned message the bot edits as legs land ──────────
 const renderBoard = (legs, locked) => renderBoardCore({
   legs, allTeams, week: nflWeek, placerName: placer?.name || null, deadlineLabel, deadlineEpochMs: deadline,
-  kickoffLabel: etLabel(deadline + LOCK_LEAD_MS), locked,
+  kickoffLabel: etLabel(deadline + LOCK_LEAD_MS), locked, unplaced: evalCache?.unplaced || [],
 });
 let boardTs = null;
 let boardText = null;

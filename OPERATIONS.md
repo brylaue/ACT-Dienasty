@@ -157,3 +157,12 @@ under `scripts/test/fixtures/` when a new situation bites.
 GitHub web UI → **Add file → Upload files**. Anything under `.github/` must be
 uploaded by **dragging the folder** (single-file upload silently skips workflow
 files). Wait for CI to go green.
+
+## Stack notes (SvelteKit 3)
+
+- **Config lives in `vite.config.js`** (`sveltekit({...})`) - SvelteKit 3 no longer reads `svelte.config.js` (a leftover one fails the build). Node 24 everywhere: `.nvmrc`, `package.json` engines, the Vercel function runtime, and every workflow.
+- **`#lib/…`** replaced `$lib/…` (declared under `imports` in `package.json`; always include the file extension). Env vars come from `src/env.js` via `$app/env/private`; a new secret has to be added there too.
+- **CSRF**: `trustedOrigins: ["*"]` turns off SvelteKit's origin check on purpose - Slack posts form-encoded with no `Origin`, and both Slack endpoints verify Slack's signature instead.
+- **Analytics**: `@vercel/analytics/sveltekit` still imports the removed `$app/stores`, so `src/routes/+layout.svelte` injects the framework-agnostic client and reports page views itself. `package.json` has an `overrides` entry because the package's peer range stops at SvelteKit 2; drop both once Vercel ships a SvelteKit 3 build.
+- **Slack webhook** answers immediately and finishes its work with `waitUntil` (adapter-vercel has no `event.platform`).
+- SMUI 9 vendors Material's SCSS: the theme files in `src/theme/` import `@smui/common/...` instead of `@material/...`. `static/smui*.css` are rebuilt by `npm install` (`prepare`).

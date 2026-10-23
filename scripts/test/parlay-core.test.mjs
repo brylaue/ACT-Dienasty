@@ -240,5 +240,11 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
   t("reopened announcement: new lock, who was rescued, nothing a lock-detector would match", () => /Week 7 is open again/.test(re) && /<@USJRGKTDJ> \*Crab Boilers\* \u2014 Kyren Williams/.test(re) && /Sunday 12:45 PM ET/.test(re) && !/legs are locked/i.test(re) && !core.isBoard(re));
 }
 
+{
+  const b = core.renderBoard({ legs: { Immigrants: { leg: "Jared Goff, two passing TDs" } }, allTeams, week: 7, placerName: "X", deadlineLabel: "Thursday 8 PM ET", locked: false, unplaced: [{ team: "Immigrants", leg: "Jared Goff, two passing TDs" }] });
+  t("board: an unplaceable leg is called out with how to fix it", () => /Can't tell which game "Jared Goff, two passing TDs" \(Immigrants\) is in/.test(b) && /Jared Goff \(DET\)/.test(b));
+  t("board: no note when every leg is placed", () => !/Can't tell which game/.test(core.renderBoard({ legs: {}, allTeams, week: 7, placerName: "X", deadlineLabel: "x", locked: false })));
+}
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

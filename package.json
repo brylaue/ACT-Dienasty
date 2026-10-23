@@ -1,10 +1,10 @@
 {
   "name": "league-page",
   "version": "2.5.1",
-  "homepage": "https://github.com/nmelhado/league-page",
+  "homepage": "https://github.com/brylaue/ACT-Dienasty",
   "repository": {
     "type": "git",
-    "url": "git://github.com/nmelhado/league-page.git"
+    "url": "git+https://github.com/brylaue/ACT-Dienasty.git"
   },
   "author": {
     "name": "Nicholas Melhado",
@@ -34,8 +34,7 @@
     "url": "https://www.buymeacoffee.com/nmelhado"
   },
   "bugs": {
-    "url": "https://github.com/nmelhado/league-page/issues",
-    "email": "n.melhado@gmail.com"
+    "url": "https://github.com/brylaue/ACT-Dienasty/issues"
   },
   "license": "MIT",
   "engines": {
@@ -45,15 +44,10 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "build-docker": "DOCKER_BUILD=true vite build --verbose",
-    "docker-build": "docker build . -t $USER/league-page:latest",
-    "docker-run": "npm run docker-build && docker run -p 3000:3000 $USER/league-page:latest",
     "preview": "vite preview",
     "prepare": "npm run smui-theme-light && npm run smui-theme-dark",
     "smui-theme-light": "smui-theme compile static/smui.css -i src/theme",
     "smui-theme-dark": "smui-theme compile static/smui-dark.css -i src/theme/dark",
-    "lint": "prettier --check --plugin-search-dir=. . && eslint --ignore-path .gitignore .",
-    "format": "prettier --write --plugin-search-dir=. .",
     "test": "node scripts/test/run.mjs",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"
@@ -61,38 +55,42 @@
   "type": "module",
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
-    "@vercel/functions": "^3.9.9",
+    "@vercel/functions": "^3.10.3",
     "contentful": "^11.12.10",
-    "contentful-management": "^12.19.0",
+    "contentful-management": "^12.19.3",
     "fast-xml-parser": "^5.11.2",
     "fuzzyjs": "^5.0.1"
   },
   "devDependencies": {
-    "@smui/button": "^8.0.3",
-    "@smui/data-table": "^8.0.3",
-    "@smui/dialog": "^8.0.3",
-    "@smui/drawer": "^8.0.3",
-    "@smui/icon-button": "^8.0.3",
-    "@smui/linear-progress": "^8.0.3",
-    "@smui/list": "^8.0.3",
-    "@smui/paper": "^8.0.3",
-    "@smui/tab": "^8.0.3",
-    "@smui/tab-bar": "^8.0.3",
-    "@smui/textfield": "^8.0.3",
-    "@sveltejs/adapter-vercel": "^6.3.4",
-    "@sveltejs/kit": "^2.70.3",
+    "@smui/button": "^9.0.6",
+    "@smui/data-table": "^9.0.6",
+    "@smui/dialog": "^9.0.6",
+    "@smui/drawer": "^9.0.6",
+    "@smui/icon-button": "^9.0.6",
+    "@smui/linear-progress": "^9.0.6",
+    "@smui/list": "^9.0.6",
+    "@smui/paper": "^9.0.6",
+    "@smui/tab": "^9.0.6",
+    "@smui/tab-bar": "^9.0.6",
+    "@smui/textfield": "^9.0.6",
+    "@sveltejs/adapter-vercel": "^7.0.1",
+    "@sveltejs/kit": "^3.1.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "@vitest/coverage-v8": "^5.0.3",
-    "eslint": "^10.11.0",
-    "eslint-config-prettier": "^10.0.1",
-    "eslint-plugin-svelte": "^3.23.0",
-    "jsdom": "^30.1.1",
-    "prettier": "^3.9.9",
-    "prettier-plugin-svelte": "^4.1.1",
-    "sass": "^1.93.2",
-    "smui-theme": "^8.0.3",
-    "svelte": "^5.57.1",
-    "vite": "^8.3.1",
-    "vitest": "^5.0.3"
+    "@vitest/coverage-v8": "^5.0.5",
+    "jsdom": "^30.1.3",
+    "sass": "^1.106.1",
+    "smui-theme": "^9.0.6",
+    "svelte": "^5.57.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "@vercel/analytics": {
+      "@sveltejs/kit": "$@sveltejs/kit"
+    }
+  },
+  "imports": {
+    "#lib": "./src/lib/index.js",
+    "#lib/*": "./src/lib/*"
   }
 }
