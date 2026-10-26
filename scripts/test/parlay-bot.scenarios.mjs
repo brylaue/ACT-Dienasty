@@ -101,5 +101,25 @@ check("…and it locks at the real cutoff, with a proper lock notice", out, ["WE
 out = run("tick", "2026-09-25T00:22:00Z", "week3-locked.json"); // no slate: lock time is the Thursday fallback - already passed
 check("a lock that really was due (cutoff already passed) is NOT reopened", out, ["nothing due"], ["open again", "withdrawn"]);
 
+// ── Monday is still last week (MNF): the window must not reset at Monday midnight (the Week 7 re-open, Oct 26) ──
+out = run("tick", "2026-09-28T04:59:00Z", "week3-locked.json", { slate: true }); // Mon 12:59am ET, Week 3 locked Thursday, MNF tonight
+check("Monday after the lock: no second opener, no nag, no new board", out, ["nothing due"], ["Parlay Builder is OPEN", "legs in*", "WEEK 3 BOARD", "opened week"]);
+out = run("tick", "2026-09-28T18:00:00Z", "week3-locked.json"); // Mon 2pm ET, no slate (ESPN down): the fallback window still covers last week
+check("Monday, no slate: still sees the week's lock", out, ["nothing due"], ["Parlay Builder is OPEN", "opened week"]);
+out = run("tick", "2026-09-29T14:30:00Z", "week3-locked.json", { slate: true }); // Tue 10:30am ET, Sleeper hasn't flipped to Week 4 yet
+check("Tuesday before Sleeper flips the week: Week 3 isn't opened again", out, ["nothing due"], ["Parlay Builder is OPEN", "opened week"]);
+
+// the channel as the bug left it: a second opener + empty board + nag after the lock notice
+const dup = JSON.parse(readFileSync(fx("week3-locked.json"), "utf8"));
+const lockTs = Number(dup.messages.find((m) => /legs are locked/.test(m.text)).ts);
+dup.messages = [
+  { ts: (lockTs + 3000).toFixed(6), bot_id: "B0", user: "U0C3B7QEC9M", text: ":alarm_clock: *0/12 legs in* - locks *Monday 8 PM ET*. Still missing:" },
+  { ts: (lockTs + 2000).toFixed(6), bot_id: "B0", user: "U0C3B7QEC9M", text: ":clipboard: *WEEK 3 BOARD — 0/12 legs* · locks Monday 8 PM ET", pinned_to: ["DRY"] },
+  { ts: (lockTs + 1000).toFixed(6), bot_id: "B0", user: "U0C3B7QEC9M", text: ":slot_machine: *Week 3 Parlay Builder is OPEN*" },
+  ...dup.messages];
+const dupFile = join(tmp, "week3-dup.json"); writeFileSync(dupFile, JSON.stringify(dup));
+out = run("tick", "2026-09-28T12:00:00Z", dupFile, { slate: true }); // Mon 8am ET
+check("Monday with the bug's leftovers: deletes the 3 strays, re-pins the slip, posts nothing", out, ["chat.delete", "removed 3 stray post(s) for locked week 3", "pins.add"], ["chat.postMessage", "Parlay Builder is OPEN*"]);
+
 console.log(`parlay-bot scenarios: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

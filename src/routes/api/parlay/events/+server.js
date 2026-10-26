@@ -25,7 +25,7 @@ import {
 
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import managers from "../../../../../static/data/parlay-managers.json";
-import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "#lib/server/parlayCore.js";
+import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "#lib/server/parlayCore.js";
 import { reopenWeek } from "#lib/server/parlayReopen.js";
 import { LOCK_LEAD_MS, analyzeLeg, evaluateWeek, fetchSlate, priceLegs } from "#lib/server/parlaySlate.js";
 
@@ -63,16 +63,8 @@ const slackGet = async (method, params) => {
   return d;
 };
 
-// Monday 00:00 ET of the current week, as a Slack "oldest" ts
-const mondayTs = () => {
-  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const offset = Date.now() - Date.UTC(et.getFullYear(), et.getMonth(), et.getDate(), et.getHours(), et.getMinutes(), et.getSeconds());
-
-  et.setDate(et.getDate() - (et.getDay() + 6) % 7);
-  et.setHours(0, 0, 0, 0);
-
-  return String(Math.floor((Date.UTC(et.getFullYear(), et.getMonth(), et.getDate()) + offset) / 1000));
-};
+// the NFL week's window (Monday 00:00 ET, but a Monday still counts as last week - MNF), as a Slack "oldest" ts
+const mondayTs = (firstKickoffMs = null) => String(Math.floor(nflWeekStartMs(Date.now(), firstKickoffMs) / 1000));
 
 // ESPN slate (kickoffs, byes, DraftKings lines) cached per server instance for 5 min; player->team lookups for the instance's life
 const SLATE_TTL = Number(PARLAY_TEST_SLATE_TTL) || 5 * 60e3; // (the env var is a test hook only)

@@ -36,7 +36,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { boardUnchanged, isBoard, isOpener, isStaleLock, lockNoticeOf, parseBoardHeader, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
+import { boardUnchanged, isBoard, isOpener, isStaleLock, nflWeekStartMs, straysAfterLock, lockNoticeOf, parseBoardHeader, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
 import { reopenWeek } from "../src/lib/server/parlayReopen.js";
 import { LOCK_LEAD_MS, evaluateWeek, fetchSlate, lockTime, parseSlate, priceLegs } from "../src/lib/server/parlaySlate.js";
 
@@ -104,12 +104,14 @@ if (state.season_type !== "regular") { console.log(`NFL ${state.season_type} - t
 const seasonOver = nflWeek >= playoffStart;
 
 // ── the week's real deadline: 15 min before the first game that has a leg ──
-const monday = new Date(etNow); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7)); monday.setHours(0, 0, 0, 0);
-const mondayEpochMs = epochFromET(monday.getFullYear(), monday.getMonth(), monday.getDate(), 0); // Monday 00:00 ET, as epoch
-const thursdayKick = epochFromET(monday.getFullYear(), monday.getMonth(), monday.getDate() + 3, 20, 15); // the usual TNF kickoff, last-resort fallback
 // ESPN's scoreboard: kickoffs, byes and DraftKings game lines. Optional - if
 // it can't be had, the bot still runs (no validation, no odds, simpler deadline).
 const slate = process.env.PARLAY_TEST_SLATE ? parseSlate(JSON.parse(readFileSync(process.env.PARLAY_TEST_SLATE, "utf8"))) : DRY ? null : await fetchSlate(nflWeek); // dry runs stay offline unless a test slate is supplied
+// the NFL week's window starts Monday 00:00 ET - but Monday itself is still last
+// week (MNF), so it's anchored on the week's first kickoff, not the calendar
+const mondayEpochMs = nflWeekStartMs(NOW, slate?.firstKickoffMs);
+const monday = new Date(new Date(mondayEpochMs).toLocaleString("en-US", { timeZone: "America/New_York" })); // that Monday, ET wall time
+const thursdayKick = epochFromET(monday.getFullYear(), monday.getMonth(), monday.getDate() + 3, 20, 15); // the usual TNF kickoff, last-resort fallback
 // Sleeper's own GraphQL scores feed (start_time = epoch ms) is the kickoff fallback when ESPN is down
 let earliestKick = slate?.firstKickoffMs || null;
 if (!earliestKick) {
@@ -172,7 +174,7 @@ const slackGet = async (method, params) => {
     if (method === "bookmarks.list") return { bookmarks: [] };
     if (method === "chat.getPermalink") return { permalink: "https://slack.example/dry" };
     const fx = process.env.PARLAY_TEST_FIXTURE ? JSON.parse(readFileSync(process.env.PARLAY_TEST_FIXTURE, "utf8")) : null; // test-only
-    if (method === "conversations.history") return { messages: fx?.messages || DRY_HISTORY, has_more: false, response_metadata: {} };
+    if (method === "conversations.history") return { messages: (fx?.messages || DRY_HISTORY).filter((m) => !params.oldest || Number(m.ts) >= Number(params.oldest)), has_more: false, response_metadata: {} }; // honours `oldest` like Slack does
     if (method === "conversations.replies") return { messages: Array.isArray(fx?.replies) ? fx.replies : (fx?.replies?.[params.ts] || (fx ? [] : DRY_REPLIES)), has_more: false, response_metadata: {} };
   }
   const qs = new URLSearchParams(params).toString();
@@ -410,10 +412,24 @@ const reopenIfStale = async () => {
   return true;
 };
 
+// clean up opener/board/nag posts that went out for a week that was already
+// locked (see straysAfterLock), and re-pin the week's slip
+const clearStrays = async () => {
+  const { messages } = await loadWeek();
+  const strays = straysAfterLock(messages, nflWeek);
+  if (!strays.length) return false;
+  for (const ts of strays) await slack("chat.delete", { channel: channelID, ts }).catch((e) => console.log(`couldn't delete ${ts}: ${e.message}`));
+  weekCache = null; evalCache = null;
+  const slip = (await loadWeek()).messages.find((m) => m.bot_id && /WEEK \d+ SLIP/.test(m.text || ""));
+  if (slip) await slack("pins.add", { channel: channelID, timestamp: slip.ts }).catch(() => {}); // already_pinned is fine
+  console.log(`removed ${strays.length} stray post(s) for locked week ${nflWeek}`);
+  return true;
+};
+
 // ── modes ─────────────────────────────────────────────────────────────────
 setDeadline((await evalLegs()).lockMs); // the lock follows the legs (earliest game with a leg), so settle it before deciding what's due
 if (MODE === "tick") {
-  if (!seasonOver) await reopenIfStale();
+  if (!seasonOver) { await clearStrays(); await reopenIfStale(); }
   const flags = await postedThisWeek();
   await adoptBoard(flags);
   const now = NOW;

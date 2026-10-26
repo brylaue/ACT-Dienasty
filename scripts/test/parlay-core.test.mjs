@@ -246,5 +246,37 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
   t("board: no note when every leg is placed", () => !/Can't tell which game/.test(core.renderBoard({ legs: {}, allTeams, week: 7, placerName: "X", deadlineLabel: "x", locked: false })));
 }
 
+// ── nflWeekStartMs: Monday 00:00 ET, but a Monday still belongs to last week (MNF) ──
+{
+  const W = core.nflWeekStartMs, mon19 = Date.parse("2026-10-19T04:00:00Z"), mon26 = Date.parse("2026-10-26T04:00:00Z"); // EDT midnights
+  const tnf22 = Date.parse("2026-10-23T00:15:00Z");
+  t("week start: Monday 12:59am ET (the Week 7 re-open) → the PREVIOUS Monday", () => W(Date.parse("2026-10-26T04:59:00Z")) === mon19);
+  t("week start: Monday 8pm ET → previous Monday", () => W(Date.parse("2026-10-27T00:00:00Z")) === mon19);
+  t("week start: Tuesday → this Monday", () => W(Date.parse("2026-10-27T14:00:00Z")) === mon26);
+  t("week start: Sunday → this week's Monday", () => W(Date.parse("2026-10-25T16:00:00Z")) === mon19);
+  t("week start: slate anchor wins (Week 7 slate on Tuesday Oct 27, before Sleeper flips)", () => W(Date.parse("2026-10-27T14:30:00Z"), tnf22) === mon19);
+  t("week start: a stale/odd kickoff far from now is ignored", () => W(Date.parse("2026-10-27T14:30:00Z"), Date.parse("2026-09-10T00:00:00Z")) === mon26);
+  t("week start: EST after DST ends (Mon Nov 9 2026 → Nov 2 05:00Z)", () => W(Date.parse("2026-11-10T03:00:00Z")) === Date.parse("2026-11-02T05:00:00Z"));
+}
+
+// ── straysAfterLock: the Oct 26 duplicate opener/board/nag get cleaned up ──
+{
+  const B = "B1";
+  const lock = { ts: "1792947149.517629", bot_id: B, text: ":lock: *Week 7 legs are locked* — 6/12 in." };
+  const opener = { ts: "1792990792.436449", bot_id: B, text: ":slot_machine: *Week 7 Parlay Builder is OPEN*" };
+  const board = { ts: "1792990792.509229", bot_id: B, text: ":clipboard: *WEEK 7 BOARD — 0/12 legs*" };
+  const nag = { ts: "1792990792.703649", bot_id: B, text: ":alarm_clock: *0/12 legs in* - locks *Monday 8 PM ET*." };
+  const slip = { ts: "1792700000.000100", bot_id: B, text: ":lock: *WEEK 7 SLIP — 6/12 legs*" };
+  const oldOpener = { ts: "1792600000.000100", bot_id: B, text: ":slot_machine: *Week 7 Parlay Builder is OPEN*" };
+  const human = { ts: "1792990800.000100", user: "U1", text: "Week 7 Parlay Builder is OPEN lol" };
+  const msgs = [human, nag, board, opener, lock, slip, oldOpener]; // newest first
+  const got = core.straysAfterLock(msgs, 7);
+  t("strays: the post-lock opener, board and nag are flagged", () => got.length === 3 && got.includes(opener.ts) && got.includes(board.ts) && got.includes(nag.ts));
+  t("strays: never the slip, the real opener, or a human's message", () => !got.includes(slip.ts) && !got.includes(oldOpener.ts) && !got.includes(human.ts));
+  t("strays: none when the week isn't locked", () => core.straysAfterLock([nag, board, opener, slip, oldOpener], 7).length === 0);
+  t("strays: none when the notice was withdrawn (a real reopen)", () => core.straysAfterLock([nag, board, { ...lock, text: ":unlock: _Week 7 lock notice withdrawn - it went out early._" }, slip], 7).length === 0);
+  t("strays: a different week's lock doesn't count", () => core.straysAfterLock(msgs, 8).length === 0);
+}
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

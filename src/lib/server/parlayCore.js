@@ -398,3 +398,37 @@ export const oracleForSlack = (answer, max = 700) => {
   if (t.length > max) t = t.slice(0, max).replace(/\s+\S*$/, "") + " …";
   return `🔮 *The Oracle:* ${t}`;
 };
+
+// ── the NFL week's channel window ────────────────────────────────────────
+// Midnight ET on the Monday that starts an NFL week's betting window, as epoch
+// ms. A calendar week is wrong here: Monday still belongs to the previous NFL
+// week (Monday Night Football), so a Monday-midnight window made the bot lose
+// sight of the week's opener/lock and open the same week again (Week 7, Oct 26).
+// Anchors on the week's first kickoff when the slate is known (exact, even
+// before Sleeper flips its week); otherwise on now. Either way it's the Monday
+// on or before the anchor minus one day, so a Monday maps to the week before.
+export const nflWeekStartMs = (nowMs, firstKickoffMs = null) => {
+  const ref = (firstKickoffMs && Math.abs(firstKickoffMs - nowMs) < 14 * 864e5 ? firstKickoffMs : nowMs) - 864e5;
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "numeric", day: "numeric", weekday: "short" }).formatToParts(new Date(ref)).map((x) => [x.type, x.value]));
+  const back = (["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(p.weekday) + 7) % 7;
+  const utcMidnight = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day) - back);
+  const etHourAt4z = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hourCycle: "h23" }).format(new Date(utcMidnight + 4 * 3600e3)));
+  return utcMidnight + (etHourAt4z === 0 ? 4 : 5) * 3600e3; // EDT midnight = 04:00Z, EST = 05:00Z
+};
+
+// Bot posts that can't be right: an opener, a live (unlocked) board or a nag
+// for a week that is already locked, posted after its lock notice. That's what
+// the Monday-midnight window bug left behind (a second Week 7 opener + empty
+// board + nag on Oct 26). Returns their ts so the bot can delete them. A
+// legitimately reopened week has its notice edited to "withdrawn", so it never
+// matches here.
+export const straysAfterLock = (messages, week) => {
+  const notice = lockNoticeOf(messages);
+  if (!notice || !new RegExp(`Week ${week} legs are locked`, "i").test(notice.text || "")) return [];
+  const after = Number(notice.ts);
+  return (messages || []).filter((m) => m.bot_id && Number(m.ts) > after && (
+    new RegExp(`Week ${week} Parlay Builder is OPEN`).test(m.text || "") ||
+    new RegExp(`WEEK ${week} BOARD`).test(m.text || "") ||
+    /(?:⏰|:alarm_clock:)[^\n]*legs in\b/.test(m.text || "")
+  )).map((m) => m.ts);
+};
