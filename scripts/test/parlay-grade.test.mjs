@@ -67,13 +67,23 @@ await t("leg we can't place → manual", () => g("something weird").status === "
 
 // ── the whole slip ──
 const res = G.gradeSlip(slip, slate, { boxes, playerTeams });
-await t("slip verdict: MISS, busted by the first miss", () => res.verdict === "miss" && res.bustedBy.team === "Title Chase" && res.counts.hit === 3 && res.counts.miss === 3);
+await t("slip verdict: MISS; the 1 PM misses (Henry, Jefferson) broke it, the 4:25 Gibbs miss didn't", () => res.verdict === "miss" && res.counts.hit === 3 && res.counts.miss === 3 && res.breakers.map((l) => l.team).join() === "Title Chase,Dirty Birds" && res.alsoMissed.map((l) => l.team).join() === "Immigrants");
 const txt = G.renderResults(res);
 await t("results post: header + one row per leg", () => G.isResultsPost(txt, 7) && txt.split("\n").length >= 7 && /❌ \*Immigrants\* — Gibbs anytime TD _\(0 TDs\)_/.test(txt));
 await t("results post: Slack's :shortcode: spelling still matches", () => G.isResultsPost(txt.replace("📊", ":bar_chart:"), 7) && !G.isResultsPost(txt, 8));
 await t("sameText: emoji spelling and &amp; don't count as a change", () => G.sameText(txt, txt.replace("📊", ":bar_chart:").replace(/✅/g, ":white_check_mark:").replace(/❌/g, ":x:")) && !G.sameText(txt, txt.replace("0 TDs", "1 TD")));
 const v = G.renderVerdict(res);
-await t("verdict post: MISS names the leg that busted it", () => G.isVerdictPost(v, 7) && /busted by \*Title Chase\*/.test(v));
+await t("verdict post: names who broke it, together, and when", () => G.isVerdictPost(v, 7) && /💥 Broken by \*Title Chase\* \(Derrick Henry 2\+ touchdowns: 0 TDs\) and \*Dirty Birds\* \(Justin Jefferson anytime TD: 0 TDs\) - they went down together in the Sunday 1 PM ET games/.test(v) && /Also missed: Immigrants \(Gibbs anytime TD\)/.test(v));
+await t("results post: 💥 rows say 'broke the parlay'; plain ❌ for later misses", () => /💥 \*Title Chase\* — .*broke the parlay\*/.test(txt) && /❌ \*Immigrants\*/.test(txt) && !/Immigrants.*broke/.test(txt) && /3 ❌ \(💥 Title Chase & Dirty Birds\)/.test(txt));
+await t("breakers read back from a results post (either emoji spelling)", () => G.breakersFromResults(txt.replace(/💥/g, ":boom:")).join() === "Title Chase,Dirty Birds");
+{
+  // the first post named only Jefferson (the Henry game was still going); later the Henry miss lands - Jefferson keeps the blame alone
+  const r2 = G.gradeSlip(slip, slate, { boxes, playerTeams, breakers: ["Dirty Birds"] });
+  await t("a named breaker sticks; later misses go to 'also missed'", () => r2.breakers.map((l) => l.team).join() === "Dirty Birds" && /💥 Broken by \*Dirty Birds\* \(Justin Jefferson anytime TD: 0 TDs\) - the first leg to go down\./.test(G.renderVerdict(r2)) && r2.alsoMissed.length === 2);
+  const s3 = { ...slip, legs: slip.legs.filter((l) => l.team !== "Title Chase" && l.team !== "Dirty Birds") };
+  const r3 = G.gradeSlip(s3, slate, { boxes, playerTeams });
+  await t("a lone miss → 'the first leg to go down'", () => r3.breakers.length === 1 && /Broken by \*Immigrants\*.* - the first leg to go down\./.test(G.renderVerdict(r3)) && !/Also missed/.test(G.renderVerdict(r3)));
+}
 await t("verdict: not HIT while the placer still has picks to make", () => { const s2 = { ...slip, legs: slip.legs.filter((l) => ["Crab Boilers", "The 5th Rounders", "Risky Business"].includes(l.team)) }; const r = G.gradeSlip(s2, slate, { boxes, playerTeams }); return r.verdict === null && /Placer's picks/.test(G.renderResults(r)); });
 await t("verdict: HIT when every leg cashed and nobody was missing", () => { const s2 = { week: 7, placerPicks: [], legs: slip.legs.filter((l) => ["Crab Boilers", "The 5th Rounders", "Risky Business"].includes(l.team)) }; const r = G.gradeSlip(s2, slate, { boxes, playerTeams }); return r.verdict === "hit" && /HIT/.test(G.renderVerdict(r)); });
 

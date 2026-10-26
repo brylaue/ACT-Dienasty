@@ -127,9 +127,9 @@ const gradeEnv = { PARLAY_TEST_ESPN_DIR: gw, PARLAY_TEST_PLAYERS: join(gw, "play
 const w7 = JSON.parse(readFileSync(join(gw, "channel.json"), "utf8"));
 const w7File = (replies) => { const f = join(tmp, `w7-${Math.random().toString(36).slice(2)}.json`); writeFileSync(f, JSON.stringify({ ...w7, replies })); return f; };
 out = run("tick", "2026-10-26T13:00:00Z", w7File([]), { env: { ...gradeEnv, PARLAY_TEST_WEEK: "7" } });
-check("grading: results in the lock thread, then a broadcast MISS naming the leg", out, ["📊 *Week 7 results* · 3 ✅ · 3 ❌", "❌ *Immigrants* — Gibbs anytime TD _(0 TDs)_", "✅ *Risky Business* — Vikings ML #SKOL _(IND 10-16 MIN, final)_", "🏁 *Week 7 parlay: MISS* — busted by *Title Chase*", "(thread + channel) →", "graded week 7: 3 hit, 3 miss"]);
+check("grading: results in the lock thread, then a broadcast MISS naming the leg", out, ["📊 *Week 7 results* · 3 ✅ · 3 ❌ (💥 Title Chase & Dirty Birds)", "❌ *Immigrants* — Gibbs anytime TD _(0 TDs)_", "✅ *Risky Business* — Vikings ML #SKOL _(IND 10-16 MIN, final)_", "🏁 *Week 7 parlay: MISS* — 💥 Broken by *Title Chase*", "💥 *Dirty Birds* — Justin Jefferson anytime TD _(0 TDs)_ — *broke the parlay*", "(thread + channel) →", "graded week 7: 3 hit, 3 miss"]);
 check("after the lock, a Monday tick posts no opener / board / nag (the Oct 26 bug's second path)", out, [], ["Parlay Builder is OPEN", "WEEK 7 BOARD", "legs in*"]);
-const called = [{ ts: "1792990000.000100", bot_id: "B0", user: "U0C3B7QEC9M", text: ":checkered_flag: *Week 7 parlay: MISS* — busted by *Title Chase*" }];
+const called = [{ ts: "1792990000.000100", bot_id: "B0", user: "U0C3B7QEC9M", text: ":checkered_flag: *Week 7 parlay: MISS* — :boom: Broken by *Title Chase*" }];
 out = run("tick", "2026-10-26T14:00:00Z", w7File(called), { env: { ...gradeEnv, PARLAY_TEST_WEEK: "7" } });
 check("grading: once the bot has called it, nothing more", out, [], ["Week 7 results", "parlay: MISS"]);
 const humanCall = [{ ts: "1792990000.000100", user: "UTB8NMCLQ", text: "miss" }];

@@ -134,16 +134,26 @@ export const gradeLeg = (leg, slate, { boxes = {}, playerTeams = {} } = {}) => {
   return { status: res > 0 ? "hit" : res < 0 ? "miss" : "push", note: `${scoreLine(g)} (${line > 0 ? "+" : ""}${line})` };
 };
 
+// The leg(s) that broke the parlay: the first to go down, not just any miss.
+// "First" = the earliest game among the misses; legs that lost in the same
+// kickoff window broke it together. Once a results post has named a breaker
+// (opts.breakers, from the previous post) it sticks, so a later game can't
+// steal the blame.
 export const gradeSlip = (slip, slate, opts = {}) => {
-  const legs = slip.legs.map((l) => ({ ...l, ...gradeLeg(l.leg, slate, opts) }));
+  const legs = slip.legs.map((l) => ({ ...l, ...gradeLeg(l.leg, slate, opts), kickoffMs: analyzeLeg(l.leg, slate, { playerTeams: opts.playerTeams || {} }).game?.kickoffMs ?? Infinity }));
   const count = (s) => legs.filter((l) => l.status === s).length;
-  const miss = legs.find((l) => l.status === "miss") || null;
+  const misses = legs.filter((l) => l.status === "miss");
+  let breakers = misses.filter((l) => (opts.breakers || []).includes(l.team));
+  if (!breakers.length && misses.length) { const first = Math.min(...misses.map((l) => l.kickoffMs)); breakers = misses.filter((l) => l.kickoffMs === first); }
+  for (const l of breakers) l.broke = true;
   const allDecided = legs.every((l) => ["hit", "push"].includes(l.status));
-  const verdict = miss ? "miss" : allDecided && !slip.placerPicks.length && legs.length ? "hit" : null;
-  return { week: slip.week, legs, placerPicks: slip.placerPicks, verdict, bustedBy: miss, counts: { hit: count("hit"), miss: count("miss"), push: count("push"), pending: count("pending"), manual: count("manual") } };
+  const verdict = misses.length ? "miss" : allDecided && !slip.placerPicks.length && legs.length ? "hit" : null;
+  return { week: slip.week, legs, placerPicks: slip.placerPicks, verdict, breakers, alsoMissed: misses.filter((l) => !l.broke), bustedBy: breakers[0] || null, counts: { hit: count("hit"), miss: count("miss"), push: count("push"), pending: count("pending"), manual: count("manual") } };
 };
+// teams a previous results post marked 💥 (Slack may spell it :boom:)
+export const breakersFromResults = (text) => [...String(text || "").matchAll(/^(?:💥|:boom:) \*(.+?)\* — /gm)].map((m) => m[1]);
 
-const ICON = { hit: "✅", miss: "❌", push: "➖", pending: "⏳", manual: "❓" };
+const ICON = { broke: "💥", hit: "✅", miss: "❌", push: "➖", pending: "⏳", manual: "❓" };
 // Slack stores emoji as :shortcodes: in message text, so match either spelling
 export const isResultsPost = (text, week) => new RegExp(`^(?:📊|:bar_chart:) \\*Week ${week} results\\*`).test(String(text || ""));
 export const isVerdictPost = (text, week) => new RegExp(`(?:🏁|:checkered_flag:) \\*Week ${week} parlay: (?:HIT|MISS)\\*`).test(String(text || ""));
@@ -154,13 +164,20 @@ export const sameText = (a, b) => {
 };
 
 export const renderResults = (r) => {
-  const c = r.counts, bits = [`${c.hit} ✅`, c.miss && `${c.miss} ❌`, c.push && `${c.push} ➖`, c.pending && `${c.pending} ⏳`, c.manual && `${c.manual} ❓`].filter(Boolean);
-  const rows = r.legs.map((l) => `${ICON[l.status]} *${l.team}* — ${l.leg} _(${l.note})_`).join("\n");
+  const c = r.counts, bits = [`${c.hit} ✅`, c.miss && `${c.miss} ❌${r.breakers.length ? ` (💥 ${r.breakers.map((l) => l.team).join(" & ")})` : ""}`, c.push && `${c.push} ➖`, c.pending && `${c.pending} ⏳`, c.manual && `${c.manual} ❓`].filter(Boolean);
+  const rows = r.legs.map((l) => `${ICON[l.broke ? "broke" : l.status]} *${l.team}* — ${l.leg} _(${l.note})_${l.broke ? " — *broke the parlay*" : ""}`).join("\n");
   const tail = [];
   if (c.manual) tail.push("_❓ = the bot can't grade it - reply *hit* or *miss* if it decides the parlay._");
   if (r.placerPicks.length && r.verdict !== "miss") tail.push(`_Placer's picks for ${r.placerPicks.join(", ")} aren't on the slip - placer, reply *hit* or *miss* when they settle._`);
   return `📊 *Week ${r.week} results* · ${bits.join(" · ")}${r.verdict ? ` · parlay *${r.verdict.toUpperCase()}*` : ""}\n${rows}${tail.length ? `\n${tail.join("\n")}` : ""}`;
 };
-export const renderVerdict = (r) => (r.verdict === "hit"
-  ? `🏁 *Week ${r.week} parlay: HIT* 🎉 — all ${r.legs.length} legs cashed. Somebody check that the bet was actually placed.`
-  : `🏁 *Week ${r.week} parlay: MISS* — busted by *${r.bustedBy.team}* (${r.bustedBy.leg}: ${r.bustedBy.note}). ${["Next week.", "There's always next week.", "The books thank you for your business."][r.week % 3]}`);
+const names = (ls) => ls.map((l) => `*${l.team}* (${l.leg}: ${l.note})`);
+const joinAnd = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}` : xs[0]);
+export const renderVerdict = (r) => {
+  if (r.verdict === "hit") return `🏁 *Week ${r.week} parlay: HIT* 🎉 — all ${r.legs.length} legs cashed. Somebody check that the bet was actually placed.`;
+  const b = r.breakers, together = b.length > 1;
+  const slot = together && Number.isFinite(b[0].kickoffMs) ? ` in the ${new Date(b[0].kickoffMs).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "long", hour: "numeric", minute: "2-digit" }).replace(":00", "")} ET games` : "";
+  const head = together ? `💥 Broken by ${joinAnd(names(b))} - they went down together${slot}.` : `💥 Broken by ${names(b)[0]} - the first leg to go down.`;
+  const also = r.alsoMissed.length ? ` Also missed: ${r.alsoMissed.map((l) => `${l.team} (${l.leg})`).join(", ")}.` : "";
+  return `🏁 *Week ${r.week} parlay: MISS* — ${head}${also} ${["Next week.", "There's always next week.", "The books thank you for your business."][r.week % 3]}`;
+};

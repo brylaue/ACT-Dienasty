@@ -40,7 +40,7 @@ import { boardUnchanged, parlayResultFromText, isBoard, isOpener, isStaleLock, n
 import { reopenWeek } from "../src/lib/server/parlayReopen.js";
 import { LOCK_LEAD_MS, evaluateWeek, fetchSlate, lockTime, parseSlate, playerNameOf, priceLegs, resolvePlayerTeam } from "../src/lib/server/parlaySlate.js";
 import { pricePropLegs, pricesFromBoard } from "../src/lib/server/parlayProps.js";
-import { fetchBox, gradeSlip, isResultsPost, isVerdictPost, parseBox, parseSlipNotice, renderResults, renderVerdict, sameText } from "../src/lib/server/parlayGrade.js";
+import { fetchBox, gradeSlip, isResultsPost, isVerdictPost, breakersFromResults, parseBox, parseSlipNotice, renderResults, renderVerdict, sameText } from "../src/lib/server/parlayGrade.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MODE = process.argv[2];
@@ -481,10 +481,10 @@ const gradeSlips = async () => {
       if (!slip.legs.some(({ leg }) => { const n = playerNameOf(leg, wk); return n && [g.home.abbr, g.away.abbr].includes(playerTeams[n.toLowerCase()]); })) continue;
       boxes[g.id] = DRY ? (espnFile(`summary-${g.id}.json`) ? parseBox(espnFile(`summary-${g.id}.json`)) : null) : await fetchBox(g.id);
     }
-    const r = gradeSlip(slip, wk, { boxes, playerTeams });
+    const prev = thread.find((x) => x.bot_id && isResultsPost(x.text, slip.week));
+    const r = gradeSlip(slip, wk, { boxes, playerTeams, breakers: breakersFromResults(prev?.text) }); // whoever was named as breaking it first stays named
     if (r.counts.pending === r.legs.length) { console.log(`grading week ${slip.week}: nothing has kicked off`); continue; }
     const text = renderResults(r);
-    const prev = thread.find((x) => x.bot_id && isResultsPost(x.text, slip.week));
     if (!prev) await slack("chat.postMessage", { channel: channelID, thread_ts: notice.ts, text });
     else if (!sameText(prev.text, text)) await slack("chat.update", { channel: channelID, ts: prev.ts, text });
     const called = thread.some((x) => !x.bot_id && parlayResultFromText(x.text)); // a manager already said hit/miss
