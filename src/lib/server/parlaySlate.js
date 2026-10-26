@@ -42,7 +42,8 @@ export const parseSlate = (sb) => {
       const ov = o.total?.over?.close, un = o.total?.under?.close;
       if (ov?.line != null) lines.total = { line: num(ov.line), over: num(ov.odds), under: num(un?.odds) };
     }
-    games.push({ id: e.id, kickoffMs: Date.parse(e.date), state: e.status?.type?.state || "pre", home, away, lines });
+    const score = { [home.abbr]: Number(homeC.score) || 0, [away.abbr]: Number(awayC.score) || 0 }; // live/final points (0-0 before kickoff)
+    games.push({ id: e.id, kickoffMs: Date.parse(e.date), state: e.status?.type?.state || "pre", final: !!e.status?.type?.completed, score, home, away, lines });
   }
   const byes = new Set();
   for (const t of sb.week?.teamsOnBye || []) { const tt = team(t); teams[tt.abbr] = tt; byes.add(tt.abbr); }

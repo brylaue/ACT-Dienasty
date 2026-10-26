@@ -25,11 +25,11 @@ const fixtureWith = (base, extra) => { // the Tuesday channel + extra top-level 
   const f = JSON.parse(readFileSync(fx(base), "utf8")); f.messages = [...extra, ...f.messages];
   const file = join(tmp, `${base}-${extra.length}-${Math.abs(extra[0]?.ts.length || 0)}-${Math.floor(Math.random() * 1e6)}.json`); writeFileSync(file, JSON.stringify(f)); return file;
 };
-const run = (mode, when, fixture, { slate = false } = {}) => {
+const run = (mode, when, fixture, { slate = false, env = {} } = {}) => {
   const r = spawnSync("node", [join(root, "scripts/parlay-bot.mjs"), mode, "--dry"], {
     // the fixtures are Week 3 of 2026: pin the week so the suite doesn't drift as the season advances.
     // No-slate runs also pin the kickoff (Thu 8:15pm ET) so the 8:00pm lock fallback never depends on the network.
-    env: { ...process.env, PARLAY_TEST_NOW: at(when), PARLAY_TEST_FIXTURE: fixture.includes("/") ? fixture : fx(fixture), PARLAY_TEST_WEEK: "3", PARLAY_TEST_KICKOFF: "2026-09-25T00:15:00Z", PARLAY_TEST_PLAYERS: playersFile, ...(slate ? { PARLAY_TEST_SLATE: slateFile } : {}) }, encoding: "utf8", timeout: 90000,
+    env: { ...process.env, PARLAY_TEST_NOW: at(when), PARLAY_TEST_FIXTURE: fixture.includes("/") ? fixture : fx(fixture), PARLAY_TEST_WEEK: "3", PARLAY_TEST_KICKOFF: "2026-09-25T00:15:00Z", PARLAY_TEST_PLAYERS: playersFile, ...(slate ? { PARLAY_TEST_SLATE: slateFile } : {}), ...env }, encoding: "utf8", timeout: 90000,
   });
   return (r.stdout || "") + (r.stderr || "");
 };
@@ -120,6 +120,34 @@ dup.messages = [
 const dupFile = join(tmp, "week3-dup.json"); writeFileSync(dupFile, JSON.stringify(dup));
 out = run("tick", "2026-09-28T12:00:00Z", dupFile, { slate: true }); // Mon 8am ET
 check("Monday with the bug's leftovers: deletes the 3 strays, re-pins the slip, posts nothing", out, ["chat.delete", "removed 3 stray post(s) for locked week 3", "pins.add"], ["chat.postMessage", "Parlay Builder is OPEN*"]);
+
+// ── grading the slip (real ESPN Week 7 data: fixtures/grade-w7) ──
+const gw = fx("grade-w7");
+const gradeEnv = { PARLAY_TEST_ESPN_DIR: gw, PARLAY_TEST_PLAYERS: join(gw, "players.json") };
+const w7 = JSON.parse(readFileSync(join(gw, "channel.json"), "utf8"));
+const w7File = (replies) => { const f = join(tmp, `w7-${Math.random().toString(36).slice(2)}.json`); writeFileSync(f, JSON.stringify({ ...w7, replies })); return f; };
+out = run("tick", "2026-10-26T13:00:00Z", w7File([]), { env: { ...gradeEnv, PARLAY_TEST_WEEK: "7" } });
+check("grading: results in the lock thread, then a broadcast MISS naming the leg", out, ["📊 *Week 7 results* · 3 ✅ · 3 ❌", "❌ *Immigrants* — Gibbs anytime TD _(0 TDs)_", "✅ *Risky Business* — Vikings ML #SKOL _(IND 10-16 MIN, final)_", "🏁 *Week 7 parlay: MISS* — busted by *Title Chase*", "(thread + channel) →", "graded week 7: 3 hit, 3 miss"]);
+check("after the lock, a Monday tick posts no opener / board / nag (the Oct 26 bug's second path)", out, [], ["Parlay Builder is OPEN", "WEEK 7 BOARD", "legs in*"]);
+const called = [{ ts: "1792990000.000100", bot_id: "B0", user: "U0C3B7QEC9M", text: ":checkered_flag: *Week 7 parlay: MISS* — busted by *Title Chase*" }];
+out = run("tick", "2026-10-26T14:00:00Z", w7File(called), { env: { ...gradeEnv, PARLAY_TEST_WEEK: "7" } });
+check("grading: once the bot has called it, nothing more", out, [], ["Week 7 results", "parlay: MISS"]);
+const humanCall = [{ ts: "1792990000.000100", user: "UTB8NMCLQ", text: "miss" }];
+out = run("tick", "2026-10-26T14:00:00Z", w7File(humanCall), { env: { ...gradeEnv, PARLAY_TEST_WEEK: "7" } });
+check("grading: a manager already said miss → results posted, no second verdict", out, ["Week 7 results"], ["parlay: MISS*"]);
+
+// ── prop prices from The Odds API (fixture files; the Week 3 slate's NYJ game) ──
+{
+  const oddsDir = mkdtempSync(join(tmpdir(), "odds-")); const g = slate3.events.find((e) => e.competitions[0].competitors.some((c) => c.team.abbreviation === "NYJ"));
+  const home = g.competitions[0].competitors.find((c) => c.homeAway === "home").team, away = g.competitions[0].competitors.find((c) => c.homeAway === "away").team;
+  writeFileSync(join(oddsDir, "events.json"), JSON.stringify([{ id: "nyj1", home_team: home.displayName, away_team: away.displayName, commence_time: g.date }]));
+  writeFileSync(join(oddsDir, "event-nyj1.json"), JSON.stringify({ id: "nyj1", bookmakers: [{ key: "draftkings", markets: [{ key: "player_anytime_td", outcomes: [{ name: "Yes", description: "Garrett Wilson", price: 135 }] }] }] }));
+  const oddsEnv = { PARLAY_TEST_ODDS_DIR: oddsDir, PARLAY_TEST_ODDS_KEY: "test" };
+  out = run("tick", "2026-09-23T14:00:00Z", "week3-tuesday.json", { slate: true, env: oddsEnv });
+  check("props: Garrett Wilson anytime TD priced from DraftKings via The Odds API, counted in the parlay price", out, ["Garrett Wilson anytime TD (+135)", "odds api GET", "2 of 4 legs priced"], ["Garrett Wilson anytime TD (n/a)"]);
+  out = run("tick", "2026-09-23T14:00:00Z", "week3-tuesday.json", { slate: true });
+  check("props: no key → n/a as before, no API calls", out, ["Garrett Wilson anytime TD (n/a)"], ["odds api GET"]);
+}
 
 console.log(`parlay-bot scenarios: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

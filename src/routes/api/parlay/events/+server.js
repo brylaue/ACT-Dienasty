@@ -20,13 +20,15 @@ import {
   SLACK_BOT_TOKEN,
   PARLAY_TEST_SLATE_TTL,
   ANTHROPIC_API_KEY,
-  ANTHROPIC_MODEL
+  ANTHROPIC_MODEL,
+  ODDS_API_KEY,
 } from "$app/env/private";
 
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import managers from "../../../../../static/data/parlay-managers.json";
 import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "#lib/server/parlayCore.js";
 import { reopenWeek } from "#lib/server/parlayReopen.js";
+import { pricePropLegs, pricesFromBoard } from "#lib/server/parlayProps.js";
 import { LOCK_LEAD_MS, analyzeLeg, evaluateWeek, fetchSlate, priceLegs } from "#lib/server/parlaySlate.js";
 
 export const config = { maxDuration: 60 }; // an Oracle hand-off can take 10-20s
@@ -132,7 +134,11 @@ const loadWeek = async () => {
   const notice = lockNoticeOf(messages);
   const stale = isStaleLock({ notice, header, lockMs: ev.lockMs, nowMs: Date.now() });
   const locked = !stale && (lockNotice || (board ? isLockedBoard(board.text) : false)); // the week's slip is final
-  const legs = priceLegs(ev.legs, slate, ev.playerTeams);
+  // prop prices (The Odds API): only legs not already priced on the board cost a call; a locked slip never re-prices
+  const legs = locked ? priceLegs(ev.legs, slate, ev.playerTeams) : await pricePropLegs(priceLegs(ev.legs, slate, ev.playerTeams), {
+    slate, playerTeams: ev.playerTeams, prior: pricesFromBoard(board?.text), apiKey: ODDS_API_KEY, log: (m) => console.log(`parlay events: ${m}`),
+  });
+  if (locked) for (const [t, p] of Object.entries(pricesFromBoard(board?.text))) if (legs[t] && legs[t].odds == null && legs[t].leg === p.leg && p.tag !== "n/a") legs[t].odds = p.tag === "no line" ? "noline" : Number(p.tag.replace("−", "-")); // keep the slip's frozen prices
 
   const checkLeg = (leg) => slate
     ? analyzeLeg(leg, slate, { playerTeams: ev.playerTeams, atMs: Date.now() }).reason

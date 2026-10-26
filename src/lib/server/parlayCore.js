@@ -69,7 +69,7 @@ export const collectLegs = (args) => collectLegsDetailed(args).legs;
 // ── odds (American) ────────────────────────────────────────────────────────
 export const americanToDecimal = (a) => (a > 0 ? 1 + a / 100 : 1 + 100 / Math.abs(a));
 export const decimalToAmerican = (d) => (d >= 2 ? Math.round((d - 1) * 100) : Math.round(-100 / (d - 1)));
-export const fmtAmerican = (a) => (a == null ? "n/a" : a > 0 ? `+${a}` : `${a}`);
+export const fmtAmerican = (a) => (a === "noline" ? "no line" : a == null ? "n/a" : a > 0 ? `+${a}` : `${a}`); // "noline": a prop the books have not posted yet
 // combined price of every leg we could price; unpriced legs are left out, and the caller says so
 export const parlayOdds = (prices) => {
   const priced = prices.filter((p) => p != null && Number.isFinite(p) && p !== 0);
@@ -83,8 +83,8 @@ const oddsFooter = (legs, teams) => {
   const mine = teams.filter((t) => legs[t]).map((t) => legs[t]);
   if (!mine.length || mine.every((v) => v.odds === undefined)) return "";
   const p = parlayOdds(mine.map((v) => v.odds));
-  if (!p) return "\n_Odds: DraftKings game lines only - none of these legs has one (props aren't priced)._";
-  return `\n_Est. parlay at DraftKings: *${fmtAmerican(p.american)}* (${p.priced} of ${p.total} legs priced - player props have no price feed, so they're left out)._`;
+  if (!p) return "\n_Odds: no prices yet for these legs._";
+  return `\n_Est. parlay at DraftKings: *${fmtAmerican(p.american)}*${p.priced === p.total ? ` (all ${p.total} legs priced)` : ` (${p.priced} of ${p.total} legs priced - the rest are left out)`}._`;
 };
 
 export const isOpener = (text) => /Parlay Builder is OPEN/.test(text || "");
@@ -262,6 +262,7 @@ export const parlayResultFromText = (text) => {
 // opener; the latest verdict from a known manager inside that window -
 // a reply in the notice's thread, or a short top-level post - is the result.
 // repliesFor(ts) → thread replies for that notice.
+const BOT_VERDICT = /(?:🏁|:checkered_flag:) \*Week \d+ parlay: (HIT|MISS)\*/; // the bot's own call (parlayGrade.renderVerdict)
 export const seasonRecord = ({ messages, teamOfUser, repliesByTs = {}, seed = {} }) => {
   const asc = [...messages].sort((a, b) => Number(a.ts) - Number(b.ts));
   const locks = asc.filter((m) => m.bot_id && /Week (\d+) legs are locked/i.test(m.text || "")).map((m) => ({ week: Number((m.text || "").match(/Week (\d+) legs are locked/i)[1]), ts: Number(m.ts), raw: m.ts }));
@@ -272,9 +273,9 @@ export const seasonRecord = ({ messages, teamOfUser, repliesByTs = {}, seed = {}
     const candidates = [
       ...(repliesByTs[lock.raw] || []),
       ...asc.filter((m) => Number(m.ts) > lock.ts && Number(m.ts) < end && !m.bot_id && String(m.text || "").length <= 40),
-    ].filter((m) => teamOfUser(m.user)).sort((a, b) => Number(a.ts) - Number(b.ts));
-    let result = null;
-    for (const m of candidates) { const r = parlayResultFromText(m.text); if (r) result = r; }
+    ].filter((m) => teamOfUser(m.user) || (m.bot_id && BOT_VERDICT.test(m.text || ""))).sort((a, b) => Number(a.ts) - Number(b.ts));
+    let result = null; // latest wins: a manager's reply after the bot's call overrides it
+    for (const m of candidates) { const b = (m.text || "").match(BOT_VERDICT); const r = b ? b[1].toLowerCase() : parlayResultFromText(m.text); if (r) result = r; }
     byWeek.push({ week: lock.week, result });
   }
   // weeks the bot didn't witness (before it existed) come from the curated seed
@@ -297,7 +298,8 @@ export const PARLAY_RULES = `How the Parlay Builder works:
 - The ✅ on a message means "this is the leg that counts". No ✅ = not registered (wrong wording, unknown account, or it read like chat).
 - Deadline: 15 minutes before the kickoff of the earliest game that has a leg in it (Thursday night's game if anyone has it; otherwise the next game up). Legs lock then; the pinned board becomes the final slip.
 - Legs must be playable: a team on a bye, or a game that's about to start, gets a ⚠️ instead of a ✅ and doesn't count.
-- Odds: each leg on the board shows its DraftKings price (spread / total / moneyline) with an estimated combined parlay price. Player props have no price feed, so they show n/a.
+- Odds: each leg on the board shows its DraftKings price - game lines (spread / total / moneyline) and player props (anytime TD, 2+ TDs, passing TDs, yards, catches) - with an estimated combined parlay price. A prop the books haven't posted yet shows "no line" and is re-checked at the lock.
+- Results: after the lock the bot grades each leg as its game finishes (in the lock notice's thread) and calls the parlay HIT or MISS itself. The placer's picks for missing teams still need a hit/miss reply.
 - Missed the deadline: the placer picks your leg for you, no appeals. A bet posted after the lock gets a 🔒 instead of a ✅ and doesn't count; the bot asks the placer whether the parlay is already set.
 - Placer: the team with the lowest score the previous week places the bet and posts the slip screenshot.
 - Results: after it settles, reply "hit" or "miss" under the lock notice; the bot keeps the season record and shows it in each opener.

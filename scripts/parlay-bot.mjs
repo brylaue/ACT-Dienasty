@@ -36,9 +36,11 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { boardUnchanged, isBoard, isOpener, isStaleLock, nflWeekStartMs, straysAfterLock, lockNoticeOf, parseBoardHeader, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
+import { boardUnchanged, parlayResultFromText, isBoard, isOpener, isStaleLock, nflWeekStartMs, straysAfterLock, lockNoticeOf, parseBoardHeader, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
 import { reopenWeek } from "../src/lib/server/parlayReopen.js";
-import { LOCK_LEAD_MS, evaluateWeek, fetchSlate, lockTime, parseSlate, priceLegs } from "../src/lib/server/parlaySlate.js";
+import { LOCK_LEAD_MS, evaluateWeek, fetchSlate, lockTime, parseSlate, playerNameOf, priceLegs, resolvePlayerTeam } from "../src/lib/server/parlaySlate.js";
+import { pricePropLegs, pricesFromBoard } from "../src/lib/server/parlayProps.js";
+import { fetchBox, gradeSlip, isResultsPost, isVerdictPost, parseBox, parseSlipNotice, renderResults, renderVerdict, sameText } from "../src/lib/server/parlayGrade.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MODE = process.argv[2];
@@ -158,7 +160,7 @@ const DRY_REPLIES = [
   { ts: "1.3", text: "Garrett Wilson Anytime TD - free money", user: "URQFMR589" },
 ];
 const slack = async (method, payload) => {
-  if (DRY) { console.log(`\n[dry] ${method} →\n${payload.text || JSON.stringify(payload)}`); return { ts: "0" }; }
+  if (DRY) { console.log(`\n[dry] ${method}${payload.thread_ts ? ` (thread${payload.reply_broadcast ? " + channel" : ""})` : ""} →\n${payload.text || JSON.stringify(payload)}`); return { ts: "0" }; }
   const r = await fetch(`https://slack.com/api/${method}`, {
     method: "POST",
     headers: { "content-type": "application/json; charset=utf-8", authorization: `Bearer ${TOKEN}` },
@@ -253,10 +255,21 @@ const evalLegs = async () => {
   evalCache = await evaluateWeek({ messages, replies, allTeams, teamOfUser: teamOfUserFn, slate, nowMs: NOW, cache: playerCache });
   return evalCache;
 };
-const readLegs = async () => {
+// player-prop prices (The Odds API, free tier). Priced once when a leg lands and carried in the
+// board's text after that; "(no line)" props are re-asked at the lock and in one tick a day (~10am ET).
+const ODDS_API_KEY = DRY ? (process.env.PARLAY_TEST_ODDS_KEY || "") : (process.env.ODDS_API_KEY || "");
+const dailyRetry = etNow.getHours() === 10 && etNow.getMinutes() < 15;
+let legsCache = {};
+const readLegs = async ({ retryProps = dailyRetry } = {}) => {
+  if (legsCache[retryProps]) return legsCache[retryProps];
   const { messages, replies } = await loadWeek();
   const ev = await evalLegs();
-  const legs = priceLegs(ev.legs, slate, ev.playerTeams); // { team: { leg, ts, msg, odds } } - odds only when we have a slate
+  const board = weekFlags(messages, deadline).board;
+  const legs = await pricePropLegs(priceLegs(ev.legs, slate, ev.playerTeams), { // { team: { leg, ts, msg, odds } } - odds only when we have a slate
+    slate, playerTeams: ev.playerTeams, prior: pricesFromBoard(board?.text), apiKey: ODDS_API_KEY, retry: retryProps, nowMs: NOW,
+    fetchFn: DRY && process.env.PARLAY_TEST_ODDS_DIR ? testOddsFetch : fetch, log: (m) => console.log(m),
+  });
+  legsCache[retryProps] = legs;
   const plan = reactionPlan({ messages, replies, legs, selfUserId, rejected: ev.rejected });
   let reactHint = false;
   const react = async (method, ts, name = "white_check_mark") => {
@@ -272,6 +285,13 @@ const readLegs = async () => {
   }
   if (reactHint) console.log("Can't ✅ legs: add the reactions:write scope to the Slack app and reinstall it.");
   return legs;
+};
+// test only: The Odds API from files (events.json, event-<id>.json)
+const testOddsFetch = async (url) => {
+  const dir = process.env.PARLAY_TEST_ODDS_DIR, id = url.match(/events\/([^/?]+)\/odds/)?.[1];
+  console.log(`odds api GET ${url.replace(/apiKey=[^&]+/, "apiKey=***")}`);
+  const body = JSON.parse(readFileSync(join(dir, id ? `event-${id}.json` : "events.json"), "utf8"));
+  return { ok: true, headers: { get: (h) => (h === "x-requests-remaining" ? "480" : null) }, json: async () => body };
 };
 
 // ── season parlay record: "Week N legs are locked" notices + the hit/miss
@@ -381,7 +401,7 @@ const postNag = async () => {
   console.log(`nagged; ${missing.length} team(s) missing`);
 };
 const postSlip = async () => {
-  const legs = await readLegs();
+  const legs = await readLegs({ retryProps: true }); // last chance to price props the books posted late
   const inCount = Object.keys(legs).length;
   const missing = allTeams.filter((t) => !legs[t]);
   await updateBoard(legs, true); // the pinned board becomes the final slip
@@ -408,7 +428,7 @@ const reopenIfStale = async () => {
   if (!isStaleLock({ notice, header: f.board ? parseBoardHeader(f.board.text) : null, lockMs: ev.lockMs, nowMs: NOW })) return false;
   const legs = await readLegs();
   console.log(await reopenWeek({ slack, slackGet, channel: channelID, week: nflWeek, notice, messages, legs, lockLabel: etLabel(ev.lockMs), boardTs: f.board?.ts || null }));
-  weekCache = null; evalCache = null; // re-read the channel: the notice no longer says "locked"
+  weekCache = null; evalCache = null; legsCache = {}; // re-read the channel: the notice no longer says "locked"
   return true;
 };
 
@@ -419,16 +439,64 @@ const clearStrays = async () => {
   const strays = straysAfterLock(messages, nflWeek);
   if (!strays.length) return false;
   for (const ts of strays) await slack("chat.delete", { channel: channelID, ts }).catch((e) => console.log(`couldn't delete ${ts}: ${e.message}`));
-  weekCache = null; evalCache = null;
+  weekCache = null; evalCache = null; legsCache = {};
   const slip = (await loadWeek()).messages.find((m) => m.bot_id && /WEEK \d+ SLIP/.test(m.text || ""));
   if (slip) await slack("pins.add", { channel: channelID, timestamp: slip.ts }).catch(() => {}); // already_pinned is fine
   console.log(`removed ${strays.length} stray post(s) for locked week ${nflWeek}`);
   return true;
 };
 
+// ── grading: as games finish, grade each recent slip in its lock notice's thread ──
+// One results reply per week, edited as legs settle; then a 🏁 HIT/MISS reply,
+// also sent to the channel, which the season record counts. Works off the lock
+// notice's own text, so it doesn't care which NFL week Sleeper is on now.
+const espnFile = (name) => { const dir = process.env.PARLAY_TEST_ESPN_DIR; if (!dir) return null; try { return JSON.parse(readFileSync(join(dir, name), "utf8")); } catch { return null; } }; // test only
+const weekSlate = async (week) => (DRY ? (espnFile(`scoreboard-w${week}.json`) ? parseSlate(espnFile(`scoreboard-w${week}.json`)) : null) : await fetchSlate(week));
+const gradeSlips = async () => {
+  const oldest = String(Math.floor((NOW - 10 * 864e5) / 1000));
+  const msgs = [];
+  for (let cursor = ""; ;) {
+    const d = await slackGet("conversations.history", { channel: channelID, oldest, limit: 200, cursor });
+    msgs.push(...(d.messages || []));
+    cursor = d.response_metadata?.next_cursor;
+    if (!cursor || !d.has_more) break;
+  }
+  for (const notice of msgs.filter((m) => m.bot_id && /Week \d+ legs are locked/i.test(m.text || ""))) {
+    const slip = parseSlipNotice(notice.text);
+    if (!slip?.legs.length) continue;
+    const thread = notice.reply_count || DRY ? ((await slackGet("conversations.replies", { channel: channelID, ts: notice.ts, limit: 200 }).catch(() => ({}))).messages || []).filter((r) => r.ts !== notice.ts) : [];
+    if (thread.some((r) => r.bot_id && isVerdictPost(r.text, slip.week))) continue; // already called
+    const wk = await weekSlate(slip.week);
+    if (!wk) { console.log(`grading week ${slip.week}: no ESPN scoreboard`); continue; }
+    const playerTeams = {};
+    for (const { leg } of slip.legs) {
+      const n = playerNameOf(leg, wk)?.toLowerCase();
+      if (!n) continue;
+      if (!playerCache.has(n) && !DRY) { const abbr = await resolvePlayerTeam(n.replace(/\b\w/g, (c) => c.toUpperCase())); if (abbr) playerCache.set(n, abbr); }
+      playerTeams[n] = playerCache.get(n) ?? null;
+    }
+    const boxes = {};
+    for (const g of wk.games) {
+      if (g.state === "pre") continue;
+      if (!slip.legs.some(({ leg }) => { const n = playerNameOf(leg, wk); return n && [g.home.abbr, g.away.abbr].includes(playerTeams[n.toLowerCase()]); })) continue;
+      boxes[g.id] = DRY ? (espnFile(`summary-${g.id}.json`) ? parseBox(espnFile(`summary-${g.id}.json`)) : null) : await fetchBox(g.id);
+    }
+    const r = gradeSlip(slip, wk, { boxes, playerTeams });
+    if (r.counts.pending === r.legs.length) { console.log(`grading week ${slip.week}: nothing has kicked off`); continue; }
+    const text = renderResults(r);
+    const prev = thread.find((x) => x.bot_id && isResultsPost(x.text, slip.week));
+    if (!prev) await slack("chat.postMessage", { channel: channelID, thread_ts: notice.ts, text });
+    else if (!sameText(prev.text, text)) await slack("chat.update", { channel: channelID, ts: prev.ts, text });
+    const called = thread.some((x) => !x.bot_id && parlayResultFromText(x.text)); // a manager already said hit/miss
+    if (r.verdict && !called) await slack("chat.postMessage", { channel: channelID, thread_ts: notice.ts, reply_broadcast: true, text: renderVerdict(r) });
+    console.log(`graded week ${slip.week}: ${r.counts.hit} hit, ${r.counts.miss} miss, ${r.counts.pending} pending, ${r.counts.manual} manual${r.verdict ? ` → ${r.verdict.toUpperCase()}` : ""}`);
+  }
+};
+
 // ── modes ─────────────────────────────────────────────────────────────────
 setDeadline((await evalLegs()).lockMs); // the lock follows the legs (earliest game with a leg), so settle it before deciding what's due
 if (MODE === "tick") {
+  await gradeSlips().catch((e) => console.log(`grading failed: ${e.message}`)); // last week's slip keeps grading after Sleeper moves on
   if (!seasonOver) { await clearStrays(); await reopenIfStale(); }
   const flags = await postedThisWeek();
   await adoptBoard(flags);
@@ -438,10 +506,10 @@ if (MODE === "tick") {
     if (nflWeek === playoffStart && now >= tuesday10 && !flags.signoff) await postSignoff(); else console.log("season over - nothing to do");
   } else if (now >= deadline && !flags.slip) {
     await postSlip();
-  } else if (now >= nagAt && now < deadline && !flags.nag) {
+  } else if (now >= nagAt && now < deadline && !flags.nag && !flags.slip) { // never after this week's lock
     if (!flags.opener) await postOpener();
     await postNag();
-  } else if (now >= tuesday10 && now < nagAt && !flags.opener) {
+  } else if (now >= tuesday10 && now < nagAt && !flags.opener && !flags.slip) {
     await postOpener();
   } else if (!flags.slip && flags.opener) {
     const legs = await readLegs();          // ✅ new legs, refresh the pinned board
