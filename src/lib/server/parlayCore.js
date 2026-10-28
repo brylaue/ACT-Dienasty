@@ -79,6 +79,7 @@ export const parlayOdds = (prices) => {
 };
 // "(−155)" after each leg, one footer with the combined price. Only when the caller priced the legs (odds !== undefined).
 const oddsTag = (v) => (v?.odds === undefined ? "" : ` (${fmtAmerican(v.odds)})`);
+const readTag = (v) => (v?.readAs ? ` _→ ${v.readAs}_` : ""); // how a prop was read: "→ anytime TD · MIN"
 const oddsFooter = (legs, teams) => {
   const mine = teams.filter((t) => legs[t]).map((t) => legs[t]);
   if (!mine.length || mine.every((v) => v.odds === undefined)) return "";
@@ -104,7 +105,7 @@ export const renderBoard = ({ legs, allTeams, week, placerName, deadlineLabel, d
   const inCount = Object.keys(legs).length;
   const missing = allTeams.filter((t) => !legs[t]);
   const line = allTeams.filter((t) => legs[t]).map((t) => legs[t].leg ?? legs[t]).join("  •  ");
-  const rows = allTeams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legs[t].leg ?? legs[t]}${oddsTag(legs[t])}`).join("\n");
+  const rows = allTeams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legs[t].leg ?? legs[t]}${oddsTag(legs[t])}${readTag(legs[t])}`).join("\n");
   const placerLine = placerName ? `Placer: *${placerName}*` : "Placer: TBD";
   if (locked) {
     return `🔒 *WEEK ${week} SLIP — ${inCount}/${allTeams.length} legs* · ${placerLine}${deadlineEpochMs ? ` · locked *${deadlineToken(deadlineEpochMs, deadlineLabel)}*` : ""}\n${line || "(no legs submitted - somehow, this league found a new low)"}\n\n${rows}${missing.length ? `\n\nMissing (placer picks these): ${missing.join(", ")}` : ""}${oddsFooter(legs, allTeams)}\n_Placer: copy the top line into the book and reply here with the slip screenshot before kickoff${kickoffLabel ? ` (${kickoffLabel})` : ""}._`;
@@ -126,7 +127,7 @@ export const parseBoardHeader = (text) => {
 export const renderLockNotice = ({ legs, allTeams, week, placerName, placerMentions = [], kickoffLabel }) => {
   const inCount = Object.keys(legs).length;
   const missing = allTeams.filter((t) => !legs[t]);
-  const rows = allTeams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legs[t].leg ?? legs[t]}${oddsTag(legs[t])}`).join("\n");
+  const rows = allTeams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legs[t].leg ?? legs[t]}${oddsTag(legs[t])}${readTag(legs[t])}`).join("\n");
   const who = placerMentions.length ? `${placerMentions.map((u) => `<@${u}>`).join(" ")} (*${placerName}*)` : placerName ? `*${placerName}*` : "placer TBD";
   return `🔒 *Week ${week} legs are locked* — ${inCount}/${allTeams.length} in. ${who}, you're up${kickoffLabel ? ` - kickoff ${kickoffLabel}` : ""}.\n${rows || "_(no legs)_"}${missing.length ? `\n_Placer picks for: ${missing.join(", ")}._` : ""}${oddsFooter(legs, allTeams)}\n_Reply here with *hit* or *miss* once it settles - the bot keeps the season record. The pinned board and the 🔒 bookmark up top have this too._`;
 };

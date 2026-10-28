@@ -10,42 +10,10 @@
   day, never on every board refresh. A normal week is ~20-40 credits.
   No ODDS_API_KEY → props stay "n/a", exactly as before.
 */
-import { analyzeLeg } from "./parlaySlate.js";
+import { analyzeLeg, parseProp } from "./parlaySlate.js";
+export { parseProp }; // lives in parlaySlate (the board needs it too); re-exported for grading/tests
 
-const WORDNUM = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
 const norm = (s) => String(s || "").toLowerCase().replace(/[.']/g, "").replace(/\s+(?:jr|sr|ii|iii|iv)$/, "").trim();
-
-// "Derrick Henry 2+ touchdowns" → { stat: "tds", dir: "over", threshold: 2 }
-// stat: tds | pass_tds | pass_yds | rush_yds | rec_yds | yds (rush+rec, unpriced) | receptions | first_td
-// threshold = the number the player has to reach (over) or stay under (under: value < threshold)
-export const parseProp = (leg, name) => {
-  let t = String(leg || "").toLowerCase();
-  const at = name ? t.indexOf(name.toLowerCase()) : -1;
-  if (at >= 0) t = t.slice(at + name.length);
-  t = t.replace(/^[\s,;:-]+/, "").replace(/\b(one|two|three|four|five|six)\b/g, (w) => WORDNUM[w]).replace(/\b(?:an?|any ?time)\b/g, (w) => (/time/.test(w) ? "anytime" : ""));
-  const td = /\b(?:tds?|touchdowns?|scores?)\b/.test(t);
-  let stat = null;
-  if (/\b(?:first|1st)\b/.test(t) && td) stat = "first_td";
-  else if (/\bpass(?:ing)?\b/.test(t) && td) stat = "pass_tds";
-  else if (/\bpass(?:ing)?\b/.test(t) && /\b(?:yds?|yards?)\b/.test(t)) stat = "pass_yds";
-  else if (/\brush(?:ing)?\b/.test(t) && /\b(?:yds?|yards?)\b/.test(t)) stat = "rush_yds";
-  else if (/\b(?:rec|receiving)\b/.test(t) && /\b(?:yds?|yards?)\b/.test(t)) stat = "rec_yds";
-  else if (/\b(?:yds?|yards?)\b/.test(t)) stat = "yds";
-  else if (/\b(?:receptions?|catches|recs?)\b/.test(t)) stat = "receptions";
-  else if (td) stat = "tds";
-  if (!stat) return null;
-  const under = t.match(/\b(?:under|u)\s?(\d+(?:\.\d+)?)/);
-  if (under) return { stat, dir: "under", threshold: Number(under[1]), point: Number(under[1]) };
-  const over = t.match(/\b(?:over|o)\s?(\d+(?:\.\d+)?)/);
-  const plus = t.match(/(\d+)\s?\+/);
-  const bare = t.match(/\b(\d+(?:\.\d+)?)\b/);
-  let threshold = 1;
-  if (over) { const n = Number(over[1]); threshold = Number.isInteger(n) ? n + 1 : Math.ceil(n); }
-  else if (plus) threshold = Number(plus[1]);
-  else if (bare) threshold = Math.ceil(Number(bare[1]));
-  if (stat === "first_td") threshold = 1;
-  return { stat, dir: "over", threshold, point: threshold - 0.5 };
-};
 
 // ── The Odds API ─────────────────────────────────────────────────────────
 const BASE = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl";
@@ -98,7 +66,7 @@ const eventFor = (events, game) => (events || []).find((e) =>
 export const pricesFromBoard = (text) => {
   const out = {};
   for (const line of String(text || "").split("\n")) {
-    const m = line.match(/^• \*(.+?)\* — (.+) \(([^()]*)\)$/);
+    const m = line.replace(/ _→ [^_]*_$/, "").match(/^• \*(.+?)\* — (.+) \(([^()]*)\)$/);
     if (m) out[m[1]] = { leg: m[2], tag: m[3] };
   }
   return out;

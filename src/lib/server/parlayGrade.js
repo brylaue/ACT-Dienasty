@@ -23,7 +23,7 @@ export const parseSlipNotice = (text) => {
   for (const line of t.split("\n")) {
     const m = line.match(/^• \*(.+?)\* — (.+)$/);
     if (!m) continue;
-    const leg = m[2].replace(/\s\((?:[+\-−]?\d+|n\/a|no line)\)$/, "").trim(); // drop the odds tag
+    const leg = m[2].replace(/ _→ [^_]*_$/, "").replace(/\s\((?:[+\-−]?\d+|n\/a|no line)\)$/, "").trim(); // drop the "how we read it" note and the odds tag
     legs.push({ team: m[1], leg });
   }
   const picks = t.match(/_Placer picks for: (.+?)\._/);
@@ -53,7 +53,10 @@ export const parseBox = (summary) => {
       }
     }
   }
-  return { state: st.state || "pre", final: !!st.completed, players };
+  // the game's first touchdown: "Jameson Williams 16 Yd pass from Jared Goff (Jake Bates Kick)" → Jameson Williams
+  const firstTd = (summary?.scoringPlays || []).find((p) => /touchdown/i.test(p.type?.text || p.scoringType?.name || ""));
+  const firstTdBy = firstTd ? norm((firstTd.text || "").match(/^(.+?)\s+\d+\s+Yd/i)?.[1] || (firstTd.text || "").split(" (")[0]) : null;
+  return { state: st.state || "pre", final: !!st.completed, players, firstTdBy };
 };
 
 export const fetchBox = async (gameId, fetchFn = fetch) => {
@@ -92,8 +95,13 @@ export const gradeLeg = (leg, slate, { boxes = {}, playerTeams = {} } = {}) => {
 
   if (info.kind === "player") {
     const prop = parseProp(t, info.name);
-    if (!prop || !STAT[prop.stat]) return { status: "manual", note: prop?.stat === "first_td" ? "first-TD props need a human call" : "can't read this prop" };
     const box = boxes[g.id];
+    if (prop?.stat === "first_td") {
+      if (!box) return { status: "pending", note: "box score not in yet" };
+      if (box.firstTdBy) { const want = norm(info.name), by = box.firstTdBy; const mine = by === want || (!want.includes(" ") && by.split(" ").pop() === want) || (want.includes(" ") && by.split(" ").pop() === want.split(" ").pop() && by[0] === want[0]); return { status: mine ? "hit" : "miss", note: `first TD: ${by.replace(/\b\w/g, (c) => c.toUpperCase())}` }; }
+      return box.final ? { status: "miss", note: "no touchdowns in the game" } : { status: "pending", note: "no TD yet" };
+    }
+    if (!prop || !STAT[prop.stat]) return { status: "manual", note: "can't read this prop" };
     if (!box) return { status: "pending", note: "box score not in yet" };
     const p = findPlayer(box, info.name, info.teams[0]);
     if (!p) return box.final ? { status: "manual", note: `no stats for ${info.name} (inactive?)` } : { status: "pending", note: `${info.name} hasn't recorded a stat yet` };

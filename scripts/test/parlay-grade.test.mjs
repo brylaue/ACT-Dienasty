@@ -51,7 +51,13 @@ await t("total: GB/DET over 36.5 (37) → hit", () => g("Packers Lions over 36.5
 await t("total: GB/DET under 36.5 → miss", () => g("Packers Lions under 36.5").status === "miss");
 await t("ML loser: Ravens ML → miss", () => g("Ravens ML").status === "miss");
 await t("Monday night (not started): Eagles ML → pending", () => g("Eagles ML").status === "pending");
-await t("first-TD prop → manual", () => g("Gibbs first TD").status === "manual");
+await t("first TD: Jameson Williams scored the game's first TD → hit", () => { const r = g("Jameson Williams first TD", { playerTeams: { ...playerTeams, "jameson williams": "DET" } }); return r.status === "hit" && /first TD: Jameson Williams/.test(r.note); });
+await t("first TD: Gibbs 1st touchdown → miss, says who did", () => { const r = g("Gibbs 1st touchdown"); return r.status === "miss" && /Jameson Williams/.test(r.note); });
+await t("first TD: misspelt 'frist td' still reads as first TD", () => g("Gibbs frist td").status === "miss");
+await t("typos: 'a time td' is an anytime TD (Week 8: Justin Jefferson a time td)", () => g("Justin Jefferson a time td").status === "miss" && P.parseProp("Justin Jefferson a time td", "Justin Jefferson").stat === "tds");
+await t("typos: 'Anytine Touchdwon' / 'anytim tds' / 'any time td'", () => ["Kyren Williams Anytine Touchdwon", "Kyren Williams anytim td", "Kyren Williams any time td"].every((l) => g(l).status === "hit"));
+await t("typos: 'recieving yrds'", () => P.parseProp("Puka recieving yrds over 70.5", "Puka").stat === "rec_yds");
+await t("lowercase names: 'gibbs anytime td'", () => g("gibbs anytime td").status === "miss");
 await t("leg we can't place → manual", () => g("something weird").status === "manual");
 
 // ── in-progress games: a prop can cash early, a game line can't ──
@@ -155,6 +161,23 @@ await t("price: a line that isn't offered → null", () => P.findPropPrice(event
   await t("pricePropLegs: no API key → props stay n/a, no calls", () => nokey.A.odds === null);
   const after = await P.pricePropLegs(legs, { slate: s, playerTeams: pt, apiKey: "k", nowMs: mnf.kickoffMs + 60e3, fetchFn: async () => { throw new Error("should not call"); } });
   await t("pricePropLegs: after kickoff, no calls", () => after.A.odds === null);
+}
+
+// ── how the board shows a prop's reading, and the parsers that read the board back ──
+{
+  const { priceLegs, resolvePlayerTeam } = await import("../../src/lib/server/parlaySlate.js");
+  const { renderBoard } = await import("../../src/lib/server/parlayCore.js");
+  const legs = priceLegs({ "Dirty Birds": { leg: "Justin Jefferson a time td" }, "Title Chase": { leg: "Mathew golden 1st touchdown" }, Immigrants: { leg: "Vikings ML" } }, slate, { "justin jefferson": "MIN", "mathew golden": "GB" });
+  await t("board: props say how they were read", () => legs["Dirty Birds"].readAs === "anytime TD · MIN" && legs["Title Chase"].readAs === "first TD of the game · GB" && !legs.Immigrants.readAs);
+  const b = renderBoard({ legs, allTeams: ["Dirty Birds", "Title Chase", "Immigrants"], week: 8, placerName: "X", deadlineLabel: "Thursday 8 PM ET", locked: false });
+  await t("board row: '(odds) _→ anytime TD · MIN_'", () => /• \*Dirty Birds\* — Justin Jefferson a time td \(n\/a\) _→ anytime TD · MIN_/.test(b));
+  await t("pricesFromBoard reads rows with the note", () => P.pricesFromBoard(b)["Dirty Birds"]?.leg === "Justin Jefferson a time td" && P.pricesFromBoard(b).Immigrants?.tag === "-108" || P.pricesFromBoard(b).Immigrants?.leg === "Vikings ML");
+  const lock = "🔒 *Week 8 legs are locked* — 2/12 in.\n• *Dirty Birds* — Justin Jefferson a time td (+150) _→ anytime TD · MIN_\n• *Immigrants* — Vikings ML (-325)";
+  await t("parseSlipNotice strips the note and the odds", () => { const sl = G.parseSlipNotice(lock); return sl.legs[0].leg === "Justin Jefferson a time td" && sl.legs[1].leg === "Vikings ML"; });
+  // misspelt full name: ESPN finds nothing for "Mathew golden", but the surname search has Matthew Golden
+  const fake = async (url) => { const q = decodeURIComponent(url.match(/query=([^&]+)/)[1]).toLowerCase(); const items = q === "golden" ? [{ displayName: "Matthew Golden", league: "nfl", teamRelationships: [{ core: { abbreviation: "GB" } }] }, { displayName: "Golden Tate", league: "nfl", teamRelationships: [{ core: { abbreviation: "TEN" } }] }] : []; return { ok: true, json: async () => ({ items }) }; };
+  await t("misspelt name: 'Mathew golden' → Matthew Golden (GB)", async () => (await resolvePlayerTeam("Mathew golden", fake)) === "GB");
+  await t("misspelt name: nothing close → null (no guessing)", async () => (await resolvePlayerTeam("Zzyzx Golden", fake)) === null);
 }
 
 console.log(`parlay-grade: ${pass} pass, ${fail} fail`);

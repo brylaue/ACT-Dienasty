@@ -82,20 +82,77 @@ export const teamsIn = (text, slate) => {
 const PROP_WORDS = /^(?:anytime|any|first|last|1st|2nd|\d|over|under|o\d|u\d|to\b|[+-]?\d|rec|yards|yds|rushing|receiving|passing|longest|(?:one|two|three|four|five|six|a|an)\b|touchdowns?|tds?\b|catches|receptions?|completions|sacks?|ints?\b|interceptions?|points)/i;
 export const playerNameOf = (text, slate) => {
   const toks = String(text || "").trim().split(/\s+/);
-  const isNameTok = (tk) => /^[A-Z](?:\.[A-Z])+\.?$/.test(tk) || (/^[A-Z][a-zA-Z'.-]*$/.test(tk) && /[a-z]/.test(tk)); // Kyren, McCaffrey, A.J. - not ML / TD / BUF
+  const isNameTok = (tk) => /^[A-Z](?:\.[A-Z])+\.?$/.test(tk) || (/^[A-Z][a-zA-Z'.-]*$/.test(tk) && /[a-z]/.test(tk)) // Kyren, McCaffrey, A.J. - not ML / TD / BUF
+    || (/^[a-z][a-z'.-]+$/.test(tk) && !PROP_WORDS.test(fixTypos(tk)) && !/^(?:and|or|to|the|vs|at|plus|with|for|by|in|on|ml|ats|cover|covers|win|wins|over|under|total|and)$/.test(tk)); // lowercase names too: "Mathew golden", "gibbs"
   const name = [];
   for (const raw of toks) { // a comma ends the name: "Jared Goff, two passing touchdowns"
     const tk = raw.replace(/[,;:]+$/, "");
-    if (isNameTok(tk) && !/^(?:anytime|any|first|last|over|under|to|rushing|receiving|passing|yards)$/i.test(tk)) { name.push(tk); if (tk !== raw) break; } else break;
+    if (isNameTok(tk) && !/^(?:anytime|any|first|last|over|under|to|rushing|receiving|passing|yards|touchdowns?|receptions)$/i.test(fixTypos(tk))) { name.push(tk); if (tk !== raw) break; } else break;
   }
   if (!name.length || name.length > 3) return null;
-  if (!PROP_WORDS.test(toks.slice(name.length).join(" "))) return null;
-  if (/^(?:Take|Going|Give|Gimme|Put|Let|Lets|The|My|Our|Over|Under|Total|Both|Either)$/.test(name[0])) return null;
+  if (!PROP_WORDS.test(fixTypos(toks.slice(name.length).join(" ")))) return null;
+  if (/^(?:Take|Going|Give|Gimme|Put|Let|Lets|The|My|Our|Over|Under|Total|Both|Either|I|Im|I'm|We|Me|Bet|Hammer|Lock)$/i.test(name[0])) return null;
   if (slate) { // every word is a team word (Bills, Kansas City Chiefs) → a team leg. "Dallas Goedert" still has a non-team word.
     const words = new Set(Object.values(slate.teams).flatMap((x) => [x.display, x.name, x.city].filter(Boolean).flatMap((s) => s.toLowerCase().split(" "))));
     if (name.every((w) => words.has(w.toLowerCase()))) return null;
   }
   return name.join(" ");
+};
+
+
+// ── typos in the prop part of a leg ("Justin Jefferson a time td", "anytine touchdwon") ──
+// Only ever applied to the words AFTER the player's name, so names are left alone.
+export const fixTypos = (text) => String(text || "")
+  .replace(/\b(?:any\s?-?\s?time|anytim|anytine|anytme|anytiem|anyime|anytyme|anytimr|anyt|nytime|a\s?time)\b/gi, "anytime")
+  .replace(/\b(?:t[ou]{1,2}c?h?\s?d[aow]{1,3}[mnw]{0,2}s?|tuchdowns?|touchdwons?|touchdonws?|tocuhdowns?|touchdowms?|tochdowns?)\b/gi, (w) => (/s$/i.test(w) ? "touchdowns" : "touchdown"))
+  .replace(/\b(?:frist|firts|fisrt|fist)\b/gi, "first")
+  .replace(/\b(?:reci?e?v\w*|recv)\b/gi, (w) => (/^rec(?:eiving)?$/i.test(w) ? w : "receiving"))
+  .replace(/\b(?:recpt\w*|recept\w*|recpetions?|receptons?)\b/gi, "receptions")
+  .replace(/\b(?:pas+ing|passin|pasing)\b/gi, "passing")
+  .replace(/\b(?:rushng|rusing|rushin)\b/gi, "rushing")
+  .replace(/\b(?:yrds?|yardz|yeards?)\b/gi, "yards")
+  .replace(/\b(?:tdz|tds?'s|td's)\b/gi, "tds");
+
+const WORDNUM = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+
+// "Derrick Henry 2+ touchdowns" → { stat: "tds", dir: "over", threshold: 2 }
+// stat: tds | pass_tds | pass_yds | rush_yds | rec_yds | yds (rush+rec, unpriced) | receptions | first_td
+// threshold = the number the player has to reach (over) or stay under (under: value < threshold)
+export const parseProp = (leg, name) => {
+  let t = String(leg || "").toLowerCase();
+  const at = name ? t.indexOf(name.toLowerCase()) : -1;
+  if (at >= 0) t = t.slice(at + name.length);
+  t = fixTypos(t).toLowerCase().replace(/^[\s,;:-]+/, "").replace(/\b(one|two|three|four|five|six)\b/g, (w) => WORDNUM[w]).replace(/\b(?:an?)\b/g, "");
+  const td = /\b(?:tds?|touchdowns?|scores?)\b/.test(t);
+  let stat = null;
+  if (/\b(?:first|1st)\b/.test(t) && td) stat = "first_td";
+  else if (/\bpass(?:ing)?\b/.test(t) && td) stat = "pass_tds";
+  else if (/\bpass(?:ing)?\b/.test(t) && /\b(?:yds?|yards?)\b/.test(t)) stat = "pass_yds";
+  else if (/\brush(?:ing)?\b/.test(t) && /\b(?:yds?|yards?)\b/.test(t)) stat = "rush_yds";
+  else if (/\b(?:rec|receiving)\b/.test(t) && /\b(?:yds?|yards?)\b/.test(t)) stat = "rec_yds";
+  else if (/\b(?:yds?|yards?)\b/.test(t)) stat = "yds";
+  else if (/\b(?:receptions?|catches|recs?)\b/.test(t)) stat = "receptions";
+  else if (td) stat = "tds";
+  if (!stat) return null;
+  const under = t.match(/\b(?:under|u)\s?(\d+(?:\.\d+)?)/);
+  if (under) return { stat, dir: "under", threshold: Number(under[1]), point: Number(under[1]) };
+  const over = t.match(/\b(?:over|o)\s?(\d+(?:\.\d+)?)/);
+  const plus = t.match(/(\d+)\s?\+/);
+  const bare = t.match(/\b(\d+(?:\.\d+)?)\b/);
+  let threshold = 1;
+  if (over) { const n = Number(over[1]); threshold = Number.isInteger(n) ? n + 1 : Math.ceil(n); }
+  else if (plus) threshold = Number(plus[1]);
+  else if (bare) threshold = Math.ceil(Number(bare[1]));
+  if (stat === "first_td") threshold = 1;
+  return { stat, dir: "over", threshold, point: threshold - 0.5 };
+};
+
+
+// how the bot read a prop, for the board ("→ anytime TD · MIN")
+export const propLabel = (p) => {
+  if (!p) return null;
+  const n = p.dir === "under" ? `under ${p.point}` : `${p.threshold}+`;
+  return { tds: p.threshold <= 1 ? "anytime TD" : `${p.threshold}+ TDs`, first_td: "first TD of the game", pass_tds: `${n} passing TDs`, pass_yds: `${n} passing yds`, rush_yds: `${n} rushing yds`, rec_yds: `${n} receiving yds`, yds: `${n} scrimmage yds`, receptions: `${n} catches` }[p.stat] || null;
 };
 
 // ESPN player search → team abbr. A full name must match exactly; a lone surname
@@ -110,8 +167,31 @@ export const resolvePlayerTeam = async (name, fetchFn = fetch) => {
     const norm = (x) => String(x).toLowerCase().replace(/[.']/g, "");
     const want = norm(name);
     const hit = items.find((i) => (name.includes(" ") ? norm(i.displayName) === want : norm(i.displayName).split(" ").pop() === want));
-    return hit ? hit.teamRelationships[0].core.abbreviation : null;
+    if (hit) return hit.teamRelationships[0].core.abbreviation;
+    if (name.includes(" ")) return await resolveMisspelt(name, fetchFn); // "Mathew Golden" → Matthew Golden
+    return null;
   } catch { return null; }
+};
+// edit distance, for misspelt names
+export const editDistance = (a, b) => {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+};
+// ESPN's search wants the spelling right, so a misspelt full name finds nothing. Search each half of
+// the name on its own and take the player whose full name is within a couple of letters of what was typed.
+const resolveMisspelt = async (name, fetchFn) => {
+  const norm = (x) => String(x).toLowerCase().replace(/[.']/g, "");
+  const want = norm(name), parts = want.split(" ");
+  const seen = new Map();
+  for (const q of [parts.slice(1).join(" "), parts[0]]) {
+    const r = await fetchFn(`https://site.web.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(q)}&limit=10&type=player&sport=football&league=nfl`);
+    if (!r.ok) continue;
+    for (const i of (await r.json()).items || []) if (i.league === "nfl" && i.teamRelationships?.[0]?.core?.abbreviation) seen.set(i.displayName, i.teamRelationships[0].core.abbreviation);
+  }
+  const ranked = [...seen].map(([n, abbr]) => ({ abbr, dist: editDistance(norm(n), want) })).filter((x) => x.dist <= Math.max(2, Math.floor(want.length / 6))).sort((a, b) => a.dist - b.dist);
+  return ranked.length && (ranked.length === 1 || ranked[0].dist < ranked[1].dist) ? ranked[0].abbr : null; // two equally close → don't guess
 };
 
 // ── one leg → which game is it in, is it playable, what's it pay ──────────────
@@ -178,8 +258,10 @@ export const lockTime = (infos, slate, nowMs = Date.now()) => {
 export const priceLegs = (legs, slate, playerTeams = {}) => {
   const out = {};
   for (const [team, v] of Object.entries(legs)) {
-    const p = priceLeg(v.leg, slate, analyzeLeg(v.leg, slate, { playerTeams }));
-    out[team] = { ...v, odds: slate ? (p ? p.american : null) : undefined };
+    const info = analyzeLeg(v.leg, slate, { playerTeams });
+    const p = priceLeg(v.leg, slate, info);
+    const readAs = info.kind === "player" ? [propLabel(parseProp(v.leg, info.name)), info.teams[0]].filter(Boolean).join(" · ") || null : null;
+    out[team] = { ...v, odds: slate ? (p ? p.american : null) : undefined, ...(readAs ? { readAs } : {}) };
   }
   return out;
 };
