@@ -285,10 +285,11 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
   const games = { "Mathew golden 1st touchdown": { label: "CAR @ GB", kickoffMs: tnf }, "Josh Jacobs 60 yards rushing": { label: "CAR @ GB", kickoffMs: tnf }, "Bills ML": { label: "BAL @ BUF", kickoffMs: Date.parse("2026-11-01T18:00:00Z") } };
   const ctx = { legs, allTeams: [...Object.keys(legs), "C-Men"], week: 8, placerName: "Crab Boilers", deadlineLabel: "Thursday 8 PM ET", lockMs: tnf - 15 * 60e3, nowMs: now, gameOf: (l) => games[l] || null };
   const a = core.answerParlayQuestion("Hey Parlay Builder. What's the current bet? Any bets for tonight?", ctx).text;
-  t("tonight: lists the legs in tonight's game, by game", () => /\*Tonight\* - \*CAR @ GB\* \(8:15 PM ET\):\n• \*Title Chase\* — Mathew golden 1st touchdown\n• \*The 5th Rounders\* — Josh Jacobs 60 yards rushing/.test(a));
-  t("tonight: then the rest of the slip and the lock countdown", () => /Rest of the slip:\*\n• \*Immigrants\* — Bills ML/.test(a) && /locks \*Thursday 8 PM ET\* - in 1h 6m/.test(a) && /still needed: C-Men/.test(a));
+  t("tonight: says yes, how many, which game - then names each tonight leg", () => a.startsWith("*Yes - 2 legs are in tonight's game, CAR @ GB (8:15 PM ET):*\n🌙 *Title Chase* — Mathew golden 1st touchdown\n🌙 *The 5th Rounders* — Josh Jacobs 60 yards rushing"));
+  t("tonight: the rest of the slip shows when each leg plays, then the countdown", () => /Rest of the slip:\*\n• \*Immigrants\* — Bills ML _\(BAL @ BUF · Sun 1 PM ET\)_/.test(a) && /locks \*Thursday 8 PM ET\* - in 1h 6m/.test(a) && /still needed: C-Men/.test(a));
+  t("tonight: one leg reads 'is'", () => /^\*Yes - 1 leg is in tonight's game/.test(core.answerParlayQuestion("parlay builder any legs tonight", { ...ctx, legs: { "Title Chase": legs["Title Chase"], Immigrants: legs.Immigrants } }).text));
   t("'what's the current bet' is a status question", () => /3\/4 legs in/.test(core.answerParlayQuestion("hey parlay builder whats the current bet", ctx).text));
-  t("tonight with nothing tonight says so", () => /No legs in today's games/.test(core.answerParlayQuestion("parlay builder any bets tonight?", { ...ctx, gameOf: () => games["Bills ML"] }).text));
+  t("tonight with nothing tonight says so", () => /No - none of the 3 legs are in today's games/.test(core.answerParlayQuestion("parlay builder any bets tonight?", { ...ctx, gameOf: () => games["Bills ML"] }).text));
   t("countdown: only inside a day", () => core.countdown(now + 65 * 60e3, now) === " - in 1h 5m" && core.countdown(now + 30 * 60e3, now) === " - in 30 min" && core.countdown(now + 2 * 864e5, now) === "" && core.countdown(now - 1, now) === "");
 }
 

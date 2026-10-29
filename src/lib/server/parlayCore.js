@@ -341,6 +341,7 @@ export const addressedToBot = (text, selfUserId) => {
 // askerTeam }. Returns { text, leg } - leg is set when the message was a leg
 // submission addressed to the bot ("hey parlay builder, Vikings ML").
 const etDay = (ms) => new Date(ms).toLocaleDateString("en-US", { timeZone: "America/New_York" });
+const etShort = (ms) => new Date(ms).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }).replace(":00", "") + " ET";
 const etTime = (ms) => new Date(ms).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).replace(":00", "") + " ET";
 // " - in 1h 5m" when the lock is under a day away
 export const countdown = (lockMs, nowMs = Date.now()) => {
@@ -394,12 +395,15 @@ export const answerParlayQuestion = (rawText, ctx) => {
   if (INTENT.tonight.test(q) && open && ctx.gameOf) {
     const today = etDay(ctx.nowMs ?? Date.now());
     const games = new Map();
-    for (const t of teams.filter((x) => legs[x])) { const g = ctx.gameOf(legOf(t)); if (g && etDay(g.kickoffMs) === today) { if (!games.has(g.label)) games.set(g.label, { g, rows: [] }); games.get(g.label).rows.push(`• *${t}* — ${legOf(t)}`); } }
+    for (const t of teams.filter((x) => legs[x])) { const g = ctx.gameOf(legOf(t)); if (g && etDay(g.kickoffMs) === today) { if (!games.has(g.label)) games.set(g.label, { g, rows: [] }); games.get(g.label).rows.push(`🌙 *${t}* — ${legOf(t)}`); } }
+    const n = [...games.values()].reduce((a, x) => a + x.rows.length, 0);
+    const where = [...games.values()].map(({ g }) => `${g.label} (${etTime(g.kickoffMs)})`).join(" and ");
     const head = games.size
-      ? `*Tonight* - ${[...games.values()].map(({ g, rows }) => `*${g.label}* (${etTime(g.kickoffMs)}):\n${rows.join("\n")}`).join("\n")}`
-      : "No legs in today's games.";
-    const tonightTeams = new Set([...games.values()].flatMap(({ rows }) => rows.map((r) => r.match(/^• \*(.+?)\*/)[1])));
-    const rest = teams.filter((t) => legs[t] && !tonightTeams.has(t)).map((t) => `• *${t}* — ${legOf(t)}`);
+      ? `*Yes - ${n} leg${n === 1 ? " is" : "s are"} in tonight's game${games.size > 1 ? "s" : ""}, ${where}:*\n${[...games.values()].flatMap(({ rows }) => rows).join("\n")}`
+      : `*No - none of the ${inCount} legs are in today's games.*`;
+    const tonightTeams = new Set([...games.values()].flatMap(({ rows }) => rows.map((r) => r.match(/^🌙 \*(.+?)\*/)[1])));
+    const when = (t) => { const g = ctx.gameOf(legOf(t)); return g ? ` _(${g.label} · ${etShort(g.kickoffMs)})_` : ""; };
+    const rest = teams.filter((t) => legs[t] && !tonightTeams.has(t)).map((t) => `• *${t}* — ${legOf(t)}${when(t)}`);
     return { text: `${head}${rest.length ? `\n*Rest of the slip:*\n${rest.join("\n")}` : ""}\nWeek ${ctx.week}: *${inCount}/${teams.length} legs in* · ${locked ? "🔒 locked" : `locks *${ctx.deadlineLabel}*${countdown(ctx.lockMs, ctx.nowMs)}`}${missing.length ? ` · still needed: ${missing.join(", ")}` : ""}`, leg: null };
   }
   if (INTENT.status.test(q)) {
