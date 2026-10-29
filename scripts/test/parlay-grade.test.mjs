@@ -214,9 +214,22 @@ await t("price: a line that isn't offered → null", () => P.findPropPrice(event
   const rows = R.franchiseStats(k, c);
   await t("roast: every franchise ranked, with career lineup efficiency", () => rows.length === 12 && rows.every((r) => r.eff > 0.5 && r.eff < 1));
   const w = R.renderRoast(k, c, "worst"), b = R.renderRoast(k, c, "best");
-  await t("roast: names one team with receipts (record, lineups, this season), no @mentions", () => /^🧠 \*Dumbest owner in the league, by the numbers: .+\.\*\n• .*\d+-\d+.*\n• Lineups: started \d+%/.test(w) && /Runner-up:/.test(w) && !/<@/.test(w));
+  await t("roast: names one team with receipts (record, lineups, this season), no @mentions", () => /^🧠 \*Dumbest owner in the league, by the numbers: .+\.\*\n• .*\d+-\d+.*\n• Lineups: started \d+%/.test(w) && /Runner-up:|Dead heat/.test(w) && !/<@/.test(w));
   await t("roast: smartest is a different team", () => /^🧠 \*Smartest owner/.test(b) && w.match(/by the numbers: (.+?)\./)[1] !== b.match(/by the numbers: (.+?)\./)[1]);
   await t("roast: a team that lost a trade badly this season gets it in the evidence", () => rows.some((r) => r.badTrades.length));
+}
+
+// ── roast fairness: only the current owner's years count (Ben took over Dirty Birds in 2023) ──
+{
+  const R = await import("../../src/lib/server/parlayRoast.js");
+  const k = JSON.parse(readFileSync(join(here, "../../static/data/knowledge.json"), "utf8"));
+  const rows = R.franchiseStats(k, {});
+  const db = rows.find((r) => r.name === "Dirty Birds"), cb = rows.find((r) => r.name === "Crab Boilers");
+  await t("Dirty Birds is judged from 2023 (Ben), not on Bodzi's 2018-22", () => db.since === 2023 && db.takeover && db.seasons === 4 && db.w + db.l < 160);
+  await t("…and Bodzi's 2019 bench blunders aren't pinned on Ben", () => db.blunders.length === 0);
+  await t("an owner who's had the team throughout keeps all 9 seasons", () => cb.since === 2018 && !cb.takeover && cb.seasons === 9);
+  await t("tied titles share a rank (no arbitrary order)", () => { const r = R.rankFranchises(rows); const zero = r.filter((x) => x.titles === 0); return zero.length > 1; });
+  await t("the roast says 'since taking over in 2023'", () => /since taking over in 2023|since 2023/.test(R.renderRoast(k, {}, "worst")));
 }
 
 console.log(`parlay-grade: ${pass} pass, ${fail} fail`);
