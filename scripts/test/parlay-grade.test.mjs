@@ -193,5 +193,17 @@ await t("price: a line that isn't offered → null", () => P.findPropPrice(event
   await t("grade: Bates 8+ kicking points (8) → hit", () => g("Jake Bates 8+ kicking points", { playerTeams: pt }).status === "hit");
 }
 
+// ── Week 8 TNF: "Ceedee anytime TD", "Antonio Williams over yards" ──
+{
+  const { resolvePlayerTeam, propLabel } = await import("../../src/lib/server/parlaySlate.js");
+  const fake = async (url) => { const q = decodeURIComponent(url.match(/query=([^&]+)/)[1]).toLowerCase(); const items = q === "ceedee" ? [{ displayName: "CeeDee Lamb", league: "nfl", teamRelationships: [{ core: { abbreviation: "DAL" } }] }] : q === "josh" ? [{ displayName: "Josh Allen", league: "nfl", teamRelationships: [{ core: { abbreviation: "BUF" } }] }, { displayName: "Josh Jacobs", league: "nfl", teamRelationships: [{ core: { abbreviation: "GB" } }] }] : []; return { ok: true, json: async () => ({ items }) }; };
+  await t("first name alone: 'Ceedee' → CeeDee Lamb (DAL)", async () => (await resolvePlayerTeam("Ceedee", fake)) === "DAL");
+  await t("first name shared by two players → no guess", async () => (await resolvePlayerTeam("Josh", fake)) === null);
+  const v = P.parseProp("Antonio Williams over yards", "Antonio Williams");
+  await t("'over yards' with no number is flagged, not read as 1+", () => v.vague && v.threshold === null && /⚠️ over what\? - add the number/.test(propLabel(v)));
+  await t("…not priced, and graded ❓", () => P.marketsFor(v).length === 0 && g("Jameson Williams over yards", { playerTeams: { "jameson williams": "DET" } }).status === "manual");
+  await t("'over 49.5 receiving yards' is still fine", () => !P.parseProp("Antonio Williams over 49.5 receiving yards", "Antonio Williams").vague);
+}
+
 console.log(`parlay-grade: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

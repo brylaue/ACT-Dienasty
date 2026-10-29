@@ -31,7 +31,7 @@ const MARKETS = {
   sacks: () => ["player_sacks"],
   tackles: () => ["player_tackles_assists"],
 };
-export const marketsFor = (prop) => (prop && MARKETS[prop.stat] ? MARKETS[prop.stat](prop) : []);
+export const marketsFor = (prop) => (prop && !prop.vague && MARKETS[prop.stat] ? MARKETS[prop.stat](prop) : []);
 
 // the matching price in an event-odds response; DraftKings preferred
 export const findPropPrice = (eventOdds, playerName, prop) => {

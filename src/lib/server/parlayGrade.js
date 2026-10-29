@@ -104,6 +104,7 @@ export const gradeLeg = (leg, slate, { boxes = {}, playerTeams = {} } = {}) => {
       return box.final ? { status: "miss", note: "no touchdowns in the game" } : { status: "pending", note: "no TD yet" };
     }
     if (!prop || !STAT[prop.stat]) return { status: "manual", note: "can't read this prop" };
+    if (prop.vague) return { status: "manual", note: "no number on the line" };
     if (!box) return { status: "pending", note: "box score not in yet" };
     const p = findPlayer(box, info.name, info.teams[0]);
     if (!p) return box.final ? { status: "manual", note: `no stats for ${info.name} (inactive?)` } : { status: "pending", note: `${info.name} hasn't recorded a stat yet` };

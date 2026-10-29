@@ -143,6 +143,8 @@ export const parseProp = (leg, name) => {
   const over = t.match(/\b(?:over|o)\s?(\d+(?:\.\d+)?)/);
   const plus = t.match(/(\d+)\s?\+/);
   const bare = t.match(/\b(\d+(?:\.\d+)?)\b/);
+  // "over yards" with no number: the book line was meant, but we can't know which - flag it instead of reading it as 1+
+  if (!over && !plus && !bare && /\b(?:over|under|o\/u)\b/.test(t) && !["tds", "first_td"].includes(stat)) return { stat, dir: /\bunder\b/.test(t) ? "under" : "over", threshold: null, point: null, vague: true };
   let threshold = 1;
   if (over) { const n = Number(over[1]); threshold = Number.isInteger(n) ? n + 1 : Math.ceil(n); }
   else if (plus) threshold = Number(plus[1]);
@@ -155,6 +157,7 @@ export const parseProp = (leg, name) => {
 // how the bot read a prop, for the board ("→ anytime TD · MIN")
 export const propLabel = (p) => {
   if (!p) return null;
+  if (p.vague) return `⚠️ ${p.dir} what? - add the number (e.g. "${p.dir} 49.5 ${({ rec_yds: "receiving yds", rush_yds: "rushing yds", pass_yds: "passing yds", receptions: "catches" })[p.stat] || "receiving yds"}")`;
   const n = p.dir === "under" ? `under ${p.point}` : `${p.threshold}+`;
   return { tds: p.threshold <= 1 ? "anytime TD" : `${p.threshold}+ TDs`, first_td: "first TD of the game", pass_tds: `${n} passing TDs`, pass_yds: `${n} passing yds`, rush_yds: `${n} rushing yds`, rec_yds: `${n} receiving yds`, yds: `${n} scrimmage yds`, receptions: `${n} catches`, fgs: `${n} made FGs`, kick_pts: `${n} kicking pts`, sacks: `${n} sacks`, tackles: `${n} tackles` }[p.stat] || null;
 };
@@ -170,7 +173,8 @@ export const resolvePlayerTeam = async (name, fetchFn = fetch) => {
     const items = ((await r.json()).items || []).filter((i) => i.league === "nfl" && i.teamRelationships?.[0]?.core?.abbreviation);
     const norm = (x) => String(x).toLowerCase().replace(/[.']/g, "");
     const want = norm(name);
-    const hit = items.find((i) => (name.includes(" ") ? norm(i.displayName) === want : norm(i.displayName).split(" ").pop() === want));
+    const hit = items.find((i) => (name.includes(" ") ? norm(i.displayName) === want : norm(i.displayName).split(" ").pop() === want))
+      || (!name.includes(" ") && items.filter((i) => norm(i.displayName).split(" ")[0] === want).length === 1 ? items.find((i) => norm(i.displayName).split(" ")[0] === want) : null); // a first name alone ("Ceedee") when only one player has it
     if (hit) return hit.teamRelationships[0].core.abbreviation;
     if (name.includes(" ")) return await resolveMisspelt(name, fetchFn); // "Mathew Golden" → Matthew Golden
     return null;
