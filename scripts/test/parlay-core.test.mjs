@@ -278,5 +278,19 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
   t("strays: a different week's lock doesn't count", () => core.straysAfterLock(msgs, 8).length === 0);
 }
 
+// ── "What's the current bet? Any bets for tonight?" (Week 8 TNF - the bot said there were none) ──
+{
+  const legs = { "Title Chase": { leg: "Mathew golden 1st touchdown" }, Immigrants: { leg: "Bills ML" }, "The 5th Rounders": { leg: "Josh Jacobs 60 yards rushing" } };
+  const tnf = Date.parse("2026-10-30T00:15:00Z"), now = Date.parse("2026-10-29T22:54:00Z");
+  const games = { "Mathew golden 1st touchdown": { label: "CAR @ GB", kickoffMs: tnf }, "Josh Jacobs 60 yards rushing": { label: "CAR @ GB", kickoffMs: tnf }, "Bills ML": { label: "BAL @ BUF", kickoffMs: Date.parse("2026-11-01T18:00:00Z") } };
+  const ctx = { legs, allTeams: [...Object.keys(legs), "C-Men"], week: 8, placerName: "Crab Boilers", deadlineLabel: "Thursday 8 PM ET", lockMs: tnf - 15 * 60e3, nowMs: now, gameOf: (l) => games[l] || null };
+  const a = core.answerParlayQuestion("Hey Parlay Builder. What's the current bet? Any bets for tonight?", ctx).text;
+  t("tonight: lists the legs in tonight's game, by game", () => /\*Tonight\* - \*CAR @ GB\* \(8:15 PM ET\):\n• \*Title Chase\* — Mathew golden 1st touchdown\n• \*The 5th Rounders\* — Josh Jacobs 60 yards rushing/.test(a));
+  t("tonight: then the rest of the slip and the lock countdown", () => /Rest of the slip:\*\n• \*Immigrants\* — Bills ML/.test(a) && /locks \*Thursday 8 PM ET\* - in 1h 6m/.test(a) && /still needed: C-Men/.test(a));
+  t("'what's the current bet' is a status question", () => /3\/4 legs in/.test(core.answerParlayQuestion("hey parlay builder whats the current bet", ctx).text));
+  t("tonight with nothing tonight says so", () => /No legs in today's games/.test(core.answerParlayQuestion("parlay builder any bets tonight?", { ...ctx, gameOf: () => games["Bills ML"] }).text));
+  t("countdown: only inside a day", () => core.countdown(now + 65 * 60e3, now) === " - in 1h 5m" && core.countdown(now + 30 * 60e3, now) === " - in 30 min" && core.countdown(now + 2 * 864e5, now) === "" && core.countdown(now - 1, now) === "");
+}
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

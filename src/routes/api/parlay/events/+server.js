@@ -26,7 +26,7 @@ import {
 
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import managers from "../../../../../static/data/parlay-managers.json";
-import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "#lib/server/parlayCore.js";
+import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, countdown, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "#lib/server/parlayCore.js";
 import { reopenWeek } from "#lib/server/parlayReopen.js";
 import { pricePropLegs, pricesFromBoard } from "#lib/server/parlayProps.js";
 import { LOCK_LEAD_MS, analyzeLeg, evaluateWeek, fetchSlate, priceLegs } from "#lib/server/parlaySlate.js";
@@ -159,6 +159,8 @@ const loadWeek = async () => {
     slate,
     lockMs,
     checkLeg,
+    // which game a leg is in: { label: "CAR @ GB", kickoffMs }
+    gameOf: (leg) => { const g = slate ? analyzeLeg(leg, slate, { playerTeams: ev.playerTeams }).game : null; return g ? { label: `${g.away.abbr} @ ${g.home.abbr}`, kickoffMs: g.kickoffMs } : null; },
     lockNotice,
     locked,
     notice,
@@ -304,7 +306,7 @@ const respond = async (ev, selfUserId, ctx, origin) => {
   const record = (/\b(record|season|tally|hit rate|standings|status|how (?:have|are) we)\b/i).test(ev.text || "") ? await loadRecord(ctx).catch(() => null) : null;
   const a = answerParlayQuestion(ev.text, {
     legs: ctx.legs, allTeams: ctx.allTeams, week: ctx.header?.week ?? null, placerName: ctx.header?.placerName ?? null,
-    deadlineLabel: ctx.lockMs ? etLabel(ctx.lockMs) : ctx.header?.deadlineLabel ?? "", locked: ctx.locked, checkLeg: ctx.checkLeg, record, usersByTeam: ctx.usersByTeam, askerTeam: ctx.teamOfUser(ev.user),
+    deadlineLabel: ctx.lockMs ? etLabel(ctx.lockMs) : ctx.header?.deadlineLabel ?? "", locked: ctx.locked, checkLeg: ctx.checkLeg, gameOf: ctx.gameOf, lockMs: ctx.lockMs, nowMs: Date.now(), record, usersByTeam: ctx.usersByTeam, askerTeam: ctx.teamOfUser(ev.user),
   });
 
   let text = a.text,
@@ -316,7 +318,11 @@ const respond = async (ev, selfUserId, ctx, origin) => {
   }
   if ((/^Not sure what you're after/).test(text)) {
     const inCount = Object.keys(ctx.legs).length;
-    const snapshot = ctx.header ? `Week ${ctx.header.week}, ${inCount}/${ctx.allTeams.length} legs in, placer ${ctx.header.placerName || "TBD"}, locks ${ctx.header.deadlineLabel}; asker's team: ${ctx.teamOfUser(ev.user) || "unknown"}` : "the week hasn't opened yet";
+    const now = new Date().toLocaleString("en-US", { timeZone: "America/New_York", weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    const legLines = ctx.allTeams.filter((t) => ctx.legs[t]).map((t) => { const g = ctx.gameOf(ctx.legs[t].leg); return `${t}: ${ctx.legs[t].leg}${g ? ` [${g.label}, kicks off ${etLabel(g.kickoffMs)}]` : ""}`; }).join("; ");
+    const snapshot = ctx.header
+      ? `Right now: ${now} ET. Week ${ctx.header.week}, ${inCount}/${ctx.allTeams.length} legs in, placer ${ctx.header.placerName || "TBD"}, ${ctx.locked ? "LOCKED" : `legs lock ${ctx.lockMs ? etLabel(ctx.lockMs) : ctx.header.deadlineLabel}${countdown(ctx.lockMs)}`}. Legs: ${legLines || "none yet"}. Asker's team: ${ctx.teamOfUser(ev.user) || "unknown"}`
+      : "the week hasn't opened yet";
     const ai = await aiAnswer(ev.text, snapshot).catch(() => null);
     if (ai) { text = ai; how = "answered (ai)"; }
   }

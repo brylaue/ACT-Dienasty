@@ -312,7 +312,8 @@ const ADDRESS = /^\s*(?:hey|hi|hello|yo|ok|okay|alright|oi)?[,!\s]*@?\s*parlay\s
 const MENTIONED_ANYWHERE = /\b(?:parlay\s*(?:builder|bot)|the bot|slack bot)\b/i;
 const INTENT = {
   missing: /\b(who(?:'s| is| has| hasn'?t)|missing|still need|left|outstanding|hasn'?t (?:added|posted|submitted))\b/i,
-  status: /\b(status|where (?:are|r) we|how many|count|update|progress|board|slip|legs?\b(?! (?:lock|due)))\b/i,
+  status: /\b(status|where (?:are|r) we|how many|count|update|progress|board|slip|legs?\b(?! (?:lock|due))|bets?|picks?|current (?:bet|parlay|slip)|what'?s (?:in|on)|the parlay)\b/i,
+  tonight: /\b(tonight'?s?|this evening|today'?s?|TNF|thursday night|monday night|MNF|sunday night|SNF|right now)\b/i,
   deadline: /\b(deadline|locks?|locked|due|cutoff|cut-off)\b|\bwhen\b.*\b(?:lock|due|deadline|cutoff|close)/i,
   placer: /\b(plac(?:er|ing|es)|on the hook|who(?:'s| is) (?:betting|placing|up)|who bets|who has to)\b/i,
   record: /\b(record|season|tally|hit rate|how (?:have|are) we (?:done|doing)|standings)\b/i,
@@ -339,6 +340,15 @@ export const addressedToBot = (text, selfUserId) => {
 // allTeams, week, placerName, deadlineLabel, record, usersByTeam,
 // askerTeam }. Returns { text, leg } - leg is set when the message was a leg
 // submission addressed to the bot ("hey parlay builder, Vikings ML").
+const etDay = (ms) => new Date(ms).toLocaleDateString("en-US", { timeZone: "America/New_York" });
+const etTime = (ms) => new Date(ms).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).replace(":00", "") + " ET";
+// " - in 1h 5m" when the lock is under a day away
+export const countdown = (lockMs, nowMs = Date.now()) => {
+  if (!lockMs) return "";
+  const m = Math.round((lockMs - (nowMs ?? Date.now())) / 60e3);
+  if (m <= 0 || m >= 24 * 60) return "";
+  return ` - in ${m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`}`;
+};
 export const answerParlayQuestion = (rawText, ctx) => {
   const q = stripAddress(rawText);
   const legs = ctx.legs || {}, teams = ctx.allTeams || [];
@@ -380,10 +390,22 @@ export const answerParlayQuestion = (rawText, ctx) => {
     if (locked) return { text: `Locked at ${inCount}/${teams.length}. *${ctx.placerName || "The placer"}* picks for: ${missing.map((t) => `*${t}*`).join(", ")}.`, leg: null };
     return { text: `Still missing (${missing.length}): ${missing.map((t) => `*${t}* ${mention(t)}`.trim()).join(", ")}. Locks *${ctx.deadlineLabel}*.`, leg: null };
   }
+  // "any bets for tonight?" - the legs whose game kicks off today (ET), then the whole board
+  if (INTENT.tonight.test(q) && open && ctx.gameOf) {
+    const today = etDay(ctx.nowMs ?? Date.now());
+    const games = new Map();
+    for (const t of teams.filter((x) => legs[x])) { const g = ctx.gameOf(legOf(t)); if (g && etDay(g.kickoffMs) === today) { if (!games.has(g.label)) games.set(g.label, { g, rows: [] }); games.get(g.label).rows.push(`• *${t}* — ${legOf(t)}`); } }
+    const head = games.size
+      ? `*Tonight* - ${[...games.values()].map(({ g, rows }) => `*${g.label}* (${etTime(g.kickoffMs)}):\n${rows.join("\n")}`).join("\n")}`
+      : "No legs in today's games.";
+    const tonightTeams = new Set([...games.values()].flatMap(({ rows }) => rows.map((r) => r.match(/^• \*(.+?)\*/)[1])));
+    const rest = teams.filter((t) => legs[t] && !tonightTeams.has(t)).map((t) => `• *${t}* — ${legOf(t)}`);
+    return { text: `${head}${rest.length ? `\n*Rest of the slip:*\n${rest.join("\n")}` : ""}\nWeek ${ctx.week}: *${inCount}/${teams.length} legs in* · ${locked ? "🔒 locked" : `locks *${ctx.deadlineLabel}*${countdown(ctx.lockMs, ctx.nowMs)}`}${missing.length ? ` · still needed: ${missing.join(", ")}` : ""}`, leg: null };
+  }
   if (INTENT.status.test(q)) {
     if (!open) return { text: notOpen, leg: null };
     const list = teams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legOf(t)}`).join("\n");
-    return { text: `Week ${ctx.week}: *${inCount}/${teams.length} legs in* · placer *${ctx.placerName || "TBD"}* · ${locked ? "🔒 locked" : `locks *${ctx.deadlineLabel}*`}${ctx.record?.byWeek?.length ? ` · season ${ctx.record.wins}-${ctx.record.losses}` : ""}\n${list || "_(no legs yet)_"}${missing.length ? `\n${locked ? "Placer picks for" : "Still needed"}: ${missing.join(", ")}` : ""}`, leg: null };
+    return { text: `Week ${ctx.week}: *${inCount}/${teams.length} legs in* · placer *${ctx.placerName || "TBD"}* · ${locked ? "🔒 locked" : `locks *${ctx.deadlineLabel}*${countdown(ctx.lockMs, ctx.nowMs)}`}${ctx.record?.byWeek?.length ? ` · season ${ctx.record.wins}-${ctx.record.losses}` : ""}\n${list || "_(no legs yet)_"}${missing.length ? `\n${locked ? "Placer picks for" : "Still needed"}: ${missing.join(", ")}` : ""}`, leg: null };
   }
   return { text: `Not sure what you're after. Try *who's missing?*, *status*, *deadline?*, *who's placing?*, *record?* or *my leg?* - or just post your bet.`, leg: null };
 };
