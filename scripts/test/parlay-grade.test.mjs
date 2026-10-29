@@ -205,5 +205,19 @@ await t("price: a line that isn't offered → null", () => P.findPropPrice(event
   await t("'over 49.5 receiving yards' is still fine", () => !P.parseProp("Antonio Williams over 49.5 receiving yards", "Antonio Williams").vague);
 }
 
+// ── roast mode: "who is the dumbest owner in the league?" (real baked league data) ──
+{
+  const R = await import("../../src/lib/server/parlayRoast.js");
+  const k = JSON.parse(readFileSync(join(here, "../../static/data/knowledge.json"), "utf8"));
+  const c = JSON.parse(readFileSync(join(here, "../../static/data/commentary.json"), "utf8"));
+  await t("roast intent: dumbest / smartest / not a parlay question", () => R.roastIntent("who is the dumbest owner in the league") === "worst" && R.roastIntent("who's the smartest manager?") === "best" && R.roastIntent("who is the biggest idiot in this league") === "worst" && R.roastIntent("best bet tonight") === null && R.roastIntent("worst leg on the slip") === null && R.roastIntent("who's missing") === null);
+  const rows = R.franchiseStats(k, c);
+  await t("roast: every franchise ranked, with career lineup efficiency", () => rows.length === 12 && rows.every((r) => r.eff > 0.5 && r.eff < 1));
+  const w = R.renderRoast(k, c, "worst"), b = R.renderRoast(k, c, "best");
+  await t("roast: names one team with receipts (record, lineups, this season), no @mentions", () => /^🧠 \*Dumbest owner in the league, by the numbers: .+\.\*\n• .*\d+-\d+.*\n• Lineups: started \d+%/.test(w) && /Runner-up:/.test(w) && !/<@/.test(w));
+  await t("roast: smartest is a different team", () => /^🧠 \*Smartest owner/.test(b) && w.match(/by the numbers: (.+?)\./)[1] !== b.match(/by the numbers: (.+?)\./)[1]);
+  await t("roast: a team that lost a trade badly this season gets it in the evidence", () => rows.some((r) => r.badTrades.length));
+}
+
 console.log(`parlay-grade: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

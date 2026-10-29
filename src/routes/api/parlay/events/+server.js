@@ -26,8 +26,9 @@ import {
 
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import managers from "../../../../../static/data/parlay-managers.json";
-import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, countdown, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent } from "#lib/server/parlayCore.js";
+import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, countdown, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent, stripAddress } from "#lib/server/parlayCore.js";
 import { reopenWeek } from "#lib/server/parlayReopen.js";
+import { renderRoast, roastIntent } from "#lib/server/parlayRoast.js";
 import { pricePropLegs, pricesFromBoard } from "#lib/server/parlayProps.js";
 import { LOCK_LEAD_MS, analyzeLeg, evaluateWeek, fetchSlate, priceLegs } from "#lib/server/parlaySlate.js";
 
@@ -312,6 +313,14 @@ const respond = async (ev, selfUserId, ctx, origin) => {
   let text = a.text,
     how = a.leg ? "answered (leg logged)" : "answered";
 
+  // "who's the dumbest owner in the league?" - a roast with receipts from the site's baked data
+  const roast = (/^Not sure what you're after/).test(text) ? roastIntent(stripAddress(ev.text)) : null;
+  if (roast) {
+    const get = (f) => fetch(`${origin}/data/${f}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const [knowledge, commentary] = await Promise.all([get("knowledge.json"), get("commentary.json")]);
+    const r = knowledge ? renderRoast(knowledge, commentary || {}, roast) : null;
+    if (r) { text = r; how = `answered (roast: ${roast})`; }
+  }
   if ((/^Not sure what you're after/).test(text) && isLeagueQuestion(ev.text)) {
     const oracle = await askOracle(origin, ev.text.replace(/<@[A-Z0-9]+>/g, "").trim()).catch(() => null);
     if (oracle) { text = oracleForSlack(oracle); how = "answered (oracle)"; }
