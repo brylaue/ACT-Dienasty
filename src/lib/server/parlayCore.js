@@ -311,7 +311,7 @@ export const PARLAY_RULES = `How the Parlay Builder works:
 const ADDRESS = /^\s*(?:hey|hi|hello|yo|ok|okay|alright|oi)?[,!\s]*@?\s*parlay\s*(?:builder|bot)\b[,:!\s]*/i;
 const MENTIONED_ANYWHERE = /\b(?:parlay\s*(?:builder|bot)|the bot|slack bot)\b/i;
 const INTENT = {
-  missing: /\b(who(?:'s| is| has| hasn'?t)|missing|still need|left|outstanding|hasn'?t (?:added|posted|submitted))\b/i,
+  missing: /\b(missing|still need(?:ed|s)?|outstanding|who(?:'s| is| are)? (?:left|out|not in|still (?:out|missing|needed))|who (?:hasn'?t|has not|didn'?t|still)|hasn'?t (?:added|posted|submitted|put))\b|\bwho(?:'s| is)? left\b/i, // not a bare "who is" - "who is the dumbest owner" isn't asking who's missing
   status: /\b(status|where (?:are|r) we|how many|count|update|progress|board|slip|legs?\b(?! (?:lock|due))|bets?|picks?|current (?:bet|parlay|slip)|what'?s (?:in|on)|the parlay)\b/i,
   tonight: /\b(tonight'?s?|this evening|today'?s?|TNF|thursday night|monday night|MNF|sunday night|SNF|right now)\b/i,
   deadline: /\b(deadline|locks?|locked|due|cutoff|cut-off)\b|\bwhen\b.*\b(?:lock|due|deadline|cutoff|close)/i,

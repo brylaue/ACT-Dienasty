@@ -293,5 +293,13 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
   t("countdown: only inside a day", () => core.countdown(now + 65 * 60e3, now) === " - in 1h 5m" && core.countdown(now + 30 * 60e3, now) === " - in 30 min" && core.countdown(now + 2 * 864e5, now) === "" && core.countdown(now - 1, now) === "");
 }
 
+// a bare "who is…" isn't "who's missing?" - it used to answer "who is the dumbest owner" with the missing list, @-mentions and all
+{
+  const ctx = { legs: { A: { leg: "Bills ML" } }, allTeams: ["A", "B", "C"], week: 8, deadlineLabel: "Thursday 8 PM ET", usersByTeam: { B: ["U1"], C: ["U2"] } };
+  const ans = (q) => core.answerParlayQuestion(q, ctx).text;
+  t("'who is the dumbest owner' is NOT answered with the missing list", () => !/Still missing/.test(ans("parlay builder who is the dumbest owner in the league")) && /^Not sure what you're after/.test(ans("parlay builder who is the dumbest owner in the league")));
+  t("real missing questions still work", () => ["who's missing?", "who hasn't posted", "who is left", "who's still out", "still needed?", "who is not in yet"].every((q) => /Still missing \(2\)/.test(ans(`parlay builder ${q}`))));
+}
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);
