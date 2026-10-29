@@ -40,6 +40,7 @@ import { boardUnchanged, parlayResultFromText, isBoard, isOpener, isStaleLock, n
 import { reopenWeek } from "../src/lib/server/parlayReopen.js";
 import { LOCK_LEAD_MS, evaluateWeek, fetchSlate, lockTime, parseSlate, playerNameOf, priceLegs, resolvePlayerTeam } from "../src/lib/server/parlaySlate.js";
 import { pricePropLegs, pricesFromBoard } from "../src/lib/server/parlayProps.js";
+import { renderRoast } from "../src/lib/server/parlayRoast.js";
 import { fetchBox, gradeSlip, isResultsPost, isVerdictPost, breakersFromResults, parseBox, parseSlipNotice, renderResults, renderVerdict, sameText } from "../src/lib/server/parlayGrade.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -493,10 +494,28 @@ const gradeSlips = async () => {
   }
 };
 
+// roast replies from the last 6 hours get re-scored if the numbers or the scoring changed since they were
+// posted (e.g. the Oct 29 fix that judges owners only on their own seasons) - edited in place, no new post
+const refreshRoasts = async () => {
+  const oldest = String(Math.floor((NOW - 6 * 3600e3) / 1000));
+  const top = (await slackGet("conversations.history", { channel: channelID, oldest, limit: 200 })).messages || [];
+  const posts = [...top];
+  for (const m of top.filter((x) => x.reply_count)) posts.push(...(((await slackGet("conversations.replies", { channel: channelID, ts: m.ts, limit: 200 }).catch(() => ({}))).messages || []).filter((r) => r.ts !== m.ts)));
+  const roasts = posts.filter((m) => m.bot_id && /^(?:🧠|:brain:) \*(?:Dumbest|Smartest) owner in the league/.test(m.text || ""));
+  if (!roasts.length) return;
+  let knowledge, commentary;
+  try { knowledge = JSON.parse(readFileSync(join(root, "static/data/knowledge.json"), "utf8")); commentary = JSON.parse(readFileSync(join(root, "static/data/commentary.json"), "utf8")); } catch { return; }
+  for (const m of roasts) {
+    const text = renderRoast(knowledge, commentary, /Smartest/.test(m.text) ? "best" : "worst");
+    if (text && !sameText(m.text, text)) { await slack("chat.update", { channel: channelID, ts: m.ts, text }); console.log(`roast ${m.ts} re-scored`); }
+  }
+};
+
 // ── modes ─────────────────────────────────────────────────────────────────
 setDeadline((await evalLegs()).lockMs); // the lock follows the legs (earliest game with a leg), so settle it before deciding what's due
 if (MODE === "tick") {
-  await gradeSlips().catch((e) => console.log(`grading failed: ${e.message}`)); // last week's slip keeps grading after Sleeper moves on
+  await gradeSlips().catch((e) => console.log(`grading failed: ${e.message}`));
+  await refreshRoasts().catch((e) => console.log(`roast refresh failed: ${e.message}`)); // last week's slip keeps grading after Sleeper moves on
   if (!seasonOver) { await clearStrays(); await reopenIfStale(); }
   const flags = await postedThisWeek();
   await adoptBoard(flags);
