@@ -23,9 +23,11 @@ const CHATTER = /\b(you|your|you're|guys|lol|lmao|haha|thanks|thank|sorry|please
 // a thread reply under the opener/board is a pick even without betting words
 // ("Chiefs", "Bills -3" is caught above) - but only when it is short and plain, so a
 // sentence of feedback or banter in the thread never lands on the slip
-export const isPlainPick = (t) => t.split(/\s+/).length <= 5 && t.length <= 40 && !/[?,;:!]/.test(t) && !CHATTER.test(t);
-export const looksLikeLeg = (t) => t.length <= 90 && !/\?/.test(t) && !CHATTER.test(t) && !/[.!]\s+[A-Z]/.test(t) && (
-  /\b(ML|moneyline|anytime|any time|TD|TDs|touchdowns?|over|under|spread|ATS|covers?|to cover|to win|wins? by|win|first half|1st half|1H|2H|quarter|1Q|team total|total|alt|prop|to score|first TD|last TD|o\/u|[ou]\d+(\.\d+)?|yds|yards|rushing|receiving|passing|receptions|rec|completions|attempts|sacks?|INT|interceptions?|field goals?|FG|longest|assists?|rebounds?)\b/i.test(t)
+// "Will" is chatter ("will you place it") but also a first name (Will Reichard, Will Levis): before a capitalised surname it's a name
+const chatty = (t) => CHATTER.test(String(t).replace(/\bWill(?= [A-Z][a-z])/g, ""));
+export const isPlainPick = (t) => t.split(/\s+/).length <= 5 && t.length <= 40 && !/[?,;:!]/.test(t) && !chatty(t);
+export const looksLikeLeg = (t) => t.length <= 90 && !/\?/.test(t) && !chatty(t) && !/[.!]\s+[A-Z]/.test(t) && (
+  /\b(ML|moneyline|anytime|any time|TD|TDs|touchdowns?|over|under|spread|ATS|covers?|to cover|to win|wins? by|win|first half|1st half|1H|2H|quarter|1Q|team total|total|alt|prop|to score|first TD|last TD|o\/u|[ou]\d+(\.\d+)?|yds|yards|rushing|receiving|passing|receptions|rec|completions|attempts|sacks?|INT|interceptions?|field goals?|FGs?|kicking points|PATs?|extra points?|tackles?|longest|assists?|rebounds?)\b/i.test(t)
   || /[+-]\d+(\.\d+)?\b/.test(t)          // a spread or a price: -3.5, +150
   || /\b\d+\+\s*\w/.test(t)               // 75+ yards, 5+ receptions
   || /\bby \d+/i.test(t)                   // Lions by 10

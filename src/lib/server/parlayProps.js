@@ -26,6 +26,10 @@ const MARKETS = {
   rush_yds: () => ["player_rush_yds", "player_rush_yds_alternate"],
   rec_yds: () => ["player_reception_yds", "player_reception_yds_alternate"],
   receptions: () => ["player_receptions", "player_receptions_alternate"],
+  fgs: () => ["player_field_goals"],
+  kick_pts: () => ["player_kicking_points"],
+  sacks: () => ["player_sacks"],
+  tackles: () => ["player_tackles_assists"],
 };
 export const marketsFor = (prop) => (prop && MARKETS[prop.stat] ? MARKETS[prop.stat](prop) : []);
 

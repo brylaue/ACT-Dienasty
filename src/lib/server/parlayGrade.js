@@ -41,7 +41,7 @@ export const parseBox = (summary) => {
       for (const a of s.athletes || []) {
         const n = norm(a.athlete?.displayName);
         if (!n) continue;
-        const p = (players[n] ||= { name: a.athlete.displayName, team, passTd: 0, passYds: 0, rushTd: 0, rushYds: 0, rec: 0, recYds: 0, recTd: 0, retTd: 0, defTd: 0 });
+        const p = (players[n] ||= { name: a.athlete.displayName, team, passTd: 0, passYds: 0, rushTd: 0, rushYds: 0, rec: 0, recYds: 0, recTd: 0, retTd: 0, defTd: 0, fgm: 0, kickPts: 0, sacks: 0, tackles: 0 });
         const v = (key) => { const i = col(s, key); return i < 0 ? 0 : Number(a.stats?.[i]) || 0; };
         if (s.name === "passing") { p.passTd += v("passingTouchdowns"); p.passYds += v("passingYards"); }
         if (s.name === "rushing") { p.rushTd += v("rushingTouchdowns"); p.rushYds += v("rushingYards"); }
@@ -49,7 +49,8 @@ export const parseBox = (summary) => {
         if (s.name === "kickReturns") p.retTd += v("kickReturnTouchdowns");
         if (s.name === "puntReturns") p.retTd += v("puntReturnTouchdowns");
         if (s.name === "interceptions") p.defTd += v("interceptionTouchdowns");
-        if (s.name === "defensive") p.defTd += v("defensiveTouchdowns");
+        if (s.name === "defensive") { p.defTd += v("defensiveTouchdowns"); p.sacks += v("sacks"); p.tackles += v("totalTackles"); }
+        if (s.name === "kicking") { const i = col(s, "fieldGoalsMade/fieldGoalAttempts"); p.fgm += i < 0 ? 0 : Number(String(a.stats?.[i] || "0").split("/")[0]) || 0; p.kickPts += v("totalKickingPoints"); }
       }
     }
   }
@@ -70,8 +71,9 @@ const STAT = {
   tds: (p) => p.rushTd + p.recTd + p.retTd + p.defTd, // "anytime TD" = scored one; a QB's passing TDs don't count
   pass_tds: (p) => p.passTd, pass_yds: (p) => p.passYds, rush_yds: (p) => p.rushYds, rec_yds: (p) => p.recYds,
   yds: (p) => p.rushYds + p.recYds, receptions: (p) => p.rec,
+  fgs: (p) => p.fgm, kick_pts: (p) => p.kickPts, sacks: (p) => p.sacks, tackles: (p) => p.tackles,
 };
-const UNIT = { tds: "TD", pass_tds: "passing TD", pass_yds: "passing yd", rush_yds: "rushing yd", rec_yds: "receiving yd", yds: "scrimmage yd", receptions: "catch" };
+const UNIT = { tds: "TD", pass_tds: "passing TD", pass_yds: "passing yd", rush_yds: "rushing yd", rec_yds: "receiving yd", yds: "scrimmage yd", receptions: "catch", fgs: "made FG", kick_pts: "kicking pt", sacks: "sack", tackles: "tackle" };
 const plural = (n, u) => `${n} ${u}${n === 1 ? "" : u.endsWith("h") ? "es" : "s"}`;
 const scoreLine = (g) => `${g.away.abbr} ${g.score[g.away.abbr]}-${g.score[g.home.abbr]} ${g.home.abbr}${g.final ? ", final" : ""}`;
 

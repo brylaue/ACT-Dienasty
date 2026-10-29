@@ -180,5 +180,18 @@ await t("price: a line that isn't offered → null", () => P.findPropPrice(event
   await t("misspelt name: nothing close → null (no guessing)", async () => (await resolvePlayerTeam("Zzyzx Golden", fake)) === null);
 }
 
+// ── kickers + defense (Week 8: "Will Reichard 2+ made FGs") ──
+{
+  const { looksLikeLeg, isPlainPick } = await import("../../src/lib/server/parlayCore.js");
+  await t("'Will Reichard 2+ made FGs' is a leg - 'Will' before a surname is a name, not chatter", () => looksLikeLeg("Will Reichard 2+ made FGs") && isPlainPick("Will Reichard 2+ made FGs"));
+  await t("…but 'Will you place it' is still chatter", () => !looksLikeLeg("Will you place it") && !isPlainPick("will this hit"));
+  await t("prop: 2+ made FGs / over 1.5 field goals / kicking points / sacks", () => P.parseProp("Will Reichard 2+ made FGs", "Will Reichard").stat === "fgs" && P.parseProp("Aubrey over 1.5 field goals", "Aubrey").threshold === 2 && P.parseProp("Bates 8+ kicking points", "Bates").stat === "kick_pts" && P.parseProp("Garrett 1+ sack", "Garrett").stat === "sacks");
+  await t("markets: FGs → player_field_goals", () => P.marketsFor(P.parseProp("Will Reichard 2+ made FGs", "Will Reichard"))[0] === "player_field_goals");
+  const pt = { ...playerTeams, "jake bates": "DET", "trey smack": "GB" };
+  await t("grade: Jake Bates 2+ made FGs (2/2) → hit", () => { const r = g("Jake Bates 2+ made FGs", { playerTeams: pt }); return r.status === "hit" && r.note === "2 made FGs"; });
+  await t("grade: Trey Smack 2+ made FGs (1/3) → miss", () => g("Trey Smack 2+ made FGs", { playerTeams: pt }).status === "miss");
+  await t("grade: Bates 8+ kicking points (8) → hit", () => g("Jake Bates 8+ kicking points", { playerTeams: pt }).status === "hit");
+}
+
 console.log(`parlay-grade: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

@@ -79,7 +79,7 @@ export const teamsIn = (text, slate) => {
 };
 
 // "Kyren Williams anytime td" → "Kyren Williams"; "Bills ML" → null (a team, not a player)
-const PROP_WORDS = /^(?:anytime|any|first|last|1st|2nd|\d|over|under|o\d|u\d|to\b|[+-]?\d|rec|yards|yds|rushing|receiving|passing|longest|(?:one|two|three|four|five|six|a|an)\b|touchdowns?|tds?\b|catches|receptions?|completions|sacks?|ints?\b|interceptions?|points)/i;
+const PROP_WORDS = /^(?:anytime|any|first|last|1st|2nd|\d|over|under|o\d|u\d|to\b|[+-]?\d|rec|yards|yds|rushing|receiving|passing|longest|(?:one|two|three|four|five|six|a|an)\b|touchdowns?|tds?\b|catches|receptions?|completions|sacks?|ints?\b|interceptions?|points|made|fgs?\b|field|kicking|pats?\b|extra|xps?\b|tackles?)/i;
 export const playerNameOf = (text, slate) => {
   const toks = String(text || "").trim().split(/\s+/);
   const isNameTok = (tk) => /^[A-Z](?:\.[A-Z])+\.?$/.test(tk) || (/^[A-Z][a-zA-Z'.-]*$/.test(tk) && /[a-z]/.test(tk)) // Kyren, McCaffrey, A.J. - not ML / TD / BUF
@@ -132,6 +132,10 @@ export const parseProp = (leg, name) => {
   else if (/\b(?:rec|receiving)\b/.test(t) && /\b(?:yds?|yards?)\b/.test(t)) stat = "rec_yds";
   else if (/\b(?:yds?|yards?)\b/.test(t)) stat = "yds";
   else if (/\b(?:receptions?|catches|recs?)\b/.test(t)) stat = "receptions";
+  else if (/\b(?:fgs?|field ?goals?)\b/.test(t)) stat = "fgs";
+  else if (/\bkicking\b/.test(t) && /\bpo?i?n?ts?\b|\bpoints?\b/.test(t)) stat = "kick_pts";
+  else if (/\bsacks?\b/.test(t)) stat = "sacks";
+  else if (/\btackles?\b/.test(t)) stat = "tackles";
   else if (td) stat = "tds";
   if (!stat) return null;
   const under = t.match(/\b(?:under|u)\s?(\d+(?:\.\d+)?)/);
@@ -152,7 +156,7 @@ export const parseProp = (leg, name) => {
 export const propLabel = (p) => {
   if (!p) return null;
   const n = p.dir === "under" ? `under ${p.point}` : `${p.threshold}+`;
-  return { tds: p.threshold <= 1 ? "anytime TD" : `${p.threshold}+ TDs`, first_td: "first TD of the game", pass_tds: `${n} passing TDs`, pass_yds: `${n} passing yds`, rush_yds: `${n} rushing yds`, rec_yds: `${n} receiving yds`, yds: `${n} scrimmage yds`, receptions: `${n} catches` }[p.stat] || null;
+  return { tds: p.threshold <= 1 ? "anytime TD" : `${p.threshold}+ TDs`, first_td: "first TD of the game", pass_tds: `${n} passing TDs`, pass_yds: `${n} passing yds`, rush_yds: `${n} rushing yds`, rec_yds: `${n} receiving yds`, yds: `${n} scrimmage yds`, receptions: `${n} catches`, fgs: `${n} made FGs`, kick_pts: `${n} kicking pts`, sacks: `${n} sacks`, tackles: `${n} tackles` }[p.stat] || null;
 };
 
 // ESPN player search → team abbr. A full name must match exactly; a lone surname
