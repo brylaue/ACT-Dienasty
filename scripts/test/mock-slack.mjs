@@ -30,6 +30,12 @@ globalThis.fetch = async (input, init = {}) => {
     const ab = (s().players || {})[q];
     return json({ items: ab ? [{ displayName: q.replace(/\b\w/g, (c) => c.toUpperCase()), league: "nfl", teamRelationships: [{ core: { abbreviation: ab } }] }] : [] });
   }
+  if (/^https:\/\/api\.anthropic\.com\//.test(url)) { // the AI: canned reply from state.aiText (none → 500, so the bot falls back); the request is logged for the test to read
+    let body = {}; try { body = JSON.parse(init.body || "{}"); } catch { /* not json */ }
+    appendFileSync(LOG, JSON.stringify({ method: "anthropic.messages", params: {}, body }) + "\n");
+    const text = s().aiText;
+    return text ? json({ content: [{ type: "text", text }] }) : new Response("no ai in this test", { status: 500 });
+  }
   if (!/^https:\/\/slack\.com\/api\//.test(url)) return real(input, init);
   const u = new URL(url);
   const method = u.pathname.replace("/api/", "");

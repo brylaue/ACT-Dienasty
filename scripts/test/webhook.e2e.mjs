@@ -30,7 +30,7 @@ writeFileSync(STATE, "{}"); writeFileSync(LOG, "");
 const fixture = (name) => JSON.parse(readFileSync(join(here, "fixtures", `${name}.json`), "utf8"));
 const PLAYERS = { "garrett wilson": "NYJ", "davante adams": "LAR", "derrick henry": "BAL", "jalen coker": "CAR" };
 // kickoffIn: when the slate's FIRST game (Thursday night) starts, relative to now
-const setState = (messages, { kickoffIn = 26 * 3600e3, replies = [] } = {}) => { writeFileSync(STATE, JSON.stringify({ messages, replies, firstKickoffInMs: kickoffIn, players: PLAYERS })); writeFileSync(LOG, ""); };
+const setState = (messages, { kickoffIn = 26 * 3600e3, replies = [], aiText = null } = {}) => { writeFileSync(STATE, JSON.stringify({ messages, replies, firstKickoffInMs: kickoffIn, players: PLAYERS, aiText })); writeFileSync(LOG, ""); };
 const calls = () => readFileSync(LOG, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((c) => c.method !== "espn.scoreboard");
 
 // The Tuesday channel (5 legs, a live pinned board). The Maniacs' leg is Buffalo/Chargers - both on a bye in the slate - so it
@@ -65,7 +65,7 @@ const t = async (name, fn) => { try { if (await fn()) pass++; else { fail++; con
 
 const server = spawn(process.execPath, [join(root, "node_modules", "vite", "bin", "vite.js"), "preview", "--host", "127.0.0.1", "--port", String(PORT), "--strictPort"], { // vite directly (not npx) so kill() reaches it; explicit host - bare "localhost" is ::1 on GitHub runners
   cwd: root, stdio: ["ignore", "pipe", "pipe"],
-  env: { ...process.env, NODE_OPTIONS: `--import=${join(here, "mock-slack.mjs")}`, PARLAY_MOCK_STATE: STATE, PARLAY_MOCK_LOG: LOG, PARLAY_MOCK_SLATE: join(here, "fixtures", "espn-week7-scoreboard.json"), PARLAY_TEST_SLATE_TTL: "1", SLACK_SIGNING_SECRET: SECRET, SLACK_BOT_TOKEN: "xoxb-e2e", ANTHROPIC_API_KEY: "" },
+  env: { ...process.env, NODE_OPTIONS: `--import=${join(here, "mock-slack.mjs")}`, PARLAY_MOCK_STATE: STATE, PARLAY_MOCK_LOG: LOG, PARLAY_MOCK_SLATE: join(here, "fixtures", "espn-week7-scoreboard.json"), PARLAY_TEST_SLATE_TTL: "1", SLACK_SIGNING_SECRET: SECRET, SLACK_BOT_TOKEN: "xoxb-e2e", ANTHROPIC_API_KEY: "e2e-key" },
 });
 server.stdout.on("data", (d) => { serverLog += d; }); server.stderr.on("data", (d) => { serverLog += d; });
 const exited = new Promise((r) => server.on("exit", r));
@@ -108,6 +108,42 @@ try {
     const c = calls(), rep = c.find((x) => x.method === "chat.postMessage");
     return rep && rep.body.thread_ts === "1790200000.000200" && /Still missing/.test(rep.body.text);
   });
+
+  // ── conversation: the bot follows a thread it's part of ──
+  {
+    const Q = { ts: "1790201000.000100", user: TIM, text: "Hey Parlay Builder, what's the current bet?" };
+    const A = { ts: "1790201000.000200", user: SELF, bot_id: "B1", thread_ts: Q.ts, text: "*4/12 legs in* · locks Sunday" };
+    const ai = (c) => c.find((x) => x.method === "anthropic.messages");
+    setState(BASE, { replies: [A], aiText: "Yours isn't in yet, Crab Boilers - post a leg before Sunday." });
+    await t("follow-up: 'what about mine?' right under the bot's answer → answered in the thread, without naming the bot", async () => {
+      await post(msg(TIM, "what about mine?", { ts: "1790201000.000300", thread_ts: Q.ts }));
+      const rep = replies()[0];
+      return rep && rep.body.thread_ts === Q.ts && /Yours isn't in yet/.test(rep.body.text);
+    });
+    await t("follow-up: the AI was given the thread, the board, the asker and the time", async () => {
+      const req = ai(calls()), u = req?.body?.messages?.[0]?.content || "";
+      return /This thread so far/.test(u) && /Parlay Builder \(you\): \*4\/12 legs in\*/.test(u) && /Legs on the board:/.test(u) && /Risky Business: "Vikings ML"/.test(u) && /Asker: the Crab Boilers manager/.test(u) && /Now: /.test(u) && /Latest message, to answer: what about mine\?/.test(u);
+    });
+    setState(BASE, { replies: [A], aiText: "should not be used" });
+    await t("banter in the thread ('I asked the bot not you') → the bot stays out", async () => { await post(msg(CYRES, "I wasn't talking to you", { ts: "1790201000.000400", thread_ts: Q.ts })); return replies().length === 0 && !ai(calls()); });
+    const OTHER = { ts: "1790201000.000350", user: CYRES, thread_ts: Q.ts, text: "Aaron's leg is tonight" };
+    setState(BASE, { replies: [A, OTHER], aiText: "should not be used" });
+    await t("a question to someone else after a human spoke → the bot stays out", async () => { await post(msg(TIM, "what about mine?", { ts: "1790201000.000500", thread_ts: Q.ts })); return replies().length === 0; });
+    setState(BASE, { aiText: "Vikings ML is the only priced leg so far, at -285." });
+    await t("context question ('is that one priced?') → the AI answers with the rules engine's facts in hand", async () => {
+      await post(msg(LEE, `<@${SELF}> which leg is priced? and is mine in?`, { ts: "1790201000.000600" }));
+      const rep = replies()[0], u = ai(calls())?.body?.messages?.[0]?.content || "";
+      return rep && /only priced leg/.test(rep.body.text) && /The rules engine's answer to this/.test(u);
+    });
+    setState(BASE);
+    await t("AI unavailable → the rules engine's answer still goes out", async () => {
+      await post(msg(LEE, `<@${SELF}> which leg is priced? and is mine in?`, { ts: "1790201000.000700" }));
+      const rep = replies()[0];
+      return rep && rep.body.text.length > 0 && !/should not be used/.test(rep.body.text);
+    });
+    setState(BASE, { aiText: "should not be used" });
+    await t("plain status question → rules engine only, no AI call", async () => { await post(msg(LEE, `<@${SELF}> who's missing?`, { ts: "1790201000.000800" })); return /Still missing/.test(replies()[0]?.body.text || "") && !ai(calls()); });
+  }
 
   // ── a leg that can't be played: Bills on a bye ──
   const BYE_NOW = { ...BYE_MSG, ts: "1790199000.000100" }; // the Maniacs, "Buffalo to cover against the Chargers"

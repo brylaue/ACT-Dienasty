@@ -29,6 +29,7 @@ import managers from "../../../../../static/data/parlay-managers.json";
 import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, countdown, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent, stripAddress } from "#lib/server/parlayCore.js";
 import { reopenWeek } from "#lib/server/parlayReopen.js";
 import { renderRoast, roastIntent } from "#lib/server/parlayRoast.js";
+import { CHAT_SYSTEM, buildBrief, isFollowUp, needsContext } from "#lib/server/parlayChat.js";
 import { pricePropLegs, pricesFromBoard } from "#lib/server/parlayProps.js";
 import { LOCK_LEAD_MS, analyzeLeg, evaluateWeek, fetchSlate, priceLegs } from "#lib/server/parlaySlate.js";
 
@@ -234,7 +235,8 @@ const loadRecord = async (ctx) => {
       repliesByTs[m.ts] = (d.messages || []).filter((r) => r.ts !== m.ts);
     }
   }
-  return seasonRecord({ messages, teamOfUser: ctx.teamOfUser, repliesByTs, seed: managers.seedResults?.[String(new Date().getFullYear())] || {} });
+  const results = Object.values(repliesByTs).flat().filter((r) => r.bot_id && /^(?:📊|:bar_chart:) \*Week \d+ results\*/.test(r.text || "")).sort((a, b) => Number(b.ts) - Number(a.ts))[0]?.text || null;
+  return { ...seasonRecord({ messages, teamOfUser: ctx.teamOfUser, repliesByTs, seed: managers.seedResults?.[String(new Date().getFullYear())] || {} }), results };
 };
 
 const refreshBoard = async (selfUserId, ctx) => {
@@ -271,28 +273,24 @@ const refreshBoard = async (selfUserId, ctx) => {
   return `board refreshed: ${Object.keys(legs).length}/${allTeams.length}`;
 };
 
-// free-form questions the rule intents don't cover: ask Claude, grounded
-// ONLY in the bot's rules and the live week. Short, deadpan, no invention.
-const aiAnswer = async (question, snapshot) => {
+// the conversational path: Claude, given the whole brief (board, thread, season) - see parlayChat.js.
+// draft = what the rules engine would have said, offered as facts it can reuse.
+const MODELS = () => [...new Set([ANTHROPIC_MODEL, "claude-sonnet-4-5", "claude-haiku-4-5-20251001"].filter(Boolean))];
+const aiAnswer = async (question, brief, draft = null) => {
   if (!ANTHROPIC_API_KEY) return null;
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01"
-    },
-
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL || "claude-haiku-4-5-20251001",
-      max_tokens: 200,
-      system: `You are the Parlay Builder, a Slack bot for a fantasy football league's weekly group parlay. If the question is about the parlay, answer in one or two short, dry sentences (under 60 words) using ONLY the rules and live status below; if the rules don't cover it, say so and point them to Bryan (the human who built you). If the question is about anything else - trivia, life advice, who to bet on, the weather - reply with ONE deadpan, league-appropriate quip (under 25 words) that makes clear you only do parlays. Never invent rules, odds, picks, or facts; never share or guess personal details; never be cruel about a specific person. Slack mrkdwn only (*bold*), no headers.\n\n${PARLAY_RULES}`,
-      messages: [{ role: "user", content: `Live status: ${snapshot}\n\nQuestion: ${question}` }],
-    }),
-  });
-  if (!r.ok) return null;
-  const d = await r.json();
-  return d.content?.find((b) => b.type === "text")?.text?.trim() || null;
+  const content = `${brief}\n\n${draft ? `The rules engine's answer to this (accurate, reuse what helps): ${draft}\n\n` : ""}Latest message, to answer: ${question}`;
+  for (const model of MODELS()) { // a model id this key can't use → try the next
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model, max_tokens: 350, system: CHAT_SYSTEM(PARLAY_RULES), messages: [{ role: "user", content }] }),
+    });
+    if (r.status === 404 || r.status === 400) { console.log(`parlay events: model ${model} unavailable (${r.status})`); continue; }
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.content?.find((b) => b.type === "text")?.text?.trim() || null;
+  }
+  return null;
 };
 
 // league history / bylaws questions → The Oracle on the site
@@ -302,38 +300,40 @@ const askOracle = async (origin, question) => {
   return r.ok && d.answer ? d.answer : null;
 };
 
-// someone spoke to the bot - answer in a thread under their message
-const respond = async (ev, selfUserId, ctx, origin) => {
-  const record = (/\b(record|season|tally|hit rate|standings|status|how (?:have|are) we)\b/i).test(ev.text || "") ? await loadRecord(ctx).catch(() => null) : null;
+// someone spoke to the bot - answer in a thread under their message.
+// thread = the thread's messages before this one (oldest first), [] for a top-level post
+const respond = async (ev, selfUserId, ctx, origin, thread = [], followUp = false) => {
+  const question = stripAddress(ev.text) || ev.text;
   const a = answerParlayQuestion(ev.text, {
     legs: ctx.legs, allTeams: ctx.allTeams, week: ctx.header?.week ?? null, placerName: ctx.header?.placerName ?? null,
-    deadlineLabel: ctx.lockMs ? etLabel(ctx.lockMs) : ctx.header?.deadlineLabel ?? "", locked: ctx.locked, checkLeg: ctx.checkLeg, gameOf: ctx.gameOf, lockMs: ctx.lockMs, nowMs: Date.now(), record, usersByTeam: ctx.usersByTeam, askerTeam: ctx.teamOfUser(ev.user),
+    deadlineLabel: ctx.lockMs ? etLabel(ctx.lockMs) : ctx.header?.deadlineLabel ?? "", locked: ctx.locked, checkLeg: ctx.checkLeg, gameOf: ctx.gameOf, lockMs: ctx.lockMs, nowMs: Date.now(),
+    record: (/\b(record|season|tally|hit rate|standings|status|how (?:have|are) we)\b/i).test(ev.text || "") ? await loadRecord(ctx).catch(() => null) : null,
+    usersByTeam: ctx.usersByTeam, askerTeam: ctx.teamOfUser(ev.user),
   });
-
-  let text = a.text,
-    how = a.leg ? "answered (leg logged)" : "answered";
+  const unsure = (/^Not sure what you're after/).test(a.text);
+  let text = a.text, how = a.leg ? "answered (leg logged)" : "answered";
+  if (a.leg) { await slack("chat.postMessage", { channel: ctx.channel, thread_ts: ev.thread_ts || ev.ts, text }); return how; } // a leg is a leg - no chat needed
 
   // "who's the dumbest owner in the league?" - a roast with receipts from the site's baked data
-  const roast = (/^Not sure what you're after/).test(text) ? roastIntent(stripAddress(ev.text)) : null;
+  const roast = unsure && !followUp ? roastIntent(question) : null;
   if (roast) {
     const get = (f) => fetch(`${origin}/data/${f}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
     const [knowledge, commentary] = await Promise.all([get("knowledge.json"), get("commentary.json")]);
     const r = knowledge ? renderRoast(knowledge, commentary || {}, roast) : null;
-    if (r) { text = r; how = `answered (roast: ${roast})`; }
+    if (r) { await slack("chat.postMessage", { channel: ctx.channel, thread_ts: ev.thread_ts || ev.ts, text: r }); return `answered (roast: ${roast})`; }
   }
-  if ((/^Not sure what you're after/).test(text) && isLeagueQuestion(ev.text)) {
-    const oracle = await askOracle(origin, ev.text.replace(/<@[A-Z0-9]+>/g, "").trim()).catch(() => null);
-    if (oracle) { text = oracleForSlack(oracle); how = "answered (oracle)"; }
+  // league history / bylaws → The Oracle
+  if (unsure && !followUp && isLeagueQuestion(ev.text)) {
+    const oracle = await askOracle(origin, question).catch(() => null);
+    if (oracle) { await slack("chat.postMessage", { channel: ctx.channel, thread_ts: ev.thread_ts || ev.ts, text: oracleForSlack(oracle) }); return "answered (oracle)"; }
   }
-  if ((/^Not sure what you're after/).test(text)) {
-    const inCount = Object.keys(ctx.legs).length;
-    const now = new Date().toLocaleString("en-US", { timeZone: "America/New_York", weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-    const legLines = ctx.allTeams.filter((t) => ctx.legs[t]).map((t) => { const g = ctx.gameOf(ctx.legs[t].leg); return `${t}: ${ctx.legs[t].leg}${g ? ` [${g.label}, kicks off ${etLabel(g.kickoffMs)}]` : ""}`; }).join("; ");
-    const snapshot = ctx.header
-      ? `Right now: ${now} ET. Week ${ctx.header.week}, ${inCount}/${ctx.allTeams.length} legs in, placer ${ctx.header.placerName || "TBD"}, ${ctx.locked ? "LOCKED" : `legs lock ${ctx.lockMs ? etLabel(ctx.lockMs) : ctx.header.deadlineLabel}${countdown(ctx.lockMs)}`}. Legs: ${legLines || "none yet"}. Asker's team: ${ctx.teamOfUser(ev.user) || "unknown"}`
-      : "the week hasn't opened yet";
-    const ai = await aiAnswer(ev.text, snapshot).catch(() => null);
-    if (ai) { text = ai; how = "answered (ai)"; }
+  // anything that leans on context - a follow-up, "is that one priced?", two questions at once - or that the
+  // rules engine didn't recognise: Claude with the whole brief (board, thread, season, recent chat)
+  if (unsure || needsContext(question, { followUp })) {
+    const rec = await loadRecord(ctx).catch(() => null);
+    const brief = buildBrief({ ctx, asker: ctx.teamOfUser(ev.user) ? `the ${ctx.teamOfUser(ev.user)} manager` : null, thread, recent: ctx.messages || [], record: rec, results: rec?.results || null, selfUserId });
+    const ai = await aiAnswer(question, brief, unsure ? null : a.text).catch((e) => { console.log(`parlay events: ai failed: ${e.message}`); return null; });
+    if (ai) { text = ai; how = followUp ? "answered (ai, follow-up)" : "answered (ai)"; }
   }
   await slack("chat.postMessage", { channel: ctx.channel, thread_ts: ev.thread_ts || ev.ts, text });
   return how;
@@ -355,15 +355,21 @@ export async function POST(event) {
   const ev = body.event || {};
   const relevant = body.type === "event_callback" && shouldRefreshForEvent(ev, CHANNEL(), selfUserId);
   if (relevant && SLACK_BOT_TOKEN) {
-    const talking = !ev.subtype && addressedToBot(ev.text, selfUserId); // "@Parlay Builder …" or "hey parlay builder …"
+    const addressed = !ev.subtype && addressedToBot(ev.text, selfUserId); // "@Parlay Builder …" or "hey parlay builder …"
     const work = (async () => {
+      // a reply in a thread: read the thread, so the bot can follow the conversation (and hear "what about mine?" without being named again)
+      const thread = !ev.subtype && ev.thread_ts
+        ? (((await slackGet("conversations.replies", { channel: ev.channel, ts: ev.thread_ts, limit: 50 }).catch(() => ({}))).messages || []).filter((m) => Number(m.ts) < Number(ev.ts)))
+        : [];
+      const followUp = !addressed && !ev.subtype && isFollowUp(ev.text, thread, selfUserId);
+      const talking = addressed || followUp;
       const ctx = await loadWeek();
       const results = [];
       if (ctx.stale && ctx.board && ctx.header) results.push(await reopen(ctx));
       const lockedNow = await lockIfDue(ctx);                         // deadline passed and cron hasn't locked? lock now (this post made the slip)
       if (lockedNow) ctx.locked = true;
       results.push(lockedNow || await refreshBoard(selfUserId, ctx)); // otherwise a leg (addressed or not) lands on the board
-      if (talking) results.push(await respond(ev, selfUserId, ctx, new URL(event.request.url).origin));
+      if (talking) results.push(await respond(ev, selfUserId, ctx, new URL(event.request.url).origin, thread, followUp));
       else if (isLateLeg(ev, ctx)) results.push(await lateLegReply(ev, ctx)); // a bet after the lock: ask the placer, don't go quiet
       results.push(`[${ctx.locked ? "locked" : "open"} · ${Object.keys(ctx.legs).length} legs · ${ctx.rejected.length} rejected · lock ${ctx.lockMs ? new Date(ctx.lockMs).toISOString() : "n/a"}${ctx.slate ? "" : " · no slate"}]`);
       return results.join(" · ");
