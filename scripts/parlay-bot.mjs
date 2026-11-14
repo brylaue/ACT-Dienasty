@@ -509,8 +509,15 @@ const correctStatusAnswers = async () => {
   const posts = [...top];
   for (const m of top.filter((x) => x.reply_count)) posts.push(...(((await slackGet("conversations.replies", { channel: channelID, ts: m.ts, limit: 200 }).catch(() => ({}))).messages || []).filter((r) => r.ts !== m.ts)));
   const answers = posts.filter((m) => m.bot_id && /^Week \d+: \*\d+\/\d+ legs in\*/.test(m.text || "") && !/Corrected/.test(m.text || ""));
-  if (!answers.length) return;
+  const acks = posts.filter((m) => m.bot_id && m.thread_ts && /^Got it - \*(.+?)\*: (.+?) (?:✅|:white_check_mark:)\s*$/.test(m.text || ""));
+  if (!answers.length && !acks.length) return;
   const legs = await readLegs();
+  // "Got it - *The Maniacs*: Add Bengals ML ✅" → say the leg exactly as the board has it
+  for (const a of acks) {
+    const [, team, said] = a.text.match(/^Got it - \*(.+?)\*: (.+?) (?:✅|:white_check_mark:)\s*$/);
+    const v = legs[team];
+    if (v && v.ts === a.thread_ts && v.leg !== said) { await slack("chat.update", { channel: channelID, ts: a.ts, text: `Got it - *${team}*: ${v.leg} ✅` }); console.log(`corrected ack ${a.ts}: "${said}" → "${v.leg}"`); }
+  }
   for (const a of answers) {
     const then = Object.fromEntries(Object.entries(legs).filter(([, v]) => Number(v.ts) < Number(a.ts)));
     const listed = new Set([...String(a.text).matchAll(/^• \*(.+?)\* — /gm)].map((x) => x[1]));
