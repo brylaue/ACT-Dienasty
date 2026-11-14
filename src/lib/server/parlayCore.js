@@ -5,11 +5,11 @@
 */
 
 export const cleanLeg = (t) => String(t || "")
-  .replace(/<@[A-Z0-9]+>/g, " ")
+  .replace(/<@[A-Z0-9]+>/g, " ").trim() // "Add Bengals ML for me @Parlay Builder": drop the mention first, so "for me" is at the end
   .replace(/^\s*(?:hey|hi|hello|yo|ok|okay|alright|oi)?[,!\s]*@?\s*parlay\s*(?:builder|bot)\b[,:!\s]*/i, "") // addressed to the bot
   .replace(/\s*\*?sent using\*?.*$/i, "")   // client signatures ("*Sent using* Claude")
   .replace(/^[\s🎯🎰:\-–—]+/u, "")
-  .replace(/^(?:i'?ll take|i'?ll go with|i'?ll go|i'?ll do|i'?ll ride|i got|i'?m taking|i'?m going with|i want|i like|going with|riding with|put me down for|put me in for|give me|gimme|let'?s do|let'?s go|my leg is|my leg:|leg:)\s+/i, "")
+  .replace(/^(?:add|sub in|swap (?:in|to)|switch (?:me |mine |it )?to|change (?:mine |my leg |it )?to|make (?:mine|it)|i'?ll take|i'?ll go with|i'?ll go|i'?ll do|i'?ll ride|i got|i'?m taking|i'?m going with|i want|i like|going with|riding with|put me down for|put me in for|give me|gimme|let'?s do|let'?s go|my leg is|my leg:|leg:)\s+/i, "")
   .replace(/\s+(?:for me|for us|please|pls|plz|this week|tonight|today)[.!]*$/i, "")
   .replace(/[.!]+$/, "")
   .replace(/\s+/g, " ").trim();
@@ -327,6 +327,11 @@ const INTENT = {
   report: /\b(report|how (?:do|are) (?:results|hits?|wins)|who (?:reports|marks|tracks)|track(?:ed|ing)?|mark (?:it )?(?:hit|miss))\b/i,
 };
 export const stripAddress = (text) => String(text || "").replace(/<@[A-Z0-9]+>/g, " ").replace(ADDRESS, "").trim();
+// threads whose replies can hold legs: the opener's, the pinned board's, and any thread a manager
+// started by talking to the bot ("@Parlay Builder what's the parlay?" → "add Bengals ML for me" underneath)
+export const legThread = (m, selfUserId = null) => !!m?.reply_count && (
+  isOpener(m.text) || (m.bot_id && isBoard(m.text)) ||
+  (!m.bot_id && ((selfUserId && String(m.text || "").includes(`<@${selfUserId}>`)) || ADDRESS.test(String(m.text || "").replace(/<@[A-Z0-9]+>/g, " ").trim()))));
 export const addressedToBot = (text, selfUserId) => {
   const t = String(text || "");
   if (selfUserId && t.includes(`<@${selfUserId}>`)) return true;

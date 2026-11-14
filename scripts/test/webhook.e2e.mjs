@@ -145,6 +145,27 @@ try {
     await t("plain status question → rules engine only, no AI call", async () => { await post(msg(LEE, `<@${SELF}> who's missing?`, { ts: "1790201000.000800" })); return /Still missing/.test(replies()[0]?.body.text || "") && !ai(calls()); });
   }
 
+  // ── Week 10: legs said to the bot ──
+  setState(BASE);
+  await t("'Add Bengals ML for me @bot' (top level) → on the board as Bengals ML", async () => {
+    const M = { ts: "1790202000.000100", user: LEE, text: `Add Bengals ML for me <@${SELF}>` };
+    setState([M, ...BASE]);
+    await post(msg(LEE, M.text, { ts: M.ts }));
+    const upd = calls().find((x) => x.method === "chat.update");
+    return upd && /\*The Maniacs\* — Bengals ML/.test(upd.body.text) && reacts("white_check_mark").some((x) => x.body.timestamp === M.ts);
+  });
+  {
+    const Q = { ts: "1790202100.000100", user: LEE, text: `<@${SELF}> what is the current parlay?`, reply_count: 2 };
+    const A = { ts: "1790202100.000200", user: SELF, bot_id: "B1", thread_ts: Q.ts, text: "Week 3: *4/12 legs in*" };
+    const R = { ts: "1790202100.000300", user: LEE, thread_ts: Q.ts, text: "Add Bengals ML for me" };
+    setState([Q, ...BASE], { replies: [A, R] });
+    await t("…and the same leg replied under the bot's answer (not the opener) → on the board, ✅'d", async () => {
+      await post(msg(LEE, R.text, { ts: R.ts, thread_ts: Q.ts }));
+      const upd = calls().find((x) => x.method === "chat.update");
+      return upd && /\*The Maniacs\* — Bengals ML/.test(upd.body.text) && reacts("white_check_mark").some((x) => x.body.timestamp === R.ts);
+    });
+  }
+
   // ── a leg that can't be played: Bills on a bye ──
   const BYE_NOW = { ...BYE_MSG, ts: "1790199000.000100" }; // the Maniacs, "Buffalo to cover against the Chargers"
   setState([BYE_NOW, ...BASE]);

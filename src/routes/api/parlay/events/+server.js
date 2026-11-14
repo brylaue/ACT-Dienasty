@@ -26,7 +26,7 @@ import {
 
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import managers from "../../../../../static/data/parlay-managers.json";
-import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, countdown, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent, stripAddress } from "#lib/server/parlayCore.js";
+import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, countdown, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent, stripAddress, legThread } from "#lib/server/parlayCore.js";
 import { reopenWeek } from "#lib/server/parlayReopen.js";
 import { renderRoast, roastIntent } from "#lib/server/parlayRoast.js";
 import { CHAT_SYSTEM, buildBrief, isFollowUp, needsContext } from "#lib/server/parlayChat.js";
@@ -95,7 +95,7 @@ const getLeague = async () => {
 };
 
 // everything the webhook knows about the week, loaded once per event
-const loadWeek = async () => {
+const loadWeek = async (selfUserId = null) => {
   const channel = CHANNEL();
   const [rosters, users] = await getLeague();
   const teamName = (rid) => {
@@ -117,7 +117,7 @@ const loadWeek = async () => {
       messages.push(m);
       if (m.bot_id && isBoard(m.text) && !board) board = m; // newest first
       if (m.bot_id && (/legs are locked/i).test(m.text || "")) lockNotice = true;
-      if ((isOpener(m.text) || m.bot_id && isBoard(m.text)) && m.reply_count) threads.push(m.ts);
+      if (legThread(m, selfUserId)) threads.push(m.ts); // opener / board / bot-conversation threads can hold legs
     }
     cursor = d.response_metadata?.next_cursor;
     if (!cursor || !d.has_more) break;
@@ -363,7 +363,7 @@ export async function POST(event) {
         : [];
       const followUp = !addressed && !ev.subtype && isFollowUp(ev.text, thread, selfUserId);
       const talking = addressed || followUp;
-      const ctx = await loadWeek();
+      const ctx = await loadWeek(selfUserId);
       const results = [];
       if (ctx.stale && ctx.board && ctx.header) results.push(await reopen(ctx));
       const lockedNow = await lockIfDue(ctx);                         // deadline passed and cron hasn't locked? lock now (this post made the slip)

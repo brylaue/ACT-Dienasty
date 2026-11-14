@@ -301,5 +301,13 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
   t("real missing questions still work", () => ["who's missing?", "who hasn't posted", "who is left", "who's still out", "still needed?", "who is not in yet"].every((q) => /Still missing \(2\)/.test(ans(`parlay builder ${q}`))));
 }
 
+// ── Week 10: "Add Bengals ML for me @Parlay Builder" was answered "Got it" but never reached the board ──
+{
+  t("cleanLeg: 'Add Bengals ML for me <@bot>' → 'Bengals ML'", () => core.cleanLeg("Add Bengals ML for me <@U0C3B7QEC9M>") === "Bengals ML" && core.looksLikeLeg("Bengals ML"));
+  t("cleanLeg: add / switch mine to / change my leg to", () => core.cleanLeg("add Bengals ML") === "Bengals ML" && core.cleanLeg("switch mine to Bills ML") === "Bills ML" && core.cleanLeg("change my leg to Bengals ML") === "Bengals ML");
+  t("legThread: a manager's thread to the bot can hold legs; opener/board too", () => core.legThread({ reply_count: 2, user: "U1", text: "<@UBOT> what is the current parlay?" }, "UBOT") && core.legThread({ reply_count: 1, user: "U1", text: "hey parlay builder status" }) && core.legThread({ reply_count: 3, bot_id: "B", text: "📋 *WEEK 10 BOARD — 6/12 legs*" }));
+  t("legThread: not a thread @-ing someone else, not a thread with no replies", () => !core.legThread({ reply_count: 2, user: "U1", text: "<@ULEE> lol" }, "UBOT") && !core.legThread({ reply_count: 0, user: "U1", text: "<@UBOT> status" }, "UBOT"));
+}
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);
