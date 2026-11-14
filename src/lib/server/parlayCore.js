@@ -5,7 +5,7 @@
 */
 
 export const cleanLeg = (t) => String(t || "")
-  .replace(/<@[A-Z0-9]+>/g, " ").trim() // "Add Bengals ML for me @Parlay Builder": drop the mention first, so "for me" is at the end
+  .replace(/<@[A-Z0-9]+(?:\|[^>]*)?>/g, " ").trim() // "Add Bengals ML for me @Parlay Builder": drop the mention first, so "for me" is at the end
   .replace(/^\s*(?:hey|hi|hello|yo|ok|okay|alright|oi)?[,!\s]*@?\s*parlay\s*(?:builder|bot)\b[,:!\s]*/i, "") // addressed to the bot
   .replace(/\s*\*?sent using\*?.*$/i, "")   // client signatures ("*Sent using* Claude")
   .replace(/^[\s🎯🎰:\-–—]+/u, "")
@@ -326,15 +326,15 @@ const INTENT = {
   how: /\b(how (?:do|does|did|would|should|can) (?:this|it|i|you|we|that|the bot)|rules?|parameters|what counts|format|how to (?:enter|add|submit|post)|account(?:ed)? for|explain)\b/i,
   report: /\b(report|how (?:do|are) (?:results|hits?|wins)|who (?:reports|marks|tracks)|track(?:ed|ing)?|mark (?:it )?(?:hit|miss))\b/i,
 };
-export const stripAddress = (text) => String(text || "").replace(/<@[A-Z0-9]+>/g, " ").replace(ADDRESS, "").trim();
+export const stripAddress = (text) => String(text || "").replace(/<@[A-Z0-9]+(?:\|[^>]*)?>/g, " ").replace(ADDRESS, "").trim();
 // threads whose replies can hold legs: the opener's, the pinned board's, and any thread a manager
 // started by talking to the bot ("@Parlay Builder what's the parlay?" → "add Bengals ML for me" underneath)
 export const legThread = (m, selfUserId = null) => !!m?.reply_count && (
   isOpener(m.text) || (m.bot_id && isBoard(m.text)) ||
-  (!m.bot_id && ((selfUserId && String(m.text || "").includes(`<@${selfUserId}>`)) || ADDRESS.test(String(m.text || "").replace(/<@[A-Z0-9]+>/g, " ").trim()))));
+  (!m.bot_id && ((selfUserId && new RegExp(`<@${selfUserId}(?:\\|[^>]*)?>`).test(String(m.text || ""))) || ADDRESS.test(String(m.text || "").replace(/<@[A-Z0-9]+(?:\|[^>]*)?>/g, " ").trim()))));
 export const addressedToBot = (text, selfUserId) => {
   const t = String(text || "");
-  if (selfUserId && t.includes(`<@${selfUserId}>`)) return true;
+  if (selfUserId && new RegExp(`<@${selfUserId}(?:\\|[^>]*)?>`).test(t)) return true;
   if (MENTIONED_ANYWHERE.test(t) && /\?/.test(t) && !ADDRESS.test(t)) return true; // "does the bot count edits?"
   if (!ADDRESS.test(t)) return false;
   const rest = stripAddress(t);
