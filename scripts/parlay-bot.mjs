@@ -501,6 +501,30 @@ const gradeSlips = async () => {
   }
 };
 
+// status answers from the last 6 hours that left off a leg which was already posted when the bot answered
+// (the Nov 14 "Add Bengals ML" bug): rewritten in place with the legs as they stood at that moment, and flagged
+const correctStatusAnswers = async () => {
+  const oldest = String(Math.floor((NOW - 6 * 3600e3) / 1000));
+  const top = (await slackGet("conversations.history", { channel: channelID, oldest, limit: 200 })).messages || [];
+  const posts = [...top];
+  for (const m of top.filter((x) => x.reply_count)) posts.push(...(((await slackGet("conversations.replies", { channel: channelID, ts: m.ts, limit: 200 }).catch(() => ({}))).messages || []).filter((r) => r.ts !== m.ts)));
+  const answers = posts.filter((m) => m.bot_id && /^Week \d+: \*\d+\/\d+ legs in\*/.test(m.text || "") && !/Corrected/.test(m.text || ""));
+  if (!answers.length) return;
+  const legs = await readLegs();
+  for (const a of answers) {
+    const then = Object.fromEntries(Object.entries(legs).filter(([, v]) => Number(v.ts) < Number(a.ts)));
+    const listed = new Set([...String(a.text).matchAll(/^• \*(.+?)\* — /gm)].map((x) => x[1]));
+    const missed = Object.keys(then).filter((t) => !listed.has(t));
+    if (!missed.length) continue;
+    const rows = allTeams.filter((t) => then[t]).map((t) => `• *${t}* — ${then[t].leg}`);
+    const still = allTeams.filter((t) => !then[t]);
+    const head = String(a.text).split("\n")[0].replace(/\*\d+\/(\d+) legs in\*/, `*${rows.length}/$1 legs in*`);
+    const text = `${head}\n${rows.join("\n")}${still.length ? `\nStill needed: ${still.join(", ")}` : ""}\n_✏️ Corrected - the first version of this answer left off ${missed.map((t) => `${t}${/s$/i.test(t) ? "'" : "'s"}`).join(" & ")} leg (a bug, now fixed)._`;
+    await slack("chat.update", { channel: channelID, ts: a.ts, text });
+    console.log(`corrected status answer ${a.ts}: added ${missed.join(", ")}`);
+  }
+};
+
 // roast replies from the last 6 hours get re-scored if the numbers or the scoring changed since they were
 // posted (e.g. the Oct 29 fix that judges owners only on their own seasons) - edited in place, no new post
 const refreshRoasts = async () => {
@@ -522,7 +546,8 @@ const refreshRoasts = async () => {
 setDeadline((await evalLegs()).lockMs); // the lock follows the legs (earliest game with a leg), so settle it before deciding what's due
 if (MODE === "tick") {
   await gradeSlips().catch((e) => console.log(`grading failed: ${e.message}`));
-  await refreshRoasts().catch((e) => console.log(`roast refresh failed: ${e.message}`)); // last week's slip keeps grading after Sleeper moves on
+  await refreshRoasts().catch((e) => console.log(`roast refresh failed: ${e.message}`));
+  await correctStatusAnswers().catch((e) => console.log(`status correction failed: ${e.message}`)); // last week's slip keeps grading after Sleeper moves on
   if (!seasonOver) { await clearStrays(); await reopenIfStale(); }
   const flags = await postedThisWeek();
   await adoptBoard(flags);
