@@ -259,7 +259,11 @@ export const lockTime = (infos, slate, nowMs = Date.now()) => {
   if (!slate || !slate.games.length) return null;
   const live = slate.games.filter((g) => g.state !== "post");
   const nextUp = live.find((g) => g.kickoffMs - LOCK_LEAD_MS > nowMs) || live[0] || slate.games[0];
-  const kicks = infos.length ? infos.map((i) => (i.game ? i.game.kickoffMs : slate.firstKickoffMs)) : [nextUp.kickoffMs];
+  // a leg we can't place in a game holds the lock at the first game still to come when it was POSTED (not the
+  // week's first kickoff: one unreadable Saturday post would otherwise "lock" the week back on Thursday and
+  // throw out every leg posted since)
+  const nextAfter = (ms) => (ms ? slate.games.find((g) => g.kickoffMs - LOCK_LEAD_MS > ms)?.kickoffMs : null);
+  const kicks = infos.length ? infos.map((i) => (i.game ? i.game.kickoffMs : nextAfter(i.postedMs) ?? slate.firstKickoffMs)) : [nextUp.kickoffMs];
   return Math.min(...kicks) - LOCK_LEAD_MS;
 };
 
@@ -299,7 +303,7 @@ export const evaluateWeek = async ({ messages, replies = [], allTeams, teamOfUse
     playerTeams[n] = cache.get(n) ?? null;
   }));
   const check = (leg, atMs) => analyzeLeg(leg, slate, { playerTeams, atMs }).reason;
-  const lockOf = (legs) => lockTime(Object.values(legs).map((v) => analyzeLeg(v.leg, slate, { playerTeams })), slate, nowMs);
+  const lockOf = (legs) => lockTime(Object.values(legs).map((v) => ({ ...analyzeLeg(v.leg, slate, { playerTeams }), postedMs: Number(v.ts) * 1000 })), slate, nowMs);
   let res = collectLegsDetailed({ ...base, check });
   let lockMs = lockOf(res.legs);
   if (lockMs != null && nowMs >= lockMs) { res = collectLegsDetailed({ ...base, check, beforeMs: lockMs }); lockMs = lockOf(res.legs) ?? lockMs; } // after the lock: late posts never count

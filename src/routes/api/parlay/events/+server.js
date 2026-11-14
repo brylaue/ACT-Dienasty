@@ -26,7 +26,7 @@ import {
 
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import managers from "../../../../../static/data/parlay-managers.json";
-import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, countdown, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent, stripAddress, legThread } from "#lib/server/parlayCore.js";
+import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, countdown, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent, stripAddress, legThreadKind } from "#lib/server/parlayCore.js";
 import { reopenWeek } from "#lib/server/parlayReopen.js";
 import { renderRoast, roastIntent } from "#lib/server/parlayRoast.js";
 import { CHAT_SYSTEM, buildBrief, isFollowUp, needsContext } from "#lib/server/parlayChat.js";
@@ -117,15 +117,15 @@ const loadWeek = async (selfUserId = null) => {
       messages.push(m);
       if (m.bot_id && isBoard(m.text) && !board) board = m; // newest first
       if (m.bot_id && (/legs are locked/i).test(m.text || "")) lockNotice = true;
-      if (legThread(m, selfUserId)) threads.push(m.ts); // opener / board / bot-conversation threads can hold legs
+      const kind = legThreadKind(m, selfUserId); if (kind) threads.push([m.ts, kind]); // opener / board / bot-conversation threads can hold legs
     }
     cursor = d.response_metadata?.next_cursor;
     if (!cursor || !d.has_more) break;
   }
   const replies = [];
-  for (const ts of threads) {
+  for (const [ts, kind] of threads) {
     const d = await slackGet("conversations.replies", { channel, ts, limit: 200 });
-    for (const m of d.messages || []) if (m.ts !== ts) replies.push(m);
+    for (const m of d.messages || []) if (m.ts !== ts) replies.push({ ...m, legThreadKind: kind });
   }
   const header = board ? parseBoardHeader(board.text) : null;
   const slate = await getSlate(header?.week ?? null);
@@ -312,7 +312,13 @@ const respond = async (ev, selfUserId, ctx, origin, thread = [], followUp = fals
   });
   const unsure = (/^Not sure what you're after/).test(a.text);
   let text = a.text, how = a.leg ? "answered (leg logged)" : "answered";
-  if (a.leg) { await slack("chat.postMessage", { channel: ctx.channel, thread_ts: ev.thread_ts || ev.ts, text }); return how; } // a leg is a leg - no chat needed
+  if (a.leg) { // a leg is a leg - but only say "Got it" if it actually made the board (the Week 10 "Add Bengals ML" ack that never landed)
+    const landed = Object.values(ctx.legs).some((v) => v.ts === ev.ts);
+    const why = ctx.rejected.find((r) => r.ts === ev.ts)?.reason;
+    if (!landed) { text = why ? `Can't log that one: ${why}` : `That didn't make the board - try posting just the bet on its own, e.g. "${cleanLeg(stripAddress(ev.text)) || "Bengals ML"}".`; how = "answered (leg NOT logged)"; }
+    await slack("chat.postMessage", { channel: ctx.channel, thread_ts: ev.thread_ts || ev.ts, text });
+    return how;
+  }
 
   // "who's the dumbest owner in the league?" - a roast with receipts from the site's baked data
   const roast = unsure && !followUp ? roastIntent(question) : null;

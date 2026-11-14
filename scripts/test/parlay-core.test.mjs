@@ -309,5 +309,16 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
   t("legThread: not a thread @-ing someone else, not a thread with no replies", () => !core.legThread({ reply_count: 2, user: "U1", text: "<@ULEE> lol" }, "UBOT") && !core.legThread({ reply_count: 0, user: "U1", text: "<@UBOT> status" }, "UBOT"));
 }
 
+// ── a bot-conversation thread only takes real bets: Aaron's "Responsive" under a status answer isn't Title Chase's new leg ──
+{
+  const teamOfUser = (u) => ({ LEE: "The Maniacs", AARON: "Title Chase" })[u] || null;
+  const r = core.collectLegsDetailed({ allTeams: ["The Maniacs", "Title Chase"], teamOfUser,
+    messages: [{ ts: "100.1", user: "AARON", text: "Chargers ML" }],
+    replies: [{ ts: "200.1", user: "AARON", text: "Responsive", legThreadKind: "chat" }, { ts: "200.2", user: "LEE", text: "Add Bengals ML for me", legThreadKind: "chat" }, { ts: "200.3", user: "AARON", text: "Lions", legThreadKind: "board" }] });
+  t("chat thread: a real bet counts ('Add Bengals ML for me' → Bengals ML)", () => r.legs["The Maniacs"]?.leg === "Bengals ML");
+  t("chat thread: a one-word comment doesn't replace a leg; a bare pick under the opener still does", () => r.legs["Title Chase"]?.leg === "Lions");
+  t("legThreadKind: board vs chat", () => core.legThreadKind({ reply_count: 1, text: ":slot_machine: *Week 10 Parlay Builder is OPEN*" }) === "board" && core.legThreadKind({ reply_count: 1, user: "U", text: "<@UBOT> status" }, "UBOT") === "chat");
+}
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

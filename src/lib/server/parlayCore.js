@@ -59,7 +59,7 @@ export const collectLegsDetailed = ({ messages, replies = [], allTeams, teamOfUs
     const team = teamOfUser(msg.user);
     if (!team) return;
     const leg = cleanLeg(text);
-    if (/^\s*🎯/u.test(text) || looksLikeLeg(leg) || (inThread && isPlainPick(leg))) consider(team, leg, msg.ts, msg);
+    if (/^\s*🎯/u.test(text) || looksLikeLeg(leg) || (inThread && msg.legThreadKind !== "chat" && isPlainPick(leg))) consider(team, leg, msg.ts, msg);
   };
   for (const m of messages) parse(m, false);
   for (const m of replies) parse(m, true);
@@ -329,9 +329,16 @@ const INTENT = {
 export const stripAddress = (text) => String(text || "").replace(/<@[A-Z0-9]+(?:\|[^>]*)?>/g, " ").replace(ADDRESS, "").trim();
 // threads whose replies can hold legs: the opener's, the pinned board's, and any thread a manager
 // started by talking to the bot ("@Parlay Builder what's the parlay?" → "add Bengals ML for me" underneath)
-export const legThread = (m, selfUserId = null) => !!m?.reply_count && (
-  isOpener(m.text) || (m.bot_id && isBoard(m.text)) ||
-  (!m.bot_id && ((selfUserId && new RegExp(`<@${selfUserId}(?:\\|[^>]*)?>`).test(String(m.text || ""))) || ADDRESS.test(String(m.text || "").replace(/<@[A-Z0-9]+(?:\|[^>]*)?>/g, " ").trim()))));
+// "board" threads (opener / pinned board) take a bare reply as a leg ("Vikings ML", even "Lions");
+// "chat" threads (someone talking to the bot) only take something that reads like a bet - a reply
+// like "Responsive" under a status answer is a comment, not Title Chase's new leg
+export const legThreadKind = (m, selfUserId = null) => {
+  if (!m?.reply_count) return null;
+  if (isOpener(m.text) || (m.bot_id && isBoard(m.text))) return "board";
+  if (!m.bot_id && ((selfUserId && new RegExp(`<@${selfUserId}(?:\\|[^>]*)?>`).test(String(m.text || ""))) || ADDRESS.test(String(m.text || "").replace(/<@[A-Z0-9]+(?:\|[^>]*)?>/g, " ").trim()))) return "chat";
+  return null;
+};
+export const legThread = (m, selfUserId = null) => !!legThreadKind(m, selfUserId);
 export const addressedToBot = (text, selfUserId) => {
   const t = String(text || "");
   if (selfUserId && new RegExp(`<@${selfUserId}(?:\\|[^>]*)?>`).test(t)) return true;

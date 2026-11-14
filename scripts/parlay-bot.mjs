@@ -36,7 +36,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { boardUnchanged, cleanLeg, isPlainPick, looksLikeLeg, parlayResultFromText, legThread, isBoard, isOpener, isStaleLock, nflWeekStartMs, straysAfterLock, lockNoticeOf, parseBoardHeader, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
+import { boardUnchanged, cleanLeg, isPlainPick, looksLikeLeg, parlayResultFromText, legThreadKind, isBoard, isOpener, isStaleLock, nflWeekStartMs, straysAfterLock, lockNoticeOf, parseBoardHeader, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
 import { reopenWeek } from "../src/lib/server/parlayReopen.js";
 import { LOCK_LEAD_MS, evaluateWeek, fetchSlate, lockTime, parseSlate, playerNameOf, priceLegs, resolvePlayerTeam } from "../src/lib/server/parlaySlate.js";
 import { pricePropLegs, pricesFromBoard } from "../src/lib/server/parlayProps.js";
@@ -225,15 +225,15 @@ const loadWeek = async () => {
   const messages = []; const openers = [];
   for (let cursor = ""; ;) {
     const d = await slackGet("conversations.history", { channel: channelID, oldest, limit: 200, cursor });
-    for (const msg of d.messages || []) { messages.push(msg); if (legThread(msg, selfUserId)) openers.push(msg.ts); } // legs replied under the opener, the pinned board, or a thread started by talking to the bot
+    for (const msg of d.messages || []) { messages.push(msg); const kind = legThreadKind(msg, selfUserId); if (kind) openers.push([msg.ts, kind]); } // legs replied under the opener, the pinned board, or a thread started by talking to the bot
     cursor = d.response_metadata?.next_cursor;
     if (!cursor || !d.has_more) break;
   }
   const replies = [];
-  for (const ts of openers) {
+  for (const [ts, kind] of openers) {
     for (let cursor = ""; ;) {
       const d = await slackGet("conversations.replies", { channel: channelID, ts, limit: 200, cursor });
-      for (const msg of d.messages || []) if (msg.ts !== ts) replies.push(msg);
+      for (const msg of d.messages || []) if (msg.ts !== ts) replies.push({ ...msg, legThreadKind: kind });
       cursor = d.response_metadata?.next_cursor;
       if (!cursor || !d.has_more) break;
     }

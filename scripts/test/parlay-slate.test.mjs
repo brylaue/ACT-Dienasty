@@ -112,5 +112,14 @@ await t("player names: a capitalized 'Anytime' still ends the name", () => S.pla
 await t("player names: a comma ends the name; spelled-out counts are props ('Jared Goff, two passing touchdowns')", () => S.playerNameOf("Jared Goff, two passing touchdowns", slate) === "Jared Goff" && S.playerNameOf("Gibbs, anytime TD", slate) === "Gibbs" && S.playerNameOf("Puka Nacua five catches", slate) === "Puka Nacua" && S.playerNameOf("Bills, two touchdowns", slate) === null);
 await t("fetchSlate: failure → null", async () => (await S.fetchSlate(7, async () => { throw new Error("offline"); })) === null && (await S.fetchSlate(7, async () => ({ ok: false }))) === null);
 
+// ── an unplaceable leg posted Saturday doesn't drag the lock back to Thursday (Week 10) ──
+{
+  const sl = { games: [{ kickoffMs: Date.parse("2026-11-13T01:15:00Z"), state: "post" }, { kickoffMs: Date.parse("2026-11-15T18:00:00Z"), state: "pre" }], firstKickoffMs: Date.parse("2026-11-13T01:15:00Z") };
+  const sat = Date.parse("2026-11-14T21:53:00Z");
+  const lt = S.lockTime([{ game: null, postedMs: sat }], sl, sat);
+  await t("unplaced leg posted Saturday → held at Sunday's first kickoff, not Thursday's", () => lt === Date.parse("2026-11-15T18:00:00Z") - S.LOCK_LEAD_MS);
+  await t("unplaced leg with no post time → the week's first kickoff (old behaviour)", () => S.lockTime([{ game: null }], sl, sat) === sl.firstKickoffMs - S.LOCK_LEAD_MS);
+}
+
 console.log(`parlay-slate: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);
