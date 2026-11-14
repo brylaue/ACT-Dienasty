@@ -36,7 +36,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { boardUnchanged, parlayResultFromText, legThread, isBoard, isOpener, isStaleLock, nflWeekStartMs, straysAfterLock, lockNoticeOf, parseBoardHeader, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
+import { boardUnchanged, cleanLeg, isPlainPick, looksLikeLeg, parlayResultFromText, legThread, isBoard, isOpener, isStaleLock, nflWeekStartMs, straysAfterLock, lockNoticeOf, parseBoardHeader, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
 import { reopenWeek } from "../src/lib/server/parlayReopen.js";
 import { LOCK_LEAD_MS, evaluateWeek, fetchSlate, lockTime, parseSlate, playerNameOf, priceLegs, resolvePlayerTeam } from "../src/lib/server/parlaySlate.js";
 import { pricePropLegs, pricesFromBoard } from "../src/lib/server/parlayProps.js";
@@ -254,6 +254,13 @@ const evalLegs = async () => {
   if (evalCache) return evalCache;
   const { messages, replies } = await loadWeek();
   evalCache = await evaluateWeek({ messages, replies, allTeams, teamOfUser: teamOfUserFn, slate, nowMs: NOW, cache: playerCache });
+  // why a manager's post didn't make the board (shows in the run log - the usual question is "why isn't my leg on there?")
+  for (const m of [...messages, ...replies]) {
+    const team = !m.bot_id && teamOfUserFn(m.user);
+    if (!team || evalCache.legs[team]?.ts === m.ts || evalCache.rejected.some((r) => r.ts === m.ts)) continue;
+    const leg = cleanLeg(m.text);
+    if (looksLikeLeg(leg) || isPlainPick(leg) || /\b(ML|TD|over|under)\b/i.test(m.text || "")) console.log(`not counted: ${team} ${m.ts}${m.thread_ts && m.thread_ts !== m.ts ? ` (thread ${m.thread_ts})` : ""} ${m.subtype ? `[${m.subtype}] ` : ""}"${String(m.text).slice(0, 80)}" → "${leg}" leg=${looksLikeLeg(leg)} plain=${isPlainPick(leg)}`);
+  }
   return evalCache;
 };
 // player-prop prices (The Odds API, free tier). Priced once when a leg lands and carried in the
