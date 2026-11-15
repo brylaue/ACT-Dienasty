@@ -320,5 +320,12 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
   t("legThreadKind: board vs chat", () => core.legThreadKind({ reply_count: 1, text: ":slot_machine: *Week 10 Parlay Builder is OPEN*" }) === "board" && core.legThreadKind({ reply_count: 1, user: "U", text: "<@UBOT> status" }, "UBOT") === "chat");
 }
 
+// ── "Chiefs ML for me. ill send pic of hard copy ticket soon" (Nov 15, missed) ──
+{
+  const r = core.collectLegsDetailed({ allTeams: ["C-Men"], teamOfUser: () => "C-Men", replies: [], messages: [{ ts: "2", user: "K", text: "Chiefs ML for me. ill send pic of hard copy ticket soon" }, { ts: "1", user: "K", text: "this is a lot of reading but i think i got it lol" }] });
+  t("a bet followed by chat: the first sentence is the leg", () => r.legs["C-Men"]?.leg === "Chiefs ML");
+  t("…but pure chat with a period still isn't a leg", () => !core.collectLegsDetailed({ allTeams: ["C-Men"], teamOfUser: () => "C-Men", replies: [], messages: [{ ts: "1", user: "K", text: "I think so. Will check later." }] }).legs["C-Men"]);
+}
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

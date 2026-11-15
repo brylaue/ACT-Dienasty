@@ -532,6 +532,28 @@ const correctStatusAnswers = async () => {
   }
 };
 
+// a leg posted BEFORE the lock that the bot missed at the time (a parsing bug since fixed - e.g. Nov 15,
+// "Chiefs ML for me. ill send pic…"): put it on the slip and in the lock notice, and say so. Only legs
+// posted before the lock; the notice is what grading reads, so it has to be right.
+const correctLockNotice = async () => {
+  const { messages } = await loadWeek();
+  const notice = lockNoticeOf(messages);
+  if (!notice || !new RegExp(`Week ${nflWeek} legs are locked`).test(notice.text || "")) return false;
+  const slip = parseSlipNotice(notice.text);
+  if (!slip) return false;
+  const legs = await readLegs({ retryProps: false });
+  const onNotice = new Set(slip.legs.map((l) => l.team));
+  const added = allTeams.filter((t) => legs[t] && !onNotice.has(t) && Number(legs[t].ts) < Number(notice.ts));
+  if (!added.length) return false;
+  const usersByTeam = {};
+  for (const [uid, rid] of Object.entries(userTeam)) (usersByTeam[teamName(Number(rid))] ||= []).push(uid);
+  const note = `\n_✏️ Updated: ${added.map((t) => `${t}'s ${legs[t].leg}`).join(" and ")} ${added.length > 1 ? "were" : "was"} posted before the lock but missed by a bug - ${added.length > 1 ? "they're" : "it's"} on the slip now._`;
+  await updateBoard(legs, true);
+  await slack("chat.update", { channel: channelID, ts: notice.ts, text: renderLockNotice({ legs, allTeams, week: nflWeek, placerName: placer?.name || null, placerMentions: placer ? usersByTeam[placer.name] || [] : [], kickoffLabel: etLabel(deadline + LOCK_LEAD_MS) }) + note });
+  console.log(`lock notice corrected: added ${added.join(", ")}`);
+  return true;
+};
+
 // roast replies from the last 6 hours get re-scored if the numbers or the scoring changed since they were
 // posted (e.g. the Oct 29 fix that judges owners only on their own seasons) - edited in place, no new post
 const refreshRoasts = async () => {
@@ -554,7 +576,8 @@ setDeadline((await evalLegs()).lockMs); // the lock follows the legs (earliest g
 if (MODE === "tick") {
   await gradeSlips().catch((e) => console.log(`grading failed: ${e.message}`));
   await refreshRoasts().catch((e) => console.log(`roast refresh failed: ${e.message}`));
-  await correctStatusAnswers().catch((e) => console.log(`status correction failed: ${e.message}`)); // last week's slip keeps grading after Sleeper moves on
+  await correctStatusAnswers().catch((e) => console.log(`status correction failed: ${e.message}`));
+  await correctLockNotice().catch((e) => console.log(`lock notice correction failed: ${e.message}`)); // last week's slip keeps grading after Sleeper moves on
   if (!seasonOver) { await clearStrays(); await reopenIfStale(); }
   const flags = await postedThisWeek();
   await adoptBoard(flags);

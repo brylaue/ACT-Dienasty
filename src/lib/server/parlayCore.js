@@ -58,7 +58,9 @@ export const collectLegsDetailed = ({ messages, replies = [], allTeams, teamOfUs
     if (msg.bot_id || msg.subtype) return;
     const team = teamOfUser(msg.user);
     if (!team) return;
-    const leg = cleanLeg(text);
+    let leg = cleanLeg(text);
+    // "Chiefs ML for me. ill send pic of hard copy ticket soon" - the bet, then chat: take the first sentence
+    if (!looksLikeLeg(leg) && /[.!\n]/.test(text)) { const first = cleanLeg(text.split(/(?<=[.!])\s+|\n+/)[0].replace(/[.!]+$/, "")); if (looksLikeLeg(first)) leg = first; }
     if (/^\s*🎯/u.test(text) || looksLikeLeg(leg) || (inThread && msg.legThreadKind !== "chat" && isPlainPick(leg))) consider(team, leg, msg.ts, msg);
   };
   for (const m of messages) parse(m, false);
