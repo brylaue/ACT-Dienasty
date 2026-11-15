@@ -91,9 +91,9 @@ export const pricePropLegs = async (legs, { slate, playerTeams = {}, prior = {},
   for (const [team, v] of Object.entries(legs)) {
     if (v.odds != null) continue; // a game line already priced it
     const info = analyzeLeg(v.leg, slate, { playerTeams });
-    if (info.kind !== "player") continue;
     const p = prior[team];
     const was = p && p.leg === v.leg ? tagValue(p.tag) : null;
+    if (info.kind !== "player") { if (typeof was === "number") out[team] = { ...v, odds: was }; continue; } // a game line ESPN dropped at kickoff keeps its last price
     if (typeof was === "number") { out[team] = { ...v, odds: was }; continue; }
     const prop = parseProp(v.leg, info.name);
     if (!prop || !marketsFor(prop).length || !info.game) { out[team] = { ...v, odds: null }; continue; }

@@ -272,9 +272,14 @@ const readLegs = async ({ retryProps = dailyRetry } = {}) => {
   if (legsCache[retryProps]) return legsCache[retryProps];
   const { messages, replies } = await loadWeek();
   const ev = await evalLegs();
-  const board = weekFlags(messages, deadline).board;
+  // prices remembered from every board, slip and lock notice this week (oldest first, so the newest wins):
+  // game lines vanish from ESPN at kickoff, and a re-render after that mustn't turn "+124" into "n/a"
+  const prior = {};
+  for (const m of [...messages].filter((x) => x.bot_id && (isBoard(x.text) || /legs are locked/.test(x.text || ""))).sort((a, b) => Number(a.ts) - Number(b.ts))) {
+    for (const [t, p] of Object.entries(pricesFromBoard(m.text))) if (p.tag !== "n/a" || !prior[t] || prior[t].leg !== p.leg) prior[t] = p;
+  }
   const legs = await pricePropLegs(priceLegs(ev.legs, slate, ev.playerTeams), { // { team: { leg, ts, msg, odds } } - odds only when we have a slate
-    slate, playerTeams: ev.playerTeams, prior: pricesFromBoard(board?.text), apiKey: ODDS_API_KEY, retry: retryProps, nowMs: NOW,
+    slate, playerTeams: ev.playerTeams, prior, apiKey: ODDS_API_KEY, retry: retryProps, nowMs: NOW,
     fetchFn: DRY && process.env.PARLAY_TEST_ODDS_DIR ? testOddsFetch : fetch, log: (m) => console.log(m),
   });
   legsCache[retryProps] = legs;
@@ -544,13 +549,30 @@ const correctLockNotice = async () => {
   const legs = await readLegs({ retryProps: false });
   const onNotice = new Set(slip.legs.map((l) => l.team));
   const added = allTeams.filter((t) => legs[t] && !onNotice.has(t) && Number(legs[t].ts) < Number(notice.ts));
-  if (!added.length) return false;
+  const prevNote = String(notice.text).match(/\n_?(?:✏️|:pencil2:) _?(Updated: [^\n]+?)_?\s*$/)?.[1]; // Slack may store it as ":pencil2: _Updated…_"
+  if (!added.length && !prevNote) return false;
   const usersByTeam = {};
   for (const [uid, rid] of Object.entries(userTeam)) (usersByTeam[teamName(Number(rid))] ||= []).push(uid);
-  const note = `\n_✏️ Updated: ${added.map((t) => `${t}'s ${legs[t].leg}`).join(" and ")} ${added.length > 1 ? "were" : "was"} posted before the lock but missed by a bug - ${added.length > 1 ? "they're" : "it's"} on the slip now._`;
+  await adoptBoard(await postedThisWeek()); // update the pinned slip, don't post a second one
+  const note = !added.length ? `\n_✏️ ${prevNote}_` : `\n_✏️ Updated: ${added.map((t) => `${t}'s ${legs[t].leg}`).join(" and ")} ${added.length > 1 ? "were" : "was"} posted before the lock but missed by a bug - ${added.length > 1 ? "they're" : "it's"} on the slip now._`;
   await updateBoard(legs, true);
-  await slack("chat.update", { channel: channelID, ts: notice.ts, text: renderLockNotice({ legs, allTeams, week: nflWeek, placerName: placer?.name || null, placerMentions: placer ? usersByTeam[placer.name] || [] : [], kickoffLabel: etLabel(deadline + LOCK_LEAD_MS) }) + note });
-  console.log(`lock notice corrected: added ${added.join(", ")}`);
+  const text = renderLockNotice({ legs, allTeams, week: nflWeek, placerName: placer?.name || null, placerMentions: placer ? usersByTeam[placer.name] || [] : [], kickoffLabel: etLabel(deadline + LOCK_LEAD_MS) }) + note;
+  if (sameText(notice.text.replace(/<@([A-Z0-9]+)\|[^>]*>/g, "<@$1>"), text)) return false; // an earlier correction already says this
+  await slack("chat.update", { channel: channelID, ts: notice.ts, text });
+  console.log(added.length ? `lock notice corrected: added ${added.join(", ")}` : "lock notice refreshed (prices)");
+  return true;
+};
+
+// two slips for one week (Nov 15: a correction posted a fresh slip instead of updating the pinned one):
+// keep the first, delete the extras the bot posted after the lock notice
+const dedupeSlips = async () => {
+  const { messages } = await loadWeek();
+  const slips = messages.filter((m) => m.bot_id && new RegExp(`WEEK ${nflWeek} SLIP`).test(m.text || "")).sort((a, b) => Number(a.ts) - Number(b.ts));
+  const notice = lockNoticeOf(messages);
+  if (slips.length < 2 || !notice) return false;
+  for (const dup of slips.slice(1).filter((m) => Number(m.ts) > Number(notice.ts))) { await slack("chat.delete", { channel: channelID, ts: dup.ts }).catch((e) => console.log(`couldn't delete duplicate slip ${dup.ts}: ${e.message}`)); console.log(`deleted duplicate slip ${dup.ts}`); }
+  await slack("pins.add", { channel: channelID, timestamp: slips[0].ts }).catch(() => {});
+  weekCache = null; evalCache = null; legsCache = {};
   return true;
 };
 
@@ -577,7 +599,7 @@ if (MODE === "tick") {
   await gradeSlips().catch((e) => console.log(`grading failed: ${e.message}`));
   await refreshRoasts().catch((e) => console.log(`roast refresh failed: ${e.message}`));
   await correctStatusAnswers().catch((e) => console.log(`status correction failed: ${e.message}`));
-  if (!seasonOver) { await clearStrays(); if (!(await reopenIfStale())) await correctLockNotice().catch((e) => console.log(`lock notice correction failed: ${e.message}`)); }
+  if (!seasonOver) { await clearStrays(); await dedupeSlips().catch((e) => console.log(`slip dedupe failed: ${e.message}`)); if (!(await reopenIfStale())) await correctLockNotice().catch((e) => console.log(`lock notice correction failed: ${e.message}`)); }
   const flags = await postedThisWeek();
   await adoptBoard(flags);
   const now = NOW;
