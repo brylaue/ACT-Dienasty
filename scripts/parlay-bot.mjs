@@ -540,7 +540,7 @@ const correctLockNotice = async () => {
   const notice = lockNoticeOf(messages);
   if (!notice || !new RegExp(`Week ${nflWeek} legs are locked`).test(notice.text || "")) return false;
   const slip = parseSlipNotice(notice.text);
-  if (!slip) return false;
+  if (!slip?.legs.length) return false; // an old-style notice without the leg list - nothing to correct against
   const legs = await readLegs({ retryProps: false });
   const onNotice = new Set(slip.legs.map((l) => l.team));
   const added = allTeams.filter((t) => legs[t] && !onNotice.has(t) && Number(legs[t].ts) < Number(notice.ts));
@@ -577,8 +577,7 @@ if (MODE === "tick") {
   await gradeSlips().catch((e) => console.log(`grading failed: ${e.message}`));
   await refreshRoasts().catch((e) => console.log(`roast refresh failed: ${e.message}`));
   await correctStatusAnswers().catch((e) => console.log(`status correction failed: ${e.message}`));
-  await correctLockNotice().catch((e) => console.log(`lock notice correction failed: ${e.message}`)); // last week's slip keeps grading after Sleeper moves on
-  if (!seasonOver) { await clearStrays(); await reopenIfStale(); }
+  if (!seasonOver) { await clearStrays(); if (!(await reopenIfStale())) await correctLockNotice().catch((e) => console.log(`lock notice correction failed: ${e.message}`)); }
   const flags = await postedThisWeek();
   await adoptBoard(flags);
   const now = NOW;
