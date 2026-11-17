@@ -338,5 +338,7 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
   await t("reopen message names the cause", () => /bad schedule data from ESPN/.test(core.renderReopened({ week: 11, lockLabel: "Thursday 8:00 PM ET", reason: "bad schedule data from ESPN" })));
 }
 
+t("leg: 'Panthers Money Line' (two words) is a leg", () => core.looksLikeLeg("Panthers Money Line") && core.looksLikeLeg("Bills moneyline"));
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

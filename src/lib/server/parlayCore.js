@@ -27,7 +27,7 @@ const CHATTER = /\b(you|your|you're|guys|lol|lmao|haha|thanks|thank|sorry|please
 const chatty = (t) => CHATTER.test(String(t).replace(/\bWill(?= [A-Z][a-z])/g, ""));
 export const isPlainPick = (t) => t.split(/\s+/).length <= 5 && t.length <= 40 && !/[?,;:!]/.test(t) && !chatty(t);
 export const looksLikeLeg = (t) => t.length <= 90 && !/\?/.test(t) && !chatty(t) && !/[.!]\s+[A-Z]/.test(t) && (
-  /\b(ML|moneyline|anytime|any time|TD|TDs|touchdowns?|over|under|spread|ATS|covers?|to cover|to win|wins? by|win|first half|1st half|1H|2H|quarter|1Q|team total|total|alt|prop|to score|first TD|last TD|o\/u|[ou]\d+(\.\d+)?|yds|yards|rushing|receiving|passing|receptions|rec|completions|attempts|sacks?|INT|interceptions?|field goals?|FGs?|kicking points|PATs?|extra points?|tackles?|longest|assists?|rebounds?)\b/i.test(t)
+  /\b(ML|money\s?line|anytime|any time|TD|TDs|touchdowns?|over|under|spread|ATS|covers?|to cover|to win|wins? by|win|first half|1st half|1H|2H|quarter|1Q|team total|total|alt|prop|to score|first TD|last TD|o\/u|[ou]\d+(\.\d+)?|yds|yards|rushing|receiving|passing|receptions|rec|completions|attempts|sacks?|INT|interceptions?|field goals?|FGs?|kicking points|PATs?|extra points?|tackles?|longest|assists?|rebounds?)\b/i.test(t)
   || /[+-]\d+(\.\d+)?\b/.test(t)          // a spread or a price: -3.5, +150
   || /\b\d+\+\s*\w/.test(t)               // 75+ yards, 5+ receptions
   || /\bby \d+/i.test(t)                   // Lions by 10
