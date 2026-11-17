@@ -51,11 +51,25 @@ export const parseSlate = (sb) => {
   return { week: sb.week?.number ?? null, teams, byes, games, firstKickoffMs: games.length ? games[0].kickoffMs : null };
 };
 
-export const fetchSlate = async (week, fetchFn = fetch) => {
+// ESPN occasionally answers with the wrong slate - on Nov 17 2026 the webhook got one whose
+// first game was Super Bowl XXVII (Jan 31 1993), so Week 11 "locked" the moment a message
+// arrived. A slate for the wrong week, or games nowhere near this season, is treated as no
+// slate at all (callers already survive `null`).
+const SANE_WINDOW_MS = 200 * 864e5; // any game this far from now isn't this season's
+export const saneSlate = (slate, { week = null, nowMs = Date.now() } = {}) => {
+  if (!slate) return null;
+  if (week && slate.week != null && Number(slate.week) !== Number(week)) return null;
+  const games = slate.games.filter((g) => Number.isFinite(g.kickoffMs) && Math.abs(g.kickoffMs - nowMs) < SANE_WINDOW_MS);
+  if (!games.length) return null;
+  return { ...slate, games, firstKickoffMs: games[0].kickoffMs };
+};
+export const fetchSlate = async (week, fetchFn = fetch, nowMs = Date.now()) => {
   try {
     const r = await fetchFn(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2${week ? `&week=${week}` : ""}`);
     if (!r.ok) return null;
-    return parseSlate(await r.json());
+    const slate = saneSlate(parseSlate(await r.json()), { week, nowMs });
+    if (!slate) console.log(`parlay slate: ESPN returned an implausible scoreboard for week ${week ?? "(current)"} - ignored`);
+    return slate;
   } catch { return null; }
 };
 

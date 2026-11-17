@@ -172,7 +172,7 @@ try {
   await t("bye week: the leg is ⚠️'d, explained in its thread (@ the poster), and kept off the board", async () => {
     await post(msg(BYE_NOW.user, BYE_NOW.text, { ts: BYE_NOW.ts }));
     const c = calls(), rep = replies().find((x) => /can't be played/.test(x.body.text)), upd = c.find((x) => x.method === "chat.update");
-    return reacts("warning").some((x) => x.body.timestamp === BYE_NOW.ts) && rep && rep.body.thread_ts === BYE_NOW.ts && /The Bills and Chargers are on a bye in Week 7/.test(rep.body.text) && rep.body.text.includes(`<@${BYE_NOW.user}>`) && (!upd || !/Buffalo/.test(upd.body.text)) && !reacts("white_check_mark").some((x) => x.body.timestamp === BYE_NOW.ts);
+    return reacts("warning").some((x) => x.body.timestamp === BYE_NOW.ts) && rep && rep.body.thread_ts === BYE_NOW.ts && /The Bills and Chargers are on a bye in Week \d+/.test(rep.body.text) && rep.body.text.includes(`<@${BYE_NOW.user}>`) && (!upd || !/Buffalo/.test(upd.body.text)) && !reacts("white_check_mark").some((x) => x.body.timestamp === BYE_NOW.ts);
   });
   setState([{ ...BYE_NOW, reactions: [{ name: "warning", users: [SELF] }] }, ...BASE]);
   await t("bye week: already ⚠️'d → no second warning", async () => { await post(msg(LEE, "lol", {})); return !replies().some((x) => /can't be played/.test(x.body.text)) && !reacts("warning").length; });

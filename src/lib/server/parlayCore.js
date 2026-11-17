@@ -143,11 +143,16 @@ export const renderLockNotice = ({ legs, allTeams, week, placerName, placerMenti
 // current code locked always records the time it locked at, so a deleted
 // post can never reopen a week that was locked properly.
 export const lockNoticeOf = (messages) => (messages || []).find((m) => m.bot_id && /Week \d+ legs are locked/i.test(m.text || "")) || null; // newest first
+// Also reopened: a slip whose recorded lock time is impossible - days BEFORE its own lock notice
+// went out (a lock is posted at or after its deadline, never days late). That's bad schedule
+// data, not a real deadline (Week 11, 2026: "locked" at a 1993 kickoff time).
+export const isBogusLockTime = (header, notice) =>
+  !!notice && header?.deadlineEpochMs != null && header.deadlineEpochMs < Number(notice.ts) * 1000 - 2 * 864e5;
 export const isStaleLock = ({ notice, header, lockMs, nowMs }) =>
-  !!notice && lockMs != null && header?.deadlineEpochMs == null && nowMs < lockMs && Number(notice.ts) * 1000 < lockMs - 60e3;
-export const renderReopened = ({ week, lockLabel, rescued = [] }) => {
+  !!notice && lockMs != null && (header?.deadlineEpochMs == null || isBogusLockTime(header, notice)) && nowMs < lockMs && Number(notice.ts) * 1000 < lockMs - 60e3;
+export const renderReopened = ({ week, lockLabel, rescued = [], reason = "the old fixed 6 PM rule" }) => {
   const rows = rescued.map((r) => `• ${r.mention ? `${r.mention} ` : ""}*${r.team}* — ${r.leg}`).join("\n");
-  return `🔓 *Week ${week} is open again.* The lock fired early (the old fixed 6 PM rule); legs now lock *${lockLabel}* - 15 minutes before the first game that has a leg.${rows ? `\nThese posts count after all:\n${rows}` : ""}\nStill need to change or add one? Just post it before then.`;
+  return `🔓 *Week ${week} is open again.* The lock fired early (${reason}); legs now lock *${lockLabel}* - 15 minutes before the first game that has a leg.${rows ? `\nThese posts count after all:\n${rows}` : ""}\nStill need to change or add one? Just post it before then.`;
 };
 // what the old lock notice becomes (must NOT contain the words that mark a real lock notice)
 export const renderRetractedNotice = ({ week, lockLabel }) => `🔓 _Week ${week} lock notice withdrawn - it went out early. Legs now lock ${lockLabel}._`;

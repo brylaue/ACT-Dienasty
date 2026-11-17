@@ -188,6 +188,7 @@ const lockIfDue = async (ctx) => {
   const lockMs = ctx.lockMs;
   if (!board || !header || !lockMs || isLockedBoard(board.text) || ctx.lockNotice) return null;
   if (Date.now() < lockMs) return null;
+  if (Date.now() - lockMs > 2 * 864e5) { console.log(`parlay events: refusing to lock at an implausible deadline ${new Date(lockMs).toISOString()}`); return null; } // days-old deadline = bad data; the cron owns real locks
   const week = header.week, placerName = header.placerName, label = etLabel(lockMs);
   await slack("chat.update", { channel, ts: board.ts, text: renderBoard({ legs, allTeams, week, placerName, deadlineLabel: label, deadlineEpochMs: lockMs, locked: true }) });
   await slack("chat.postMessage", { channel, text: renderLockNotice({ legs, allTeams, week, placerName, placerMentions: placerName ? ctx.usersByTeam[placerName] || [] : [], kickoffLabel: etLabel(lockMs + LOCK_LEAD_MS) }) });

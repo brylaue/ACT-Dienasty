@@ -23,6 +23,8 @@ globalThis.fetch = async (input, init = {}) => {
     const first = Math.min(...sb.events.map((e) => Date.parse(e.date)));
     const shift = Date.now() + (s().firstKickoffInMs ?? 26 * 3600e3) - first;
     for (const e of sb.events) e.date = new Date(Date.parse(e.date) + shift).toISOString();
+    const wk = new URL(url).searchParams.get("week"); // answer for the week asked (the real API does; saneSlate rejects a wrong-week slate)
+    if (wk && sb.week) sb.week.number = Number(wk);
     return json(sb);
   }
   if (/^https:\/\/site\.web\.api\.espn\.com\/apis\/common\/v3\/search/.test(url)) {

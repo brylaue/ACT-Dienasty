@@ -327,5 +327,16 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
   t("…but pure chat with a period still isn't a leg", () => !core.collectLegsDetailed({ allTeams: ["C-Men"], teamOfUser: () => "C-Men", replies: [], messages: [{ ts: "1", user: "K", text: "I think so. Will check later." }] }).legs["C-Men"]);
 }
 
+// regression: a slip that "locked" at a 1993 kickoff gets reopened; a real lock never does
+{
+  const noticeTs = Date.parse("2026-11-17T20:30:00Z") / 1000, realLock = Date.parse("2026-11-21T01:00:00Z"), now = noticeTs * 1000 + 30 * 60e3;
+  const notice = { ts: String(noticeTs), bot_id: "B1" };
+  await t("bogus: 1993 deadline on a Tuesday notice", () => core.isBogusLockTime({ deadlineEpochMs: 728522100000 }, notice) === true);
+  await t("bogus: a real deadline is not bogus", () => core.isBogusLockTime({ deadlineEpochMs: noticeTs * 1000 - 60e3 }, notice) === false);
+  await t("stale: 1993 lock reopens when the real lock is still ahead", () => core.isStaleLock({ notice, header: { deadlineEpochMs: 728522100000 }, lockMs: realLock, nowMs: now }) === true);
+  await t("stale: a proper lock never reopens", () => core.isStaleLock({ notice, header: { deadlineEpochMs: noticeTs * 1000 - 60e3 }, lockMs: realLock, nowMs: now }) === false);
+  await t("reopen message names the cause", () => /bad schedule data from ESPN/.test(core.renderReopened({ week: 11, lockLabel: "Thursday 8:00 PM ET", reason: "bad schedule data from ESPN" })));
+}
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

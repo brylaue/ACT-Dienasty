@@ -5,7 +5,7 @@
     slackGet(method, params)      → GET one
   Everything is best-effort except the notice edit + announcement.
 */
-import { renderReopened, renderRetractedNotice } from "./parlayCore.js";
+import { isBogusLockTime, parseBoardHeader, renderReopened, renderRetractedNotice } from "./parlayCore.js";
 
 const LATE_REPLY = /^(?::lock:|🔒)\s/; // the bot's own "Too late…" / late-leg replies
 
@@ -35,6 +35,8 @@ export const reopenWeek = async ({ slack, slackGet, channel, week, notice, messa
   const rescued = Object.entries(legs || {})
     .filter(([, v]) => v?.ts && Number(v.ts) > Number(notice.ts))
     .map(([team, v]) => ({ team, leg: v.leg, mention: v.msg?.user ? `<@${v.msg.user}>` : "" }));
-  await slack("chat.postMessage", { channel, text: renderReopened({ week, lockLabel, rescued }) });
+  const boardMsg = boardTs ? (messages || []).find((m) => m.ts === boardTs) : null;
+  const bogus = boardMsg && isBogusLockTime(parseBoardHeader(boardMsg.text), notice);
+  await slack("chat.postMessage", { channel, text: renderReopened({ week, lockLabel, rescued, ...(bogus ? { reason: "bad schedule data from ESPN" } : {}) }) });
   return `reopened week ${week}: lock now ${lockLabel}, ${rescued.length} late leg(s) rescued, ${cleaned} lock marks cleaned`;
 };

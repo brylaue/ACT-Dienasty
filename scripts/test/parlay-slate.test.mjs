@@ -121,5 +121,17 @@ await t("fetchSlate: failure → null", async () => (await S.fetchSlate(7, async
   await t("unplaced leg with no post time → the week's first kickoff (old behaviour)", () => S.lockTime([{ game: null }], sl, sat) === sl.firstKickoffMs - S.LOCK_LEAD_MS);
 }
 
+// regression: Nov 17 2026 - ESPN answered with a 1993 Super Bowl slate and Week 11 locked on Tuesday
+{
+  const now = TNF - 2 * 864e5;
+  const sb93 = { ...slate, games: [{ ...slate.games[0], kickoffMs: Date.parse("1993-01-31T23:00:00Z") }], firstKickoffMs: Date.parse("1993-01-31T23:00:00Z") };
+  await t("sane: a 1993 slate is no slate", () => S.saneSlate(sb93, { week: 7, nowMs: now }) === null);
+  await t("sane: wrong week is no slate", () => S.saneSlate(slate, { week: 11, nowMs: now }) === null);
+  await t("sane: the real slate passes untouched", () => { const s2 = S.saneSlate(slate, { week: 7, nowMs: now }); return s2 && s2.games.length === 14 && s2.firstKickoffMs === TNF; });
+  await t("sane: stray ancient games are dropped, the rest kept", () => { const mix = { ...slate, games: [sb93.games[0], ...slate.games] }; const s2 = S.saneSlate(mix, { week: 7, nowMs: now }); return s2.games.length === 14 && s2.firstKickoffMs === TNF; });
+  await t("fetchSlate: bad ESPN payload → null (no lock)", async () => { const raw = { week: { number: 11 }, events: [{ id: "1", date: "1993-01-31T23:00Z", competitions: [{ competitors: [{ homeAway: "home", team: { abbreviation: "DAL", name: "Cowboys" } }, { homeAway: "away", team: { abbreviation: "BUF", name: "Bills" } }] }] }] }; return (await S.fetchSlate(11, async () => ({ ok: true, json: async () => raw }), now)) === null; });
+  await t("lockTime on a sane slate is never in the past at open", () => S.lockTime([], S.saneSlate(slate, { week: 7, nowMs: now }), now) > now);
+}
+
 console.log(`parlay-slate: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);
