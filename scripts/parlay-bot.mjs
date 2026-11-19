@@ -466,7 +466,10 @@ const clearStrays = async () => {
 const espnFile = (name) => { const dir = process.env.PARLAY_TEST_ESPN_DIR; if (!dir) return null; try { return JSON.parse(readFileSync(join(dir, name), "utf8")); } catch { return null; } }; // test only
 const weekSlate = async (week) => (DRY ? (espnFile(`scoreboard-w${week}.json`) ? parseSlate(espnFile(`scoreboard-w${week}.json`)) : null) : await fetchSlate(week));
 const gradeSlips = async () => {
-  const oldest = String(Math.floor((NOW - 10 * 864e5) / 1000));
+  // the whole season: slips nobody reported (Weeks 4-6, 2026) get graded too. A week stops costing
+  // ESPN calls once its results post has nothing pending.
+  const oldest = String(Math.floor(Date.UTC(Number(state.season), 8, 1) / 1000)); // Sep 1
+  const recentMs = NOW - 10 * 864e5; // older weeks are graded quietly - no channel broadcast
   const msgs = [];
   for (let cursor = ""; ;) {
     const d = await slackGet("conversations.history", { channel: channelID, oldest, limit: 200, cursor });
@@ -482,7 +485,7 @@ const gradeSlips = async () => {
     const verdictPosted = thread.some((r) => r.bot_id && isVerdictPost(r.text, slip.week));
     // once called, the results post still fills in the legs that were pending at the call (Week 10 froze with 4 ⏳);
     // it stops when nothing is pending any more
-    if (verdictPosted && prevResults && !/(?:⏳|:hourglass_flowing_sand:)/.test(prevResults.text || "")) continue;
+    if (prevResults && !/(?:⏳|:hourglass_flowing_sand:)/.test(prevResults.text || "")) continue; // settled as far as the bot can take it
     const wk = await weekSlate(slip.week);
     if (!wk) { console.log(`grading week ${slip.week}: no ESPN scoreboard`); continue; }
     const playerTeams = {};
@@ -506,7 +509,7 @@ const gradeSlips = async () => {
     if (!prev) await slack("chat.postMessage", { channel: channelID, thread_ts: notice.ts, text });
     else if (!sameText(prev.text, text)) await slack("chat.update", { channel: channelID, ts: prev.ts, text });
     const called = thread.some((x) => !x.bot_id && parlayResultFromText(x.text)); // a manager already said hit/miss
-    if (r.verdict && !called && !verdictPosted) await slack("chat.postMessage", { channel: channelID, thread_ts: notice.ts, reply_broadcast: true, text: renderVerdict(r) });
+    if (r.verdict && !called && !verdictPosted) await slack("chat.postMessage", { channel: channelID, thread_ts: notice.ts, reply_broadcast: Number(notice.ts) * 1000 >= recentMs, text: renderVerdict(r) });
     console.log(`graded week ${slip.week}: ${r.counts.hit} hit, ${r.counts.miss} miss, ${r.counts.pending} pending, ${r.counts.manual} manual${r.verdict ? ` → ${r.verdict.toUpperCase()}` : ""}`);
   }
 };

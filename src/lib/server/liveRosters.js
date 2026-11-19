@@ -77,7 +77,9 @@ export async function buildLiveRosters({ leagueID, knowledge, fetchFn }) {
 		.filter((y) => y >= new Date().getFullYear())
 		.sort();
 	const yearNow = new Date().getFullYear();
-	const pickSeasons = seasons.length ? seasons : [yearNow, yearNow + 1, yearNow + 2];
+	// every tradable season (three drafts out), not only seasons someone happened to trade a pick in
+	const firstOpen = knowledge.upcomingDraft?.status === 'complete' && Number(knowledge.upcomingDraft?.year) >= yearNow ? Number(knowledge.upcomingDraft.year) + 1 : yearNow;
+	const pickSeasons = [...new Set([...seasons, firstOpen, firstOpen + 1, firstOpen + 2])].filter((y) => y >= firstOpen).sort();
 	const picksByRoster = Object.fromEntries(rosters.map((r) => [r.roster_id, []]));
 	for (const season of pickSeasons) {
 		for (let round = 1; round <= 4; round++) {
@@ -97,7 +99,8 @@ export async function buildLiveRosters({ leagueID, knowledge, fetchFn }) {
 					// exact slot numbers for the upcoming draft, from the baked order
 					const slotMap = knowledge.upcomingDraft?.slotByOriginalRoster;
 					const slot = String(season) === String(knowledge.upcomingDraft?.year) ? slotMap?.[r.roster_id] : null;
-					const slotTag = slot ? ` = pick ${round}.${String(slot).padStart(2, '0')}` : '';
+					const proj = !slot && String(season) === String(knowledge.nextDraftProjection?.year) ? knowledge.nextDraftProjection.slotByOriginalRoster?.[r.roster_id] : null;
+					const slotTag = slot ? ` = pick ${round}.${String(slot).padStart(2, '0')}` : proj ? ` ≈ pick ${round}.${String(proj).padStart(2, '0')} if the season ended today (projection)` : '';
 					picksByRoster[owner].push(`${season} R${round}${owner !== r.roster_id ? ` (via ${nameFor(r.roster_id)})` : ''}${slotTag}`);
 				}
 			}
@@ -106,7 +109,7 @@ export async function buildLiveRosters({ leagueID, knowledge, fetchFn }) {
 	for (const s of section) s.picks = picksByRoster[s.rosterID] || [];
 	// the 1.13 compensatory pick exists only in the constitution, not Sleeper
 	const cp = knowledge.upcomingDraft?.compPick;
-	if (cp) {
+	if (cp && !cp.exercised) { // an exercised 1.13 became a player - it isn't held any more
 		const holder = section.find((s) => s.rosterID === cp.holderRosterID);
 		if (holder) holder.picks = [...holder.picks, `${cp.season} 1.13 (compensatory - ${cp.wonYear} Toilet Bowl winner; not in Sleeper)`];
 	}

@@ -300,7 +300,7 @@ const aiAnswer = async (question, brief, draft = null) => {
 
 // league history / bylaws questions → The Oracle on the site
 const askOracle = async (origin, question) => {
-  const r = await fetch(`${origin}/api/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: question.slice(0, 300) }) });
+  const r = await fetch(`${origin}/api/ask`, { method: "POST", headers: { "content-type": "application/json", ...(SLACK_SIGNING_SECRET ? { "x-oracle-internal": SLACK_SIGNING_SECRET } : {}) }, body: JSON.stringify({ question: question.slice(0, 300) }) }); // internal: works even if ASK_PASSCODE is ever set
   const d = await r.json().catch(() => ({}));
   return r.ok && d.answer ? d.answer : null;
 };

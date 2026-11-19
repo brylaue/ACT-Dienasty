@@ -262,7 +262,10 @@ const SYSTEM_INSTRUCTIONS =
                 'champion is crowned and its results already determined the upcoming draft order. `upcomingDraft` ' +
                 'holds that order and every roster\'s picks list shows EXACT slot numbers (e.g. "= pick 1.11"). ' +
                 'Never say the draft order is undetermined or tell someone to "check back after the season" that ' +
-                'already ended. For "who should I draft" questions: first state which picks the asker ACTUALLY ' +
+                'already ended. NEXT YEAR\'S DRAFT during the season: once upcomingDraft is complete, "where do my ' +
+                'picks land" means next year - answer from nextDraftProjection and the ≈ slot tags on the picks lists, ' +
+                'and call it a projection "if the season ended today" (only that draft is undetermined). ' +
+                'For "who should I draft" questions: first state which picks the asker ACTUALLY ' +
                 'holds from their picks list, then if they want targets use the player_values tool (live market ' +
                 'values incl rookies) - NEVER cite "consensus" or player rankings from memory.\n' +
                 'PICK OWNERSHIP CHECK - MANDATORY FIRST STEP: when a question names a specific pick ("at 1.01", ' +

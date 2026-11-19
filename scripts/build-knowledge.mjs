@@ -665,7 +665,10 @@ try {
         source = "Sleeper's entered draft order";
       }
     } catch { /* fall through to derivation */ }
-    const lastComplete = seasons.filter((x) => x.standings?.length >= 12).sort((a, b) => b.year - a.year)[0];
+    // the season whose results set THIS draft's order: the last COMPLETE one before the draft year
+    // (an in-season year also has 12 standings rows - picking it lost the 1.13 holder in Nov 2026)
+    const draftYear = Number(d.season || nflState.season);
+    const lastComplete = seasons.filter((x) => x.status === "complete" && x.standings?.length >= 12 && x.year < draftYear).sort((a, b) => b.year - a.year)[0];
     if (!slotByRoster && lastComplete) {
       const yr = lastComplete.year;
       const lid = Object.entries(matchupsArchive?.seasons || {}).find(([y]) => parseInt(y, 10) === yr)?.[1]?.leagueID;
@@ -775,7 +778,7 @@ try {
       if (compPickMachine) {
         round1Slots["1.13"] = `COMPENSATORY - held by ${compPickMachine.holderName} (${compPickMachine.holderOwner}), won the ${compPickMachine.wonYear} Toilet Bowl. Not tracked in Sleeper.`;
         const holderSection = rosterSection.find((rs) => rs.rosterID === compPickMachine.holderRosterID);
-        if (holderSection) holderSection.picks = [...(holderSection.picks || []), `${nflState.season} 1.13 (compensatory - ${compPickMachine.wonYear} Toilet Bowl winner; not in Sleeper)`];
+        if (holderSection && !compPickMachine.exercised) holderSection.picks = [...(holderSection.picks || []), `${nflState.season} 1.13 (compensatory - ${compPickMachine.wonYear} Toilet Bowl winner; not in Sleeper)`];
       }
       // a COMPLETE draft reads as results, not holdings - "who holds 1.11"
       // is a nonsense question once the pick became a player
@@ -814,9 +817,40 @@ try {
   }
 } catch { /* draft data unavailable - picks stay unannotated */ }
 
+// ---- next draft, projected: once this year's draft is done and the season is under way, "where do
+// my picks land?" is about NEXT year's draft. If the season ended today: picks 1-6 = the six
+// non-playoff teams, worst record first (fewer points = better pick); 7-12 = the playoff teams,
+// worst record first (really decided by the playoffs - a rough guide only).
+let nextDraftProjection = null;
+try {
+  const cur = seasons.find((x) => x.year === Number(nflState.season) && x.status !== "complete");
+  if (upcomingDraft?.status === "complete" && cur?.standings?.length >= 12) {
+    const worstFirst = [...cur.standings].sort((a, b) => a.w - b.w || a.pf - b.pf);
+    const slotByOriginalRoster = Object.fromEntries(worstFirst.map((row, i) => [row.rosterID, i + 1]));
+    nextDraftProjection = {
+      year: Number(nflState.season) + 1,
+      asOfWeek: nflState.week,
+      note: `PROJECTION ONLY - the ${Number(nflState.season) + 1} round-1 order if the ${nflState.season} season ended today (week ${nflState.week}). Picks 1-6 = the six non-playoff teams, worst record first; 7-12 depend on playoff results, so treat them as rough. Always call it a projection. Every roster's picks list tags its ${Number(nflState.season) + 1} picks with this projected slot. The ${Number(nflState.season) + 1} 1.13 goes to this season's Toilet Bowl winner - not decided yet.`,
+      round1: Object.fromEntries(worstFirst.map((row, i) => [`1.${String(i + 1).padStart(2, "0")}`, `${row.name} (${row.w}-${row.l}${row.t ? `-${row.t}` : ""}, ${row.pf} PF)${i < 6 ? "" : " - playoff team, order set by playoff results"}`])),
+      slotByOriginalRoster,
+    };
+    for (const rs of rosterSection) {
+      rs.picks = (rs.picks || []).map((line) => {
+        const m = line.match(/^(\d{4}) R(\d)(?: \(via (.+?)\))?$/);
+        if (!m || Number(m[1]) !== nextDraftProjection.year) return line;
+        let orig = rs.rosterID;
+        if (m[3]) { const hit = Object.entries(curNameByRoster).find(([, n]) => (n || "").trim() === m[3].trim()); if (hit) orig = parseInt(hit[0], 10); }
+        const slot = slotByOriginalRoster[orig];
+        return slot ? `${line} ≈ pick ${m[2]}.${String(slot).padStart(2, "0")} if the season ended today (projection)` : line;
+      });
+    }
+  }
+} catch { /* projection is optional */ }
+
 const knowledge = {
   generated: new Date().toISOString(),
   upcomingDraft,
+  nextDraftProjection,
   benchBlunders,
   bestWaiverAdds: waiverBests,
   leagueID: rivalry.leagueID,
