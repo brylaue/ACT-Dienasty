@@ -340,5 +340,9 @@ t("fmtAmerican", () => core.fmtAmerican(150) === "+150" && core.fmtAmerican(-110
 
 t("leg: 'Panthers Money Line' (two words) is a leg", () => core.looksLikeLeg("Panthers Money Line") && core.looksLikeLeg("Bills moneyline"));
 
+t("leg: 'How about Trevor Lawrence 2 td passes' reads as the bet", () => core.cleanLeg("How about Trevor Lawrence 2 td passes") === "Trevor Lawrence 2 td passes");
+t("chat: 'what are the lines' / 'odds?' → the board with prices", () => { const a = core.answerParlayQuestion("Okay parlay builder what are the lines", { legs: { A: { leg: "Bills ML", odds: -150 } }, allTeams: ["A", "B"], week: 9, placerName: "B", deadlineLabel: "Thu" }).text; return /1\/2 legs in/.test(a) && /Bills ML \(-150\)/.test(a) && /Est\. parlay/.test(a); });
+t("late leg after kickoff from the placer's own team → their call, not 'X picks for X'", () => { const a = core.renderLateLeg({ week: 8, team: "Crab Boilers", placerName: "Crab Boilers", leg: "Golden td", beforeKickoff: false }); return !/Crab Boilers\* picks for \*Crab Boilers/.test(a) && /your call/.test(a); });
+
 console.log(`parlay-core: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

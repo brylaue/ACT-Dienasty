@@ -9,6 +9,7 @@ export const cleanLeg = (t) => String(t || "")
   .replace(/^\s*(?:hey|hi|hello|yo|ok|okay|alright|oi)?[,!\s]*@?\s*parlay\s*(?:builder|bot)\b[,:!\s]*/i, "") // addressed to the bot
   .replace(/\s*\*?sent using\*?.*$/i, "")   // client signatures ("*Sent using* Claude")
   .replace(/^[\s🎯🎰:\-–—]+/u, "")
+  .replace(/^(?:how|what) about\s+/i, "") // "How about Trevor Lawrence 2 td passes"
   .replace(/^(?:add|sub in|swap (?:in|to)|switch (?:me |mine |it )?to|change (?:mine |my leg |it )?to|make (?:mine|it)|i'?ll take|i'?ll go with|i'?ll go|i'?ll do|i'?ll ride|i got|i'?m taking|i'?m going with|i want|i like|going with|riding with|put me down for|put me in for|give me|gimme|let'?s do|let'?s go|my leg is|my leg:|leg:)\s+/i, "")
   .replace(/\s+(?:for me|for us|please|pls|plz|this week|tonight|today)[.!]*$/i, "")
   .replace(/[.!]+$/, "")
@@ -177,7 +178,7 @@ export const renderLateLeg = ({ week, team, placerName, placerMentions = [], pos
   const from = `${poster ? `<@${poster}> ` : ""}*${team || "A team"}*`;
   return beforeKickoff
     ? `🔒 ${wk} locked, but ${from} just posted "${leg}". ${who}: have you already set the parlay? If not, it's your call whether to add it - it's *not* on the slip.`
-    : `🔒 ${wk} locked and the games are underway - "${leg}" can't make the slip. *${placerName || "The placer"}* picks for *${team || "your team"}*.`;
+    : `🔒 ${wk} locked and the games are underway - "${leg}" can't make the slip. ${team && team === placerName ? `*${team}* is placing it, so that one's your call.` : `*${placerName || "The placer"}* picks for *${team || "your team"}*.`}`;
 };
 // a leg that can't be played (bye week, game already closed)
 export const renderInvalidLeg = ({ user, leg, reason }) =>
@@ -319,7 +320,7 @@ const ADDRESS = /^\s*(?:hey|hi|hello|yo|ok|okay|alright|oi)?[,!\s]*@?\s*parlay\s
 const MENTIONED_ANYWHERE = /\b(?:parlay\s*(?:builder|bot)|the bot|slack bot)\b/i;
 const INTENT = {
   missing: /\b(missing|still need(?:ed|s)?|outstanding|who(?:'s| is| are)? (?:left|out|not in|still (?:out|missing|needed))|who (?:hasn'?t|has not|didn'?t|still)|hasn'?t (?:added|posted|submitted|put))\b|\bwho(?:'s| is)? left\b/i, // not a bare "who is" - "who is the dumbest owner" isn't asking who's missing
-  status: /\b(status|where (?:are|r) we|how many|count|update|progress|board|slip|legs?\b(?! (?:lock|due))|bets?|picks?|current (?:bet|parlay|slip)|what'?s (?:in|on)|the parlay)\b/i,
+  status: /\b(status|where (?:are|r) we|how many|count|update|progress|board|slip|legs?\b(?! (?:lock|due))|bets?|picks?|current (?:bet|parlay|slip)|what'?s (?:in|on)|the parlay|lines?|odds|prices?|payout|pays?)\b/i,
   tonight: /\b(tonight'?s?|this evening|today'?s?|TNF|thursday night|monday night|MNF|sunday night|SNF|right now)\b/i,
   deadline: /\b(deadline|locks?|locked|due|cutoff|cut-off)\b|\bwhen\b.*\b(?:lock|due|deadline|cutoff|close)/i,
   placer: /\b(plac(?:er|ing|es)|on the hook|who(?:'s| is) (?:betting|placing|up)|who bets|who has to)\b/i,
@@ -427,8 +428,8 @@ export const answerParlayQuestion = (rawText, ctx) => {
   }
   if (INTENT.status.test(q)) {
     if (!open) return { text: notOpen, leg: null };
-    const list = teams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legOf(t)}`).join("\n");
-    return { text: `Week ${ctx.week}: *${inCount}/${teams.length} legs in* · placer *${ctx.placerName || "TBD"}* · ${locked ? "🔒 locked" : `locks *${ctx.deadlineLabel}*${countdown(ctx.lockMs, ctx.nowMs)}`}${ctx.record?.byWeek?.length ? ` · season ${ctx.record.wins}-${ctx.record.losses}` : ""}\n${list || "_(no legs yet)_"}${missing.length ? `\n${locked ? "Placer picks for" : "Still needed"}: ${missing.join(", ")}` : ""}`, leg: null };
+    const list = teams.filter((t) => legs[t]).map((t) => `• *${t}* — ${legOf(t)}${oddsTag(legs[t])}`).join("\n");
+    return { text: `Week ${ctx.week}: *${inCount}/${teams.length} legs in* · placer *${ctx.placerName || "TBD"}* · ${locked ? "🔒 locked" : `locks *${ctx.deadlineLabel}*${countdown(ctx.lockMs, ctx.nowMs)}`}${ctx.record?.byWeek?.length ? ` · season ${ctx.record.wins}-${ctx.record.losses}` : ""}\n${list || "_(no legs yet)_"}${missing.length ? `\n${locked ? "Placer picks for" : "Still needed"}: ${missing.join(", ")}` : ""}${oddsFooter(legs, teams)}`, leg: null };
   }
   return { text: `Not sure what you're after. Try *who's missing?*, *status*, *deadline?*, *who's placing?*, *record?* or *my leg?* - or just post your bet.`, leg: null };
 };

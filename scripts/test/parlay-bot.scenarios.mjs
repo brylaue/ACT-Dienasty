@@ -129,9 +129,14 @@ const w7File = (replies) => { const f = join(tmp, `w7-${Math.random().toString(3
 out = run("tick", "2026-10-26T13:00:00Z", w7File([]), { env: { ...gradeEnv, PARLAY_TEST_WEEK: "7" } });
 check("grading: results in the lock thread, then a broadcast MISS naming the leg", out, ["📊 *Week 7 results* · 3 ✅ · 3 ❌ (💥 Title Chase & Dirty Birds)", "❌ *Immigrants* — Gibbs anytime TD _(0 TDs)_", "✅ *Risky Business* — Vikings ML #SKOL _(IND 10-16 MIN, final)_", "🏁 *Week 7 parlay: MISS* — 💥 Broken by *Title Chase*", "💥 *Dirty Birds* — Justin Jefferson anytime TD _(0 TDs)_ — *broke the parlay*", "(thread + channel) →", "graded week 7: 3 hit, 3 miss"]);
 check("after the lock, a Monday tick posts no opener / board / nag (the Oct 26 bug's second path)", out, [], ["Parlay Builder is OPEN", "WEEK 7 BOARD", "legs in*"]);
-const called = [{ ts: "1792990000.000100", bot_id: "B0", user: "U0C3B7QEC9M", text: ":checkered_flag: *Week 7 parlay: MISS* — :boom: Broken by *Title Chase*" }];
-out = run("tick", "2026-10-26T14:00:00Z", w7File(called), { env: { ...gradeEnv, PARLAY_TEST_WEEK: "7" } });
-check("grading: once the bot has called it, nothing more", out, [], ["Week 7 results", "parlay: MISS"]);
+const verdictPost = { ts: "1792990000.000100", bot_id: "B0", user: "U0C3B7QEC9M", text: ":checkered_flag: *Week 7 parlay: MISS* — :boom: Broken by *Title Chase*" };
+const doneResults = { ts: "1792989999.000100", bot_id: "B0", user: "U0C3B7QEC9M", text: ":bar_chart: *Week 7 results* · 3 :white_check_mark: · 3 :x: · parlay *MISS*\n:white_check_mark: *Risky Business* — Vikings ML #SKOL _(IND 10-16 MIN, final)_" };
+out = run("tick", "2026-10-26T14:00:00Z", w7File([doneResults, verdictPost]), { env: { ...gradeEnv, PARLAY_TEST_WEEK: "7" } });
+check("grading: once the bot has called it and nothing is pending, nothing more", out, [], ["Week 7 results", "parlay: MISS"]);
+// Week 10, 2026: the MISS was called at 4pm with four legs still ⏳ and the results post froze there
+const frozen = { ...doneResults, text: ":bar_chart: *Week 7 results* · 1 :white_check_mark: · 1 :x: · 4 :hourglass_flowing_sand: · parlay *MISS*\n:hourglass_flowing_sand: *Risky Business* — Vikings ML #SKOL _(IND @ MIN hasn't kicked off)_" };
+out = run("tick", "2026-10-26T14:00:00Z", w7File([frozen, verdictPost]), { env: { ...gradeEnv, PARLAY_TEST_WEEK: "7" } });
+check("grading: after the call, a results post with ⏳ legs keeps filling in - no second verdict", out, ["chat.update", "Week 7 results* · 3 ✅ · 3 ❌"], ["parlay: MISS*"]);
 const humanCall = [{ ts: "1792990000.000100", user: "UTB8NMCLQ", text: "miss" }];
 out = run("tick", "2026-10-26T14:00:00Z", w7File(humanCall), { env: { ...gradeEnv, PARLAY_TEST_WEEK: "7" } });
 check("grading: a manager already said miss → results posted, no second verdict", out, ["Week 7 results"], ["parlay: MISS*"]);

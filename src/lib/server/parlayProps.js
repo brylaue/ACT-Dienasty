@@ -36,7 +36,7 @@ export const marketsFor = (prop) => (prop && !prop.vague && MARKETS[prop.stat] ?
 // the matching price in an event-odds response; DraftKings preferred
 export const findPropPrice = (eventOdds, playerName, prop) => {
   const want = norm(playerName), surnameOnly = !want.includes(" ");
-  const nameOk = (d) => { const n = norm(d); return surnameOnly ? n.split(" ").pop() === want : n === want; };
+  const nameOk = (d) => { const n = norm(d); return surnameOnly ? n.split(" ").pop() === want || n.split(" ")[0] === want : n === want; };
   const markets = marketsFor(prop);
   const rank = (k) => (BOOKS.includes(k) ? BOOKS.indexOf(k) : 99);
   const books = [...(eventOdds?.bookmakers || [])].sort((a, b) => rank(a.key) - rank(b.key));

@@ -38,10 +38,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { boardUnchanged, cleanLeg, isPlainPick, looksLikeLeg, parlayResultFromText, legThreadKind, isBoard, isOpener, isStaleLock, nflWeekStartMs, straysAfterLock, lockNoticeOf, parseBoardHeader, reactionPlan, renderBoard as renderBoardCore, renderInvalidLeg, renderLockNotice, seasonRecord as seasonRecordCore, weekFlags } from "../src/lib/server/parlayCore.js";
 import { reopenWeek } from "../src/lib/server/parlayReopen.js";
-import { LOCK_LEAD_MS, evaluateWeek, fetchSlate, lockTime, parseSlate, playerNameOf, priceLegs, resolvePlayerTeam } from "../src/lib/server/parlaySlate.js";
+import { LOCK_LEAD_MS, analyzeLeg, evaluateWeek, fetchSlate, lockTime, parseSlate, playerNameOf, priceLegs, resolvePlayerTeam } from "../src/lib/server/parlaySlate.js";
 import { pricePropLegs, pricesFromBoard } from "../src/lib/server/parlayProps.js";
 import { renderRoast } from "../src/lib/server/parlayRoast.js";
-import { fetchBox, gradeSlip, isResultsPost, isVerdictPost, breakersFromResults, parseBox, parseSlipNotice, renderResults, renderVerdict, sameText } from "../src/lib/server/parlayGrade.js";
+import { fetchBox, isDstTdLeg, gradeSlip, isResultsPost, isVerdictPost, breakersFromResults, parseBox, parseSlipNotice, renderResults, renderVerdict, sameText } from "../src/lib/server/parlayGrade.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MODE = process.argv[2];
@@ -478,7 +478,11 @@ const gradeSlips = async () => {
     const slip = parseSlipNotice(notice.text);
     if (!slip?.legs.length) continue;
     const thread = notice.reply_count || DRY ? ((await slackGet("conversations.replies", { channel: channelID, ts: notice.ts, limit: 200 }).catch(() => ({}))).messages || []).filter((r) => r.ts !== notice.ts) : [];
-    if (thread.some((r) => r.bot_id && isVerdictPost(r.text, slip.week))) continue; // already called
+    const prevResults = thread.find((x) => x.bot_id && isResultsPost(x.text, slip.week));
+    const verdictPosted = thread.some((r) => r.bot_id && isVerdictPost(r.text, slip.week));
+    // once called, the results post still fills in the legs that were pending at the call (Week 10 froze with 4 ⏳);
+    // it stops when nothing is pending any more
+    if (verdictPosted && prevResults && !/(?:⏳|:hourglass_flowing_sand:)/.test(prevResults.text || "")) continue;
     const wk = await weekSlate(slip.week);
     if (!wk) { console.log(`grading week ${slip.week}: no ESPN scoreboard`); continue; }
     const playerTeams = {};
@@ -491,17 +495,18 @@ const gradeSlips = async () => {
     const boxes = {};
     for (const g of wk.games) {
       if (g.state === "pre") continue;
-      if (!slip.legs.some(({ leg }) => { const n = playerNameOf(leg, wk); return n && [g.home.abbr, g.away.abbr].includes(playerTeams[n.toLowerCase()]); })) continue;
+      // player props need the box score, and so do team D/ST TD legs
+      if (!slip.legs.some(({ leg }) => { const n = playerNameOf(leg, wk); const teams = n ? [playerTeams[n.toLowerCase()]] : isDstTdLeg(leg) ? analyzeLeg(leg, wk).teams : []; return teams.some((a) => [g.home.abbr, g.away.abbr].includes(a)); })) continue;
       boxes[g.id] = DRY ? (espnFile(`summary-${g.id}.json`) ? parseBox(espnFile(`summary-${g.id}.json`)) : null) : await fetchBox(g.id);
     }
-    const prev = thread.find((x) => x.bot_id && isResultsPost(x.text, slip.week));
+    const prev = prevResults;
     const r = gradeSlip(slip, wk, { boxes, playerTeams, breakers: breakersFromResults(prev?.text) }); // whoever was named as breaking it first stays named
     if (r.counts.pending === r.legs.length) { console.log(`grading week ${slip.week}: nothing has kicked off`); continue; }
     const text = renderResults(r);
     if (!prev) await slack("chat.postMessage", { channel: channelID, thread_ts: notice.ts, text });
     else if (!sameText(prev.text, text)) await slack("chat.update", { channel: channelID, ts: prev.ts, text });
     const called = thread.some((x) => !x.bot_id && parlayResultFromText(x.text)); // a manager already said hit/miss
-    if (r.verdict && !called) await slack("chat.postMessage", { channel: channelID, thread_ts: notice.ts, reply_broadcast: true, text: renderVerdict(r) });
+    if (r.verdict && !called && !verdictPosted) await slack("chat.postMessage", { channel: channelID, thread_ts: notice.ts, reply_broadcast: true, text: renderVerdict(r) });
     console.log(`graded week ${slip.week}: ${r.counts.hit} hit, ${r.counts.miss} miss, ${r.counts.pending} pending, ${r.counts.manual} manual${r.verdict ? ` → ${r.verdict.toUpperCase()}` : ""}`);
   }
 };

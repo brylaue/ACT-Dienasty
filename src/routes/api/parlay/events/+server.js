@@ -26,6 +26,7 @@ import {
 
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import managers from "../../../../../static/data/parlay-managers.json";
+import { parseSlipNotice } from "#lib/server/parlayGrade.js";
 import { PARLAY_RULES, addressedToBot, answerParlayQuestion, boardUnchanged, cleanLeg, isLateLeg, isLeagueQuestion, isStaleLock, lockNoticeOf, nflWeekStartMs, countdown, oracleForSlack, renderInvalidLeg, renderLateLeg, renderLockNotice, isBoard, isLockedBoard, isOpener, parseBoardHeader, reactionPlan, renderBoard, seasonRecord, shouldRefreshForEvent, stripAddress, legThreadKind } from "#lib/server/parlayCore.js";
 import { reopenWeek } from "#lib/server/parlayReopen.js";
 import { renderRoast, roastIntent } from "#lib/server/parlayRoast.js";
@@ -175,6 +176,9 @@ const loadWeek = async (selfUserId = null) => {
 const lateLegReply = async (ev, ctx) => {
   const leg = cleanLeg(ev.text), team = ctx.teamOfUser(ev.user), placerName = ctx.header?.placerName;
   const beforeKickoff = ctx.lockMs ? Date.now() < ctx.lockMs + LOCK_LEAD_MS : true; // the placer can still act until the first leg's game starts
+  // once the games are on, a team that already has a leg on the slip is cheering, not betting ("Golden td!!!!")
+  const onSlip = (parseSlipNotice(ctx.notice?.text)?.legs || []).some((l) => l.team === team);
+  if (!beforeKickoff && onSlip) return `late post (${team}): already on the slip - left alone`;
   await slack("reactions.add", { channel: ctx.channel, timestamp: ev.ts, name: "lock" }).catch(() => {});
   await slack("chat.postMessage", { channel: ctx.channel, thread_ts: ev.ts, text: renderLateLeg({ week: ctx.header?.week, team, placerName, placerMentions: placerName ? ctx.usersByTeam[placerName] || [] : [], poster: ev.user, leg, beforeKickoff }) });
   return `late leg (${team}): placer ${beforeKickoff ? "pinged" : "told it's too late"}`;

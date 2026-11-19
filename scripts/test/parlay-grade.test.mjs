@@ -232,5 +232,13 @@ await t("price: a line that isn't offered → null", () => P.findPropPrice(event
   await t("the roast says 'since taking over in 2023'", () => /since taking over in 2023|since 2023/.test(R.renderRoast(k, {}, "worst")));
 }
 
+// ── Week 9-11 2026 misses ──
+await t("grade: a lone first name ('Bijan', here 'Jahmyr') finds the player", () => { const r = g("Jahmyr anytime TD", { playerTeams: { ...playerTeams, jahmyr: "DET" } }); return r.status === "miss" && /0 TDs/.test(r.note); });
+await t("prop: 'Tuten anytime' is an anytime TD", () => { const p = P.parseProp("Tuten anytime", "Tuten"); return p && p.stat === "tds" && p.threshold === 1; });
+await t("prop: '2 td passes' is passing TDs", () => { const p = P.parseProp("Trevor Lawrence 2 td passes", "Trevor Lawrence"); return p && p.stat === "pass_tds" && p.threshold === 2; });
+await t("D/ST: 'Ravens D/ST anytime TD' grades from the box (no return/defensive TD → miss)", () => G.isDstTdLeg("Ravens D/ST anytime TD") && !G.isDstTdLeg("Ravens ML") && g("Ravens D/ST anytime TD").status === "miss");
+await t("D/ST: a defensive TD by that side → hit", () => { const id = "401873012"; const b = structuredClone(boxes[id]); Object.values(b.players).find((p) => p.team === "BAL").defTd = 1; return g("Ravens defense TD", { boxes: { ...boxes, [id]: b } }).status === "hit"; });
+await t("D/ST: no box yet → pending, not ❓", () => g("Ravens D/ST anytime TD", { boxes: {} }).status === "pending");
+
 console.log(`parlay-grade: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

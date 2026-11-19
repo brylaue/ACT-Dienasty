@@ -101,7 +101,7 @@ export const playerNameOf = (text, slate) => {
   const name = [];
   for (const raw of toks) { // a comma ends the name: "Jared Goff, two passing touchdowns"
     const tk = raw.replace(/[,;:]+$/, "");
-    if (isNameTok(tk) && !/^(?:anytime|any|first|last|over|under|to|rushing|receiving|passing|yards|touchdowns?|receptions)$/i.test(fixTypos(tk))) { name.push(tk); if (tk !== raw) break; } else break;
+    if (isNameTok(tk) && !/^(?:anytime|any|first|last|over|under|to|rushing|receiving|passing|yards|touchdowns?|receptions|defen[cs]e|def|dst|special)$/i.test(fixTypos(tk))) { name.push(tk); if (tk !== raw) break; } else break;
   }
   if (!name.length || name.length > 3) return null;
   if (!PROP_WORDS.test(fixTypos(toks.slice(name.length).join(" ")))) return null;
@@ -137,10 +137,10 @@ export const parseProp = (leg, name) => {
   const at = name ? t.indexOf(name.toLowerCase()) : -1;
   if (at >= 0) t = t.slice(at + name.length);
   t = fixTypos(t).toLowerCase().replace(/^[\s,;:-]+/, "").replace(/\b(one|two|three|four|five|six)\b/g, (w) => WORDNUM[w]).replace(/\b(?:an?)\b/g, "");
-  const td = /\b(?:tds?|touchdowns?|scores?)\b/.test(t);
+  const td = /\b(?:tds?|touchdowns?|scores?)\b/.test(t) || /^\s*anytime\s*$/.test(t); // "Tuten anytime" = anytime TD
   let stat = null;
   if (/\b(?:first|1st)\b/.test(t) && td) stat = "first_td";
-  else if (/\bpass(?:ing)?\b/.test(t) && td) stat = "pass_tds";
+  else if (/\bpass(?:ing|es)?\b/.test(t) && td) stat = "pass_tds"; // "2 td passes"
   else if (/\bpass(?:ing)?\b/.test(t) && /\b(?:yds?|yards?)\b/.test(t)) stat = "pass_yds";
   else if (/\brush(?:ing)?\b/.test(t) && /\b(?:yds?|yards?)\b/.test(t)) stat = "rush_yds";
   else if (/\b(?:rec|receiving)\b/.test(t) && /\b(?:yds?|yards?)\b/.test(t)) stat = "rec_yds";

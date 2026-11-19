@@ -9,7 +9,7 @@
   The parlay → miss as soon as one leg misses; hit when every leg is decided
   hit/push and the placer didn't have to pick for anyone; otherwise open.
 */
-import { analyzeLeg } from "./parlaySlate.js";
+import { analyzeLeg, fixTypos } from "./parlaySlate.js";
 import { parseProp } from "./parlayProps.js";
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[.']/g, "").replace(/\s+(?:jr|sr|ii|iii|iv)$/, "").trim();
@@ -83,9 +83,15 @@ const findPlayer = (box, name, team) => {
   const pool = team ? all.filter((p) => p.team === team) : all;
   const exact = pool.find((p) => norm(p.name) === want);
   if (exact) return exact;
-  if (!want.includes(" ")) { const s = pool.filter((p) => norm(p.name).split(" ").pop() === want); if (s.length === 1) return s[0]; }
+  if (!want.includes(" ")) { // one word: a surname ("Kittle") or, failing that, a first name ("Bijan")
+    const s = pool.filter((p) => norm(p.name).split(" ").pop() === want); if (s.length === 1) return s[0];
+    const f = pool.filter((p) => norm(p.name).split(" ")[0] === want); if (f.length === 1) return f[0];
+  }
   return null;
 };
+
+// "Texans D/ST anytime TD", "Bills defense to score a TD"
+export const isDstTdLeg = (t) => /\b(?:d\/?st|dst|defen[cs]e|def|special teams)\b/i.test(t) && /\b(?:anytime|tds?|touchdowns?|scores?)\b/i.test(fixTypos(t));
 
 // one leg → { status, note }
 export const gradeLeg = (leg, slate, { boxes = {}, playerTeams = {} } = {}) => {
@@ -116,6 +122,17 @@ export const gradeLeg = (leg, slate, { boxes = {}, playerTeams = {} } = {}) => {
     }
     if (val >= prop.threshold) return { status: "hit", note: plural(val, u) };
     return done ? { status: "miss", note: plural(val, u) } : { status: "pending", note: `${plural(val, u)} so far` };
+  }
+
+  // team D/ST touchdown ("Texans D/ST anytime TD"): any return or defensive TD by that side
+  const dstSide = info.teams.length === 1 ? info.teams[0] : null;
+  if (dstSide && isDstTdLeg(t)) {
+    const box = boxes[g.id];
+    if (!box) return { status: "pending", note: "box score not in yet" };
+    const n = Object.values(box.players).filter((p) => p.team === dstSide).reduce((a, p) => a + p.retTd + p.defTd, 0);
+    const need = Number((fixTypos(t).match(/\b(\d+)\s?\+/) || [])[1]) || 1;
+    if (n >= need) return { status: "hit", note: plural(n, "D/ST TD") };
+    return box.final || g.final ? { status: "miss", note: plural(n, "D/ST TD") } : { status: "pending", note: `${plural(n, "D/ST TD")} so far` };
   }
 
   // team legs: total / moneyline / spread - decided at the final whistle
