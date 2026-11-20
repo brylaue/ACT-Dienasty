@@ -445,6 +445,18 @@ const reopenIfStale = async () => {
   return true;
 };
 
+// once a reopened week has locked for real, the withdrawn notice and the "open again" announcement
+// (whose lock time went stale as legs moved it) are just clutter - the real lock notice says it all
+const clearReopenLeftovers = async () => {
+  const { messages } = await loadWeek();
+  const notice = lockNoticeOf(messages);
+  if (!notice) return false;
+  const leftovers = messages.filter((m) => m.bot_id && Number(m.ts) < Number(notice.ts) && /lock notice withdrawn|is open again\.?\*/i.test(m.text || ""));
+  for (const m of leftovers) await slack("chat.delete", { channel: channelID, ts: m.ts }).catch((e) => console.log(`couldn't delete ${m.ts}: ${e.message}`));
+  if (leftovers.length) { console.log(`removed ${leftovers.length} reopen leftover(s) for week ${nflWeek}`); weekCache = null; evalCache = null; legsCache = {}; }
+  return leftovers.length > 0;
+};
+
 // clean up opener/board/nag posts that went out for a week that was already
 // locked (see straysAfterLock), and re-pin the week's slip
 const clearStrays = async () => {
@@ -607,7 +619,7 @@ if (MODE === "tick") {
   await gradeSlips().catch((e) => console.log(`grading failed: ${e.message}`));
   await refreshRoasts().catch((e) => console.log(`roast refresh failed: ${e.message}`));
   await correctStatusAnswers().catch((e) => console.log(`status correction failed: ${e.message}`));
-  if (!seasonOver) { await clearStrays(); await dedupeSlips().catch((e) => console.log(`slip dedupe failed: ${e.message}`)); if (!(await reopenIfStale())) await correctLockNotice().catch((e) => console.log(`lock notice correction failed: ${e.message}`)); }
+  if (!seasonOver) { await clearStrays(); await dedupeSlips().catch((e) => console.log(`slip dedupe failed: ${e.message}`)); if (!(await reopenIfStale())) { await clearReopenLeftovers().catch((e) => console.log(`reopen cleanup failed: ${e.message}`)); await correctLockNotice().catch((e) => console.log(`lock notice correction failed: ${e.message}`)); } }
   const flags = await postedThisWeek();
   await adoptBoard(flags);
   const now = NOW;
