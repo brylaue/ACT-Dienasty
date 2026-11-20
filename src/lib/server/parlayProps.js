@@ -25,6 +25,9 @@ const MARKETS = {
   pass_yds: () => ["player_pass_yds", "player_pass_yds_alternate"],
   rush_yds: () => ["player_rush_yds", "player_rush_yds_alternate"],
   rec_yds: () => ["player_reception_yds", "player_reception_yds_alternate"],
+  // plain "over 38.5 yards": the book line is receiving yards for a pass catcher, rushing for a back -
+  // whichever market lists the player at that number
+  yds: () => ["player_reception_yds", "player_rush_yds", "player_reception_yds_alternate", "player_rush_yds_alternate"],
   receptions: () => ["player_receptions", "player_receptions_alternate"],
   fgs: () => ["player_field_goals"],
   kick_pts: () => ["player_kicking_points"],

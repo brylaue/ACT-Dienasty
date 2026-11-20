@@ -9,6 +9,7 @@ export const cleanLeg = (t) => String(t || "")
   .replace(/^\s*(?:hey|hi|hello|yo|ok|okay|alright|oi)?[,!\s]*@?\s*parlay\s*(?:builder|bot)\b[,:!\s]*/i, "") // addressed to the bot
   .replace(/\s*\*?sent using\*?.*$/i, "")   // client signatures ("*Sent using* Claude")
   .replace(/^[\s🎯🎰:\-–—]+/u, "")
+  .replace(/^(?:(?:jk|j\/k|just kidding|nvm|never ?mind|actually|scratch that|wait|oops|sorry|correction|update)\b[,.!:\s-]*)+/i, "") // "Jk change to Josh Downs over 38.5 yards"
   .replace(/^(?:how|what) about\s+/i, "") // "How about Trevor Lawrence 2 td passes"
   .replace(/^(?:add|sub in|swap (?:in|to)|switch (?:me |mine |it )?to|change (?:mine |my leg |it )?to|make (?:mine|it)|i'?ll take|i'?ll go with|i'?ll go|i'?ll do|i'?ll ride|i got|i'?m taking|i'?m going with|i want|i like|going with|riding with|put me down for|put me in for|give me|gimme|let'?s do|let'?s go|my leg is|my leg:|leg:)\s+/i, "")
   .replace(/\s+(?:for me|for us|please|pls|plz|this week|tonight|today)[.!]*$/i, "")

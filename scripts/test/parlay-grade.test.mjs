@@ -240,5 +240,8 @@ await t("D/ST: 'Ravens D/ST anytime TD' grades from the box (no return/defensive
 await t("D/ST: a defensive TD by that side → hit", () => { const id = "401873012"; const b = structuredClone(boxes[id]); Object.values(b.players).find((p) => p.team === "BAL").defTd = 1; return g("Ravens defense TD", { boxes: { ...boxes, [id]: b } }).status === "hit"; });
 await t("D/ST: no box yet → pending, not ❓", () => g("Ravens D/ST anytime TD", { boxes: {} }).status === "pending");
 
+await t("slip: a leg locked with a 'Jk change to' prefix grades as the bet", () => G.parseSlipNotice(":lock: *Week 11 legs are locked* — 1/12 in.\n• *Crab Boilers* — Jk change to Josh Downs over 38.5 yards (n/a) _→ 39+ scrimmage yds_").legs[0].leg === "Josh Downs over 38.5 yards");
+await t("price: plain 'yards' looks in the receiving and rushing markets", () => P.marketsFor(P.parseProp("Josh Downs over 38.5 yards", "Josh Downs")).includes("player_reception_yds"));
+
 console.log(`parlay-grade: ${pass} pass, ${fail} fail`);
 process.exit(fail ? 1 : 0);

@@ -10,6 +10,7 @@
   hit/push and the placer didn't have to pick for anyone; otherwise open.
 */
 import { analyzeLeg, fixTypos } from "./parlaySlate.js";
+import { cleanLeg } from "./parlayCore.js";
 import { parseProp } from "./parlayProps.js";
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[.']/g, "").replace(/\s+(?:jr|sr|ii|iii|iv)$/, "").trim();
@@ -24,7 +25,7 @@ export const parseSlipNotice = (text) => {
     const m = line.match(/^• \*(.+?)\* — (.+)$/);
     if (!m) continue;
     const leg = m[2].replace(/ _→ [^_]*_$/, "").replace(/\s\((?:[+\-−]?\d+|n\/a|no line)\)$/, "").trim(); // drop the "how we read it" note and the odds tag
-    legs.push({ team: m[1], leg });
+    legs.push({ team: m[1], leg: cleanLeg(leg) || leg }); // a slip from before a cleanLeg fix ("Jk change to Josh Downs ...") grades as the bet
   }
   const picks = t.match(/_Placer picks for: (.+?)\._/);
   return { week: Number(wk[1]), legs, placerPicks: picks ? picks[1].split(/,\s*/) : [] };
