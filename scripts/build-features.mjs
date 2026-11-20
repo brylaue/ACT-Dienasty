@@ -142,8 +142,12 @@ if (existsSync(RIVALRY_PATH)) {
   const rivalry = JSON.parse(readFileSync(RIVALRY_PATH, "utf8"));
   const season = rivalry.seasons?.[leagueID];
   if (season) {
+    // a week still being played (Thursday scores in, the rest to come) isn't played yet: counting it
+    // fed 0-point partial scores into every team's mean, called the Thursday-night score a result,
+    // and dropped the week from the playoff sim (Friday bakes run after TNF)
+    const inProgress = nflState?.season_type === "regular" && String(nflState.season) === String(season.year ?? nflState.season) ? Number(nflState.week) : Infinity;
     season.weeks.forEach((w, ix) => {
-      if (!w) return;
+      if (!w || ix + 1 >= inProgress) return;
       playedWeeks.push(ix + 1);
       for (const matchupID in w) {
         for (const entry of w[matchupID]) {

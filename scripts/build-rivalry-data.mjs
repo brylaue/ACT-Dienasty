@@ -53,6 +53,10 @@ const groupWeek = (entries) => {
 const seasons = {};
 const chain = [];
 let cur = leagueID;
+// the NFL week in progress (Thursday scores in, Sunday to come) is not a played week yet: baking its
+// partial scores fed Friday's power rankings, playoff odds and Roundup recap with half-finished games
+const nflState = await get("https://api.sleeper.app/v1/state/nfl").catch(() => null);
+const inProgressWeek = nflState?.season_type === "regular" ? Number(nflState.week) || null : null;
 
 while (cur && cur != 0) {
   const league = await get(`https://api.sleeper.app/v1/league/${cur}`);
@@ -67,6 +71,9 @@ while (cur && cur != 0) {
   // any failed fetch throws and aborts the bake: better no commit than a
   // committed file with silent holes in the history
   const weeksRaw = await Promise.all(weekPromises);
+  if (cur === leagueID && inProgressWeek && String(league.season) === String(nflState.season)) {
+    for (let i = inProgressWeek; i <= weeksRaw.length; i++) weeksRaw[i - 1] = null; // this week and later: not played yet
+  }
 
   // playoff games come from the winners bracket (consolation games are not
   // playoffs, so the losers bracket is ignored)
