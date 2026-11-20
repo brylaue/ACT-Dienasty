@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { get } from "svelte/store";
 import { leagueData } from "#lib/stores.js";
 import { leagueID } from "#lib/utils/leagueInfo.js";
@@ -7,7 +8,7 @@ import {
   safeJsonParse,
 } from "#lib/utils/errorHandler.js";
 
-export const getLeagueData = async (queryLeagueID = leagueID) => {
+const _getLeagueData = async (queryLeagueID = leagueID) => {
   if (get(leagueData)[queryLeagueID]) {
     return get(leagueData)[queryLeagueID];
   }
@@ -39,3 +40,4 @@ export const getLeagueData = async (queryLeagueID = leagueID) => {
     return handleApiError(error, `getLeagueData for ${queryLeagueID}`, null);
   }
 };
+export const getLeagueData = dedupe(_getLeagueData);

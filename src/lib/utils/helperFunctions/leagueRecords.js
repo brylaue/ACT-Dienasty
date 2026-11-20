@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { getLeagueData } from "./leagueData";
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import { getNflState } from "./nflState";
@@ -15,7 +16,7 @@ import { browser } from "$app/env";
  * @param {bool} refresh if set to false, getLeagueRecords returns the records stored in localStorage
  * @returns {Object} { allTimeBiggestBlowouts, allTimeClosestMatchups, leastSeasonLongPoints, mostSeasonLongPoints, leagueWeekLows, leagueWeekHighs, seasonWeekRecords, leagueManagerRecords, currentYear, lastYear}
  */
-export const getLeagueRecords = async (refresh = false) => {
+const _getLeagueRecords = async (refresh = false) => {
   // records temporarily cached for an individual session
   if (get(records).leagueWeekHighs) {
     return get(records);
@@ -616,3 +617,4 @@ const getStartWeek = (i, playoffRounds, consolation, playoffsStart) => {
       return "Qualifiers";
   }
 };
+export const getLeagueRecords = dedupe(_getLeagueRecords);

@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { getLeagueData } from "./leagueData";
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import { getNflState } from "./nflState";
@@ -8,7 +9,7 @@ import { browser } from "$app/env";
 import { getLeagueTeamManagers } from "./leagueTeamManagers";
 import { retryFetch } from "#lib/utils/errorHandler.js";
 
-export const getLeagueTransactions = async (preview, refresh = false) => {
+const _getLeagueTransactions = async (preview, refresh = false) => {
   const transactionsStoreVal = get(transactionsStore);
 
   if (transactionsStoreVal.totals) {
@@ -380,3 +381,4 @@ const handleAdds = (rosters, adds, drops, player, bid) => {
 
   return move;
 };
+export const getLeagueTransactions = dedupe(_getLeagueTransactions);

@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import { retryFetch } from "#lib/utils/errorHandler.js";
 import { waitForAll } from "./multiPromise";
@@ -18,7 +19,7 @@ const getJson = async (url) => {
   return res.json();
 };
 
-export const getPickMatrix = async () => {
+const _getPickMatrix = async () => {
   const [league, drafts, tradedPicks] = await waitForAll(
     getJson(`https://api.sleeper.app/v1/league/${leagueID}`),
     getJson(`https://api.sleeper.app/v1/league/${leagueID}/drafts`),
@@ -102,3 +103,4 @@ export const getPickMatrix = async () => {
 
   return { seasons, rounds, totalRosters, holdings, capital };
 };
+export const getPickMatrix = dedupe(_getPickMatrix);

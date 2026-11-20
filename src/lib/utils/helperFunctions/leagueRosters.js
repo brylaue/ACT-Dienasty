@@ -1,9 +1,10 @@
+import { dedupe } from "./multiPromise";
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import { get } from "svelte/store";
 import { rostersStore } from "#lib/stores.js";
 import { retryFetch } from "#lib/utils/errorHandler.js";
 
-export const getLeagueRosters = async (queryLeagueID = leagueID) => {
+const _getLeagueRosters = async (queryLeagueID = leagueID) => {
   const storedRoster = get(rostersStore)[queryLeagueID];
   if (
     storedRoster &&
@@ -58,3 +59,4 @@ const processRosters = (rosters) => {
   }
   return { rosters: rosterMap, startersAndReserve };
 };
+export const getLeagueRosters = dedupe(_getLeagueRosters);

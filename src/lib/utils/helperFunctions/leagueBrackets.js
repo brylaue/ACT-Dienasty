@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { getLeagueData } from "./leagueData";
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import { getLeagueRosters } from "./leagueRosters";
@@ -5,7 +6,7 @@ import { waitForAll } from "./multiPromise";
 import { get } from "svelte/store";
 import { brackets } from "#lib/stores.js";
 
-export const getBrackets = async (queryLeagueID = leagueID) => {
+const _getBrackets = async (queryLeagueID = leagueID) => {
   if (get(brackets).champs && queryLeagueID == leagueID) {
     return get(brackets);
   }
@@ -356,3 +357,4 @@ const generateMatchupData = (
 
   return matchup;
 };
+export const getBrackets = dedupe(_getBrackets);

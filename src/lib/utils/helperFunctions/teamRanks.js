@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 /*
   Standings position vs power rank, from the power-rankings bake.
 
@@ -27,7 +28,7 @@ export const ranksFromPowerRankings = (pr) => {
 };
 
 // async + cached: for components that don't already have the bake
-export const loadTeamRanks = async () => {
+const _loadTeamRanks = async () => {
   if (!cache) {
     cache = fetch("/data/power-rankings.json")
       .then((r) => (r.ok ? r.json() : null))
@@ -36,3 +37,4 @@ export const loadTeamRanks = async () => {
   }
   return cache;
 };
+export const loadTeamRanks = dedupe(_loadTeamRanks);

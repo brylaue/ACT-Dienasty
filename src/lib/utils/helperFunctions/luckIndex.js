@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import { loadSeason } from "./rivalryMatchups";
 
@@ -22,7 +23,7 @@ const blank = () => ({
 const totalPoints = (side) =>
   (side.points || []).reduce((t, v) => t + (v || 0), 0);
 
-export const getLuckIndex = async () => {
+const _getLuckIndex = async () => {
   const byYear = {};
   let cur = leagueID;
 
@@ -118,3 +119,4 @@ export const getLuckIndex = async () => {
   }
   return result;
 };
+export const getLuckIndex = dedupe(_getLuckIndex);
