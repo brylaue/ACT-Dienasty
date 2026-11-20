@@ -1,8 +1,9 @@
+import { dedupe } from "./multiPromise";
 import { get } from "svelte/store";
 import { players } from "#lib/stores.js";
 import { browser } from "$app/env";
 
-export const loadPlayers = async (servFetch, refresh = false) => {
+const _loadPlayers = async (servFetch, refresh = false) => {
   if (get(players)[1426]) {
     return {
       players: get(players),
@@ -81,3 +82,4 @@ export const loadPlayers = async (servFetch, refresh = false) => {
     stale: false,
   };
 };
+export const loadPlayers = dedupe(_loadPlayers);

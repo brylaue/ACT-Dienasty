@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { get } from "svelte/store";
 import { nflState } from "#lib/stores.js";
 import {
@@ -6,7 +7,7 @@ import {
   safeJsonParse,
 } from "#lib/utils/errorHandler.js";
 
-export const getNflState = async () => {
+const _getNflState = async () => {
   if (get(nflState).season) {
     return get(nflState);
   }
@@ -35,3 +36,4 @@ export const getNflState = async () => {
     return handleApiError(error, "getNflState", null);
   }
 };
+export const getNflState = dedupe(_getNflState);

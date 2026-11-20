@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { getLeagueData } from "./leagueData";
 import { getLeagueRosters } from "./leagueRosters";
 import { waitForAll } from "./multiPromise";
@@ -5,7 +6,7 @@ import { retryFetch } from "#lib/utils/errorHandler.js";
 import { get } from "svelte/store";
 import { awards } from "#lib/stores.js";
 
-export const getAwards = async () => {
+const _getAwards = async () => {
   if (get(awards).length) {
     return get(awards);
   }
@@ -183,3 +184,4 @@ const buildDivisionsAndManagers = ({
 
   return divisions;
 };
+export const getAwards = dedupe(_getAwards);

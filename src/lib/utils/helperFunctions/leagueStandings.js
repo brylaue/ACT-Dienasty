@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import { getNflState } from "./nflState";
 import { getLeagueData } from "./leagueData";
@@ -7,7 +8,7 @@ import { get } from "svelte/store";
 import { standingsStore } from "#lib/stores.js";
 import { round } from "./universalFunctions";
 
-export const getLeagueStandings = async () => {
+const _getLeagueStandings = async () => {
   if (get(standingsStore).standingsInfo) {
     return get(standingsStore);
   }
@@ -156,3 +157,4 @@ const processStandings = (matchup, standingsData, rosters) => {
   }
   return standingsData;
 };
+export const getLeagueStandings = dedupe(_getLeagueStandings);

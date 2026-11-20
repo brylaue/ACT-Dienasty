@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { getLeagueData } from "./leagueData";
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import { waitForAll } from "./multiPromise";
@@ -5,7 +6,7 @@ import { get } from "svelte/store";
 import { upcomingDraft, previousDrafts } from "#lib/stores.js";
 import { getLeagueRosters } from "./leagueRosters";
 
-export const getUpcomingDraft = async () => {
+const _getUpcomingDraft = async () => {
   if (get(upcomingDraft).draft) {
     return get(upcomingDraft);
   }
@@ -223,7 +224,7 @@ const completedAuction = ({ players, draft, draftOrder, draftOrderObj }) => {
   return draft;
 };
 
-export const getPreviousDrafts = async () => {
+const _getPreviousDrafts = async () => {
   if (get(previousDrafts).length > 0) {
     return get(previousDrafts);
   }
@@ -303,3 +304,5 @@ export const getPreviousDrafts = async () => {
 
   return drafts;
 };
+export const getUpcomingDraft = dedupe(_getUpcomingDraft);
+export const getPreviousDrafts = dedupe(_getPreviousDrafts);

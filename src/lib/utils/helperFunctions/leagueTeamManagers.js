@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { leagueID, managers } from "#lib/utils/leagueInfo.js";
 import { get } from "svelte/store";
 import { teamManagersStore } from "#lib/stores.js";
@@ -6,7 +7,7 @@ import { getManagers, getTeamData } from "./universalFunctions";
 import { getLeagueData } from "./leagueData";
 import { retryFetch } from "#lib/utils/errorHandler.js";
 
-export const getLeagueTeamManagers = async () => {
+const _getLeagueTeamManagers = async () => {
   if (get(teamManagersStore) && get(teamManagersStore).currentSeason) {
     return get(teamManagersStore);
   }
@@ -82,3 +83,4 @@ const processUsers = (rawUsers) => {
   }
   return finalUsers;
 };
+export const getLeagueTeamManagers = dedupe(_getLeagueTeamManagers);

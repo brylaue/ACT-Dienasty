@@ -1,3 +1,4 @@
+import { dedupe } from "./multiPromise";
 import { getLeagueData } from "./leagueData";
 import { leagueID } from "#lib/utils/leagueInfo.js";
 import { getNflState } from "./nflState";
@@ -5,7 +6,7 @@ import { waitForAll } from "./multiPromise";
 import { get } from "svelte/store";
 import { matchupsStore } from "#lib/stores.js";
 
-export const getLeagueMatchups = async () => {
+const _getLeagueMatchups = async () => {
   if (get(matchupsStore).matchupWeeks) {
     return get(matchupsStore);
   }
@@ -95,3 +96,4 @@ const processMatchups = (inputMatchups, week) => {
   }
   return { matchups, week };
 };
+export const getLeagueMatchups = dedupe(_getLeagueMatchups);
