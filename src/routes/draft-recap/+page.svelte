@@ -20,7 +20,7 @@
 </script>
 
 <svelte:head>
-    <title>Draft Recap | League Page</title>
+    <title>Draft Recap | ACT, or DIE.</title>
 </svelte:head>
 
 <style>

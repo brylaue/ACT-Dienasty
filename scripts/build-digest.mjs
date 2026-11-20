@@ -40,7 +40,7 @@ if (odds?.teams?.length) {
   const top = [...odds.teams].sort((a, b) => (b.playoffPct ?? 0) - (a.playoffPct ?? 0)).slice(0, 3);
   if (top.some((t) => t.playoffPct != null)) {
     lines.push("", "*Playoff Picture*");
-    for (const t of top) lines.push(`• ${String(t.name || "").trim()}: ${Math.round(t.playoffPct)}% playoffs${t.titlePct != null ? `, ${Math.round(t.titlePct)}% title` : ""}`);
+    for (const t of top) lines.push(`• ${String(t.name || "").trim()}: ${Math.round(t.playoffPct)}% playoffs`);
   }
 }
 
@@ -54,8 +54,9 @@ if (sched && typeof sched === "object") {
   }
 }
 
-if (rw?.weekHistory) {
-  lines.push("", `*Record to beat this week:* ${rw.weekHistory}`);
+if (rw?.weekHistory) { // { week, year, name, pts } - it printed "[object Object]"
+  const h = rw.weekHistory;
+  lines.push("", `*This week in league history:* ${h.name} put up ${Number(h.pts).toFixed(1)} in Week ${h.week} of ${h.year} - the best Week ${h.week} ever.`);
 }
 
 if (tb?.teams?.length) {

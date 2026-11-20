@@ -55,7 +55,7 @@
 </script>
 
 <svelte:head>
-    <title>The Vault | League Page</title>
+    <title>The Vault | ACT, or DIE.</title>
 </svelte:head>
 
 <div class="holder">

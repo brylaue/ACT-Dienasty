@@ -1,29 +1,6 @@
-import { version } from "#lib/version.js";
-import {
-  handleApiError,
-  handleFetchError,
-  safeJsonParse,
-} from "#lib/utils/errorHandler.js";
-
+// This site is a heavily edited fork of nmelhado/league-page - upstream releases can't be applied
+// to it, so the "update your League Page" banner (driven by upstream's version) would only confuse
+// league members. Always "no update"; no upstream call on every page load.
 export async function GET() {
-  try {
-    const res = await handleFetchError(
-      "https://league-page.nmelhado.com/api/checkGlobalVersion",
-      new Error("Version check failed"),
-    );
-    let needsUpdate = false;
-
-    if (res && !res.error && res.ok) {
-      const globalVersion = await safeJsonParse(res, "version check");
-      if (!globalVersion.error) {
-        // If it reaches the global checkpoint and the versions do not match
-        // set needsUpdate to true to display the update prompt
-        needsUpdate = globalVersion != version;
-      }
-    }
-
-    return Response.json(needsUpdate);
-  } catch (error) {
-    return Response.json(handleApiError(error, "version check", false));
-  }
+  return Response.json(false);
 }

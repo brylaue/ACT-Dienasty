@@ -21,7 +21,7 @@
 </script>
 
 <svelte:head>
-    <title>Trade Block | League Page</title>
+    <title>Trade Block | ACT, or DIE.</title>
 </svelte:head>
 
 <div class="holder">

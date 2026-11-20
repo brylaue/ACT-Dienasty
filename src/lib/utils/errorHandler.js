@@ -79,24 +79,21 @@ export function handleApiError(
  */
 export async function handleFetchError(url, error, retryCount = 0) {
   const maxRetries = 3;
-  const retryDelay = Math.pow(2, retryCount) * 1000; // Exponential backoff
-
-  if (retryCount < maxRetries) {
-    // Wait before retrying
-    await new Promise((resolve) => setTimeout(resolve, retryDelay));
-
-    try {
-      return await fetch(url, { compress: true });
-    } catch (retryError) {
-      return handleFetchError(url, retryError, retryCount + 1);
-    }
+  // Callers use this as "fetch with retries": the first attempt goes out immediately. (It used to
+  // sleep 1s before the FIRST fetch - every league-data and NFL-state load paid that, and the home
+  // page walks the league chain one season at a time, so it took ~10s to render.)
+  if (retryCount > 0) {
+    await new Promise((resolve) => setTimeout(resolve, Math.pow(2, retryCount - 1) * 1000));
   }
-
-  // Max retries reached, return error
-  return handleApiError(
-    error,
-    `Fetch failed for ${url} after ${maxRetries} retries`,
-  );
+  try {
+    return await fetch(url, { compress: true });
+  } catch (retryError) {
+    if (retryCount < maxRetries) return handleFetchError(url, retryError, retryCount + 1);
+    return handleApiError(
+      retryError || error,
+      `Fetch failed for ${url} after ${maxRetries} retries`,
+    );
+  }
 }
 
 /**

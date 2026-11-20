@@ -12,10 +12,10 @@ export const getNews = async (servFetch, bypass = false) => {
   }
   const smartFetch = servFetch ?? fetch;
   const newsSources = [smartFetch(SERVER_API, { compress: true })];
-  if (dynasty) {
-    newsSources.push(getFeed(REDDIT_DYNASTY, processReddit));
-  } else {
-    newsSources.push(getFeed(REDDIT_FANTASY, processReddit));
+  // Reddit's JSON no longer sends CORS headers, so a browser fetch of it always fails (and logs an
+  // error on every Resources visit). Only fetch it where CORS doesn't apply (server-side loads).
+  if (servFetch && typeof window === "undefined") {
+    newsSources.push(getFeed(dynasty ? REDDIT_DYNASTY : REDDIT_FANTASY, processReddit));
   }
 
   // Each source fails independently: one dead feed (Reddit throttles

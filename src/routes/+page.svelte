@@ -82,7 +82,7 @@
 </script>
 
 <svelte:head>
-    <title>Home | League Page</title>
+    <title>Home | ACT, or DIE.</title>
 </svelte:head>
 
 <div id="home">

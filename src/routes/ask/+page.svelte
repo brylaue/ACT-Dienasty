@@ -223,7 +223,7 @@
 </script>
 
 <svelte:head>
-    <title>The Oracle | League Page</title>
+    <title>The Oracle | ACT, or DIE.</title>
 </svelte:head>
 
 <div class="holder">

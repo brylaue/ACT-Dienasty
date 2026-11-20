@@ -191,12 +191,11 @@ const completedNonAuction = ({ players, draft, picks, draftOrder, rounds }) => {
   }
   for (const pick of picks) {
     if (pick.owner_id == pick.roster_id || pick.round > rounds) continue;
-    try {
-      draft[pick.round - 1][draftOrder.indexOf(pick.roster_id)].newOwner =
-        pick.owner_id;
-    } catch (error) {
-      console.error(`Possibly invaid roster ID?: ${pick.roster_id}`, error);
-    }
+    const col = draftOrder.indexOf(pick.roster_id);
+    if (col < 0 || !draft[pick.round - 1]) continue;
+    // a traded pick that was never made (2020: forfeited for lack of roster space) has no player
+    draft[pick.round - 1][col] ||= { player: null };
+    draft[pick.round - 1][col].newOwner = pick.owner_id;
   }
   return draft;
 };
@@ -247,57 +246,30 @@ const _getPreviousDrafts = async () => {
     const completedDrafts = await completedDraftsInfo.json();
     curSeason = leagueData.previous_league_id;
 
-    for (const completedDraft of completedDrafts) {
+    // each season's draft boards load in parallel (was one draft at a time, 3 requests each)
+    const built = await Promise.all(completedDrafts.map(async (completedDraft) => {
       const draftID = completedDraft.draft_id;
       const year = parseInt(completedDraft.season);
-
-      const [officialDraftRes, picksRes, playersRes] = await waitForAll(
-        fetch(`https://api.sleeper.app/v1/draft/${draftID}`, {
-          compress: true,
-        }),
-        fetch(`https://api.sleeper.app/v1/draft/${draftID}/traded_picks`, {
-          compress: true,
-        }),
-        fetch(`https://api.sleeper.app/v1/draft/${draftID}/picks`, {
-          compress: true,
-        }),
-      ).catch((err) => {
+      try {
+        const [officialDraft, picks, players] = await Promise.all(
+          [`https://api.sleeper.app/v1/draft/${draftID}`, `https://api.sleeper.app/v1/draft/${draftID}/traded_picks`, `https://api.sleeper.app/v1/draft/${draftID}/picks`]
+            .map((u) => fetch(u, { compress: true }).then((r) => r.json())),
+        );
+        if (officialDraft.status != "complete") return null;
+        const { draft, draftOrder } = buildConfirmed(
+          officialDraft.slot_to_roster_id,
+          officialDraft.settings.rounds,
+          picks,
+          players,
+          officialDraft.type,
+        );
+        return { year, draft, draftOrder, draftType: officialDraft.type, reversalRound: officialDraft.settings.reversal_round };
+      } catch (err) {
         console.error(err);
-      });
-
-      const [officialDraft, picks, players] = await waitForAll(
-        officialDraftRes.json(),
-        picksRes.json(),
-        playersRes.json(),
-      ).catch((err) => {
-        console.error(err);
-      });
-
-      if (officialDraft.status != "complete") continue;
-
-      let draft;
-      let draftOrder;
-
-      const buildRes = buildConfirmed(
-        officialDraft.slot_to_roster_id,
-        officialDraft.settings.rounds,
-        picks,
-        players,
-        officialDraft.type,
-      );
-      draft = buildRes.draft;
-      draftOrder = buildRes.draftOrder;
-
-      const newDraft = {
-        year,
-        draft,
-        draftOrder,
-        draftType: officialDraft.type,
-        reversalRound: officialDraft.settings.reversal_round,
-      };
-
-      drafts.push(newDraft);
-    }
+        return null;
+      }
+    }));
+    drafts.push(...built.filter(Boolean));
   }
 
   previousDrafts.update(() => drafts);

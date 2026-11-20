@@ -903,8 +903,10 @@ if (existsSync(RIVALRY_PATH)) {
 
     // "this week in league history": the best performance ever recorded in
     // the UPCOMING week number, across all seasons - a homepage tidbit
+    // in season that's Sleeper's current week (a week with Thursday scores in is still "this week" -
+    // the first empty week used to jump ahead to next week's history on Fridays)
     const upcomingIx = rivalry.seasons[leagueID]?.weeks?.findIndex((w) => !w) ?? -1;
-    const upcomingWeek = upcomingIx === -1 ? null : upcomingIx + 1;
+    const upcomingWeek = nflState?.season_type === "regular" && Number(nflState.week) > 0 ? Number(nflState.week) : upcomingIx === -1 ? null : upcomingIx + 1;
     let weekHistory = null;
     if (upcomingWeek) {
       const sameWeek = scores.filter((sc) => sc.week === upcomingWeek && sc.year !== currentYear);

@@ -31,7 +31,7 @@
 
 <svelte:window on:click={() => openWhy = null} />
 <svelte:head>
-    <title>Playoff Odds | League Page</title>
+    <title>Playoff Odds | ACT, or DIE.</title>
 </svelte:head>
 
 <div class="holder">

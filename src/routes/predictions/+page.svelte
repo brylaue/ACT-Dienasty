@@ -29,7 +29,7 @@
 </script>
 
 <svelte:head>
-    <title>Matchup Predictions | League Page</title>
+    <title>Matchup Predictions | ACT, or DIE.</title>
 </svelte:head>
 
 <div class="holder">

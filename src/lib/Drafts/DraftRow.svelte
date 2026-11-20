@@ -114,7 +114,13 @@
 
 <Row>
     {#each draftRow as draftCol, col}
-        {#if !previous || draftCol}
+        {#if previous && !players[draftCol?.player]}
+            <!-- a pick that was never made (forfeited / skipped): keep the column so the row stays aligned -->
+            <Cell class="draftCell">
+                <span class="draftPosPrev">{row}.{col + 1}{draftCol?.newOwner ? ` ${getTeamNameFromTeamManagers(leagueTeamManagers, draftCol.newOwner, year)}` : ''}</span>
+                <div class="name">No pick made</div>
+            </Cell>
+        {:else if !previous || draftCol}
             <Cell class="draftCell{draftCol ? ' changedHands' : ''}{previous ? ` prev${players[draftCol.player].pos}` : ''}">
                 <span class="draftPos{previous ? "Prev" : ""}">
                     {#if draftType == "auction" && previous}
@@ -142,7 +148,7 @@
                 {#if previous}
                     <div class="playerAvatar" style="{players[draftCol.player].pos == "DEF" ? `background-image: url(https://sleepercdn.com/images/team_logos/nfl/${draftCol.player.toLowerCase()}.png)` : `background-image: url(https://sleepercdn.com/content/nfl/players/thumb/${draftCol.player}.jpg), url(https://sleepercdn.com/images/v2/icons/player_default.webp)`}"></div>
                     <br />
-                    <div class="name">{`${players[draftCol.player].fn} ${players[draftCol.player].ln}`}{players[draftCol.player].pos == "DEF" ? "" : ` (${players[draftCol.player].t})`}</div>
+                    <div class="name">{`${players[draftCol.player].fn} ${players[draftCol.player].ln}`}{players[draftCol.player].pos == "DEF" || !players[draftCol.player].t ? "" : ` (${players[draftCol.player].t})`}</div>
                 {/if}
             </Cell>
         {/if}
