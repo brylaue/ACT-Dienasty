@@ -285,7 +285,7 @@
   <p>Trading is allowed and highly encouraged in The ACT, or DIE. League, and may be conducted between any owners. Trades may include multiple players from any position, as well as draft picks in the next annual Draft, the next, next draft and the next, next, next annual draft (3 years out), and Blind Bid Dollars. Trades may not exceed roster limits. (If a trade will exceed the roster limit, then a player(s) must be dropped to accommodate the roster limit). All trade activity will be closed during regular season game play (when the players are actually on the field)</p>
   <ul>
     <li>Trading will open directly after the inaugural draft.</li>
-    <li>No trades will be allowed after Week 14 of the fantasy football season.</li>
+    <li><em>[2026 Amendment]</em> No trades will be allowed after Week 11 of the fantasy football season <em>(formerly Week 14)</em>.</li>
     <li>Trades will resume after the League Championship Game, and remain open during the offseason.</li>
     <li>Trades are allowed during the annual draft. If the trade involves the draft pick that is currently on the clock, the countdown timer WILL NOT be reset. The new owner of the pick will have the remaining time to make their selection.</li>
     <li>Unlike Taxi Squad players, IR players may be traded directly from their IR roster spot. However, that player must go to an open roster spot on the receiving team’s Active Roster. Once the trade has occurred, the new owner may then move that player to his IR if there is an open spot.</li>
