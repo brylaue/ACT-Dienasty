@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-24T16:15:00.591Z",
+ "generated": "2026-11-27T15:30:07.385Z",
  "season": 2026,
  "about": "Backfill points reconstruct roster composition at monthly checkpoints, valued at the prices on the day the backfill ran. Bake points are live snapshots. Values = players + future picks (FantasyCalc superflex 0.5 PPR).",
  "teams": {
@@ -5310,6 +5310,122 @@
      "rank": 10,
      "valueRank": 12,
      "value": 48427,
+     "playoffPct": 0,
+     "wins": 7,
+     "losses": 15,
+     "ties": 0
+    }
+   }
+  },
+  {
+   "d": "2026-11-27",
+   "phase": "regular",
+   "week": 12,
+   "source": "bake",
+   "teams": {
+    "1": {
+     "rank": 8,
+     "valueRank": 4,
+     "value": 74106,
+     "playoffPct": 0.1,
+     "wins": 9,
+     "losses": 13,
+     "ties": 0
+    },
+    "2": {
+     "rank": 2,
+     "valueRank": 2,
+     "value": 83629,
+     "playoffPct": 100,
+     "wins": 17,
+     "losses": 5,
+     "ties": 0
+    },
+    "3": {
+     "rank": 6,
+     "valueRank": 10,
+     "value": 59298,
+     "playoffPct": 99.2,
+     "wins": 14,
+     "losses": 8,
+     "ties": 0
+    },
+    "4": {
+     "rank": 11,
+     "valueRank": 9,
+     "value": 61286,
+     "playoffPct": 0,
+     "wins": 2,
+     "losses": 20,
+     "ties": 0
+    },
+    "5": {
+     "rank": 4,
+     "valueRank": 8,
+     "value": 66312,
+     "playoffPct": 100,
+     "wins": 16,
+     "losses": 6,
+     "ties": 0
+    },
+    "6": {
+     "rank": 3,
+     "valueRank": 5,
+     "value": 73346,
+     "playoffPct": 100,
+     "wins": 17,
+     "losses": 5,
+     "ties": 0
+    },
+    "7": {
+     "rank": 7,
+     "valueRank": 3,
+     "value": 75552,
+     "playoffPct": 0,
+     "wins": 10,
+     "losses": 12,
+     "ties": 0
+    },
+    "8": {
+     "rank": 5,
+     "valueRank": 6,
+     "value": 73140,
+     "playoffPct": 100,
+     "wins": 14,
+     "losses": 8,
+     "ties": 0
+    },
+    "9": {
+     "rank": 1,
+     "valueRank": 1,
+     "value": 94466,
+     "playoffPct": 100,
+     "wins": 17,
+     "losses": 5,
+     "ties": 0
+    },
+    "10": {
+     "rank": 9,
+     "valueRank": 7,
+     "value": 67145,
+     "playoffPct": 0.7,
+     "wins": 8,
+     "losses": 14,
+     "ties": 0
+    },
+    "11": {
+     "rank": 12,
+     "valueRank": 11,
+     "value": 53207,
+     "playoffPct": 0,
+     "wins": 1,
+     "losses": 21,
+     "ties": 0
+    },
+    "12": {
+     "rank": 10,
+     "valueRank": 12,
+     "value": 49078,
      "playoffPct": 0,
      "wins": 7,
      "losses": 15,
